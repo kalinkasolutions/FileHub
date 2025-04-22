@@ -1,0 +1,18 @@
+.file-entry {
+    padding: 0.3em;
+    cursor: pointer;
+}
+
+.file-entry span {
+    margin-left: 0.3em;
+}
+
+.file-entry:hover {
+    background-color: rgba(37, 176, 223, 0.507);
+}
+
+.file-size {
+    width: 75px;
+    text-align: left;
+    font-size: small;
+}

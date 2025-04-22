@@ -1,0 +1,50 @@
+html {
+    background-color: #000000d1;
+    color: #ffffffe3;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: medium;
+    user-select: none;
+}
+
+html,
+body,
+header,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+ul,
+ol,
+div,
+li {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+
+ul {
+    list-style: none;
+}
+
+.material-icons {
+    color: #7dd957;
+}
+
+.flex-row {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-self: start;
+}
+
+.flex-grow {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
