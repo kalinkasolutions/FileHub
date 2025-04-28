@@ -44,6 +44,7 @@ func NewLogger(sinks ...ISink) *Logger {
 }
 
 func (l *Logger) AddSink(sink ISink) {
+	fmt.Print("jfa")
 	l.sinks[sink.Name()] = sink
 }
 

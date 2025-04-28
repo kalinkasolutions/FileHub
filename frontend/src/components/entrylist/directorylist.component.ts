@@ -8,7 +8,7 @@ import { PathService } from '@services/path.service';
 
 @Component({
   standalone: true,
-  selector: 'directory-list',
+  selector: 'entry-list',
   templateUrl: './directorylist.component.html',
   styleUrl: 'directorylist.component.scss',
   imports: [CommonModule, FileEntry]
@@ -17,7 +17,7 @@ export class DirectoryList implements OnInit, AfterViewInit {
   @ViewChild('sentinel') sentinel!: ElementRef;
 
   private allEntries: IFileEntry[] = [];
-  private itemsPerPage = 3000;
+  private itemsPerPage = 40;
 
   public path: string[] = [];
   public displayedEntries: IFileEntry[] = [];
