@@ -1,0 +1,35 @@
+.crud-box {
+    width: 400px;
+    border: 5px solid green;
+    box-shadow: #141415 1px 0px 29px 0px;
+    background-color: rgb(43, 40, 40);
+    max-height: 50vh;
+    flex-direction: column;
+    display: flex;
+    padding-bottom: 0.2em
+}
+
+.crud-box ul,
+.title,
+.input-row {
+    padding: 0.5em;
+
+}
+
+.crud-box ul {
+    overflow-y: auto;
+    flex-grow: 1;
+}
+
+.crud-box li {
+    height: 50px
+}
+
+.title {
+    border-bottom: 5px solid green;
+    margin-bottom: 1em;
+}
+
+.non-edit-row {
+    padding: 0.5em 0 0.5em 0;
+}

@@ -1,12 +1,12 @@
 import { Injectable } from "@angular/core";
-import { IPathSegment } from "@models/pathsegment";
+import { IPathSegment } from "@models/IPathSegment";
 import { BehaviorSubject } from "rxjs";
 
 @Injectable({ providedIn: 'root' })
 export class PathService {
-
     private pathSubject = new BehaviorSubject<string[]>([]);
-    path$ = this.pathSubject.asObservable();
+    
+    public path$ = this.pathSubject.asObservable();
 
     private segmentSubject = new BehaviorSubject<IPathSegment>({ segment: "", last: false });
     segment$ = this.segmentSubject.asObservable();

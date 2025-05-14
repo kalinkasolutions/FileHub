@@ -1,7 +1,7 @@
 html {
-    background-color: #000000d1;
+    background-color: rgba(0, 0, 0, 0.8);
     color: #ffffffe3;
-    font-family: 'Courier New', Courier, monospace;
+    font-family: Consolas, 'Lucida Console', monospace;
     font-size: medium;
     user-select: none;
 }
@@ -31,7 +31,7 @@ ul {
 }
 
 .material-icons {
-    color: #7dd957;
+    color: green;
 }
 
 .flex-row {
@@ -42,9 +42,49 @@ ul {
     justify-self: start;
 }
 
+.ellipsis {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .flex-grow {
     flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.material-icons {
+    cursor: pointer;
+}
+
+input {
+    background: transparent;
+    color: white;
+    border: none;
+    padding: 0.5em 0 0.5em 0;
+    border-bottom: 2px solid white;
+    width: 100%;
+    max-width: 270px;
+}
+
+input:focus-visible {
+    outline: none;
+    border-bottom-color: green;
+}
+
+.input-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.space-between {
+    justify-content: space-between;
+}
+
+.danger {
+    color: #ec4343cf;
 }

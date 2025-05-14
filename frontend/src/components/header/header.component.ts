@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
-import { IPathSegment } from '@models/pathsegment';
+import { IPathSegment } from '@models/IPathSegment';
 import { PathService } from '@services/path.service';
 
 

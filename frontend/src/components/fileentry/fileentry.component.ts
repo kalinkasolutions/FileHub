@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { IFileEntry } from '@models/fileentry';
+import { IFileEntry } from '@models/IFileEntry';
 
 @Component({
     standalone: true,

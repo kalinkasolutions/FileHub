@@ -1,8 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { AfterViewInit, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { FileEntry } from '@components/fileentry/fileentry.component';
-import { IFileEntry } from '@models/fileentry';
-import { IPathSegment } from '@models/pathsegment';
+import { IFileEntry } from '@models/IFileEntry';
+import { IPathSegment } from '@models/IPathSegment';
 import { DirectoryService } from '@services/directory.service';
 import { PathService } from '@services/path.service';
 
@@ -17,7 +17,7 @@ export class DirectoryList implements OnInit, AfterViewInit {
   @ViewChild('sentinel') sentinel!: ElementRef;
 
   private allEntries: IFileEntry[] = [];
-  private itemsPerPage = 3000;
+  private itemsPerPage = 50;
 
   public path: string[] = [];
   public displayedEntries: IFileEntry[] = [];
