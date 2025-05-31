@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { IFileEntry } from '@models/IFileEntry';
+import { IPublicPath } from '@models/IPublicPath';
 
 @Component({
     standalone: true,
@@ -11,33 +11,34 @@ import { IFileEntry } from '@models/IFileEntry';
 })
 export class FileEntry {
 
-    @Input() fileEntry: IFileEntry = { name: '', isDir: false, size: 0 };
-    @Output() navigateToDirectory = new EventEmitter<string>();
+    @Input() fileEntry: IPublicPath = { Id: 0, Name: '', IsDir: false, Size: 0, NextSegment: "", IsBasePath: false, ItemId: "" };
+    @Output() navigateToDirectory = new EventEmitter<IPublicPath>();
 
-    public entryClicked(entry: IFileEntry) {
-        if (entry.isDir) {
-            this.navigateToDirectory.emit(entry.name);
+    public entryClicked(entry: IPublicPath) {
+        if (entry.IsDir) {
+            this.navigateToDirectory.emit(entry);
         }
     }
 
-    public getFileSize(entry: IFileEntry): string {
-        if (entry.isDir) {
-            return `${entry.size} items`;
+    public getFileSize(entry: IPublicPath): string {
+        if (entry.IsDir) {
+            return `${entry.Size} items`;
         }
-        const gigabytes = Number((entry.size / 1000 / 1000 / 1000).toFixed(2));
+        const gigabytes = Number((entry.Size / 1000 / 1000 / 1000).toFixed(2));
         if (gigabytes >= 1) {
+            75
             return `${gigabytes} Gb`;
         }
-        const megabytes = Number((entry.size / 1000 / 1000).toFixed(2));
+        const megabytes = Number((entry.Size / 1000 / 1000).toFixed(2));
         if (megabytes >= 1) {
             return `${megabytes} Mb`;
         }
-        const kilobytes = Number((entry.size / 1000).toFixed(2));
+        const kilobytes = Number((entry.Size / 1000).toFixed(2));
         if (kilobytes >= 1) {
             return `${kilobytes} Kb`;
         }
-        if (entry.size >= 1) {
-            return `${entry.size} bytes`
+        if (entry.Size >= 1) {
+            return `${entry.Size} bytes`
         }
         return "";
     }

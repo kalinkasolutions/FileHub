@@ -5,68 +5,77 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 	logger "github.com/kalinkasolutions/FileHub/backend/logger"
+	"github.com/kalinkasolutions/FileHub/backend/services/publicpathservice"
 )
 
 type FileApi struct {
-	router *gin.Engine
-	logger logger.ILogger
+	router            *gin.Engine
+	logger            logger.ILogger
+	publicPathService publicpathservice.IPublicPathService
 }
 
-type FileInfo struct {
-	Name  string `json:"name"`
-	IsDir bool   `json:"isDir"`
-	Size  int64  `json:"size"`
+type NavigateParams struct {
+	Id   int    `json:"Id"`
+	Path string `json:"Path"`
 }
 
-func NewFileApi(logger logger.ILogger, router *gin.Engine) *FileApi {
+func NewFileApi(logger logger.ILogger, router *gin.Engine, publicPathService publicpathservice.IPublicPathService) *FileApi {
 	return &FileApi{
-		router: router,
-		logger: logger,
+		router:            router,
+		logger:            logger,
+		publicPathService: publicPathService,
 	}
 }
 
 func (fa *FileApi) Load() {
-	fa.router.GET("/admin/files", fa.getFileList())
-	fa.router.GET("/admin/files/download-folder", fa.downloadFolderAsZip())
+	fa.router.GET("api/files", fa.getFileList())
+	fa.router.POST("api/files/navigate", fa.navigate())
+	fa.router.GET("api/files/download-folder", fa.downloadFolderAsZip())
 }
 
 func (fa *FileApi) getFileList() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		directoryName := ctx.DefaultQuery("directoryName", "")
-		newPath := filepath.Join("/mnt/storage", directoryName)
-		files, err := os.ReadDir(newPath)
+		publicPaths, err := fa.publicPathService.GetBasePaths()
 
 		if err != nil {
-			fa.logger.Error("Failed to load directories: %s\n%v", newPath, err)
 			ctx.JSON(http.StatusBadRequest, gin.H{
-				"error": "Failed to load directories",
+				"error": "failed to load path",
 			})
 			return
 		}
 
-		var fileDetails []FileInfo
-		for _, file := range files {
-			if info, err := file.Info(); err != nil {
-				fa.logger.Error("Failed to read fileinfo: %s %s\n%v", newPath, file.Name(), err)
-				ctx.JSON(http.StatusBadRequest, gin.H{
-					"error": "Failed to load directories",
-				})
-				return
-			} else {
-				fileDetails = append(fileDetails, FileInfo{
-					Name:  file.Name(),
-					IsDir: file.IsDir(),
-					Size:  info.Size(),
-				})
-			}
+		ctx.JSON(http.StatusOK, publicPaths)
+	}
+}
+
+func (fa *FileApi) navigate() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+
+		var req NavigateParams
+		err := ctx.ShouldBindJSON(&req)
+
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"error": "invalid request",
+			})
+			return
 		}
 
-		ctx.JSON(http.StatusOK, fileDetails)
+		navigationName, navigation, err := fa.publicPathService.GetNavigationPaths(req.Id, req.Path)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"error": "failed to load path",
+			})
+			return
+		}
 
+		ctx.JSON(http.StatusOK, gin.H{
+			"NavigationName": navigationName,
+			"Entries":        navigation,
+		})
 	}
 }
 

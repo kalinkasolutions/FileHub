@@ -1,8 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { AfterViewInit, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { FileEntry } from '@components/fileentry/fileentry.component';
-import { IFileEntry } from '@models/IFileEntry';
-import { IPathSegment } from '@models/IPathSegment';
+import { IPublicPath } from '@models/IPublicPath';
 import { DirectoryService } from '@services/directory.service';
 import { PathService } from '@services/path.service';
 
@@ -16,18 +15,25 @@ import { PathService } from '@services/path.service';
 export class DirectoryList implements OnInit, AfterViewInit {
   @ViewChild('sentinel') sentinel!: ElementRef;
 
-  private allEntries: IFileEntry[] = [];
+  private allEntries: IPublicPath[] = [];
   private itemsPerPage = 50;
 
-  public path: string[] = [];
-  public displayedEntries: IFileEntry[] = [];
+  public displayedEntries: IPublicPath[] = [];
 
   constructor(private directoryService: DirectoryService, private pathService: PathService) { }
 
   public ngOnInit(): void {
-    this.loadDirectories();
-    this.pathService.segment$.subscribe(s => {
-      this.navigateToSegment(s);
+    this.loadInitial()
+
+    this.pathService.segmentNavigation$.subscribe(x => {
+      if (x.ItemId === "" && x.Id === 0) {
+        // intial home item
+        this.loadInitial()
+        return;
+      }
+      this.directoryService.navigate(x).subscribe(navigation => {
+        this.loadEntries(navigation.Entries)
+      });
     })
   }
 
@@ -43,37 +49,28 @@ export class DirectoryList implements OnInit, AfterViewInit {
     observer.observe(this.sentinel.nativeElement);
   }
 
+  public navigateToDirectory(publicPath: IPublicPath) {
+    this.pathService.updateData(publicPath);
+    this.directoryService.navigate(publicPath).subscribe(navigation => {
+      this.loadEntries(navigation.Entries)
+    });
+  }
+
+  private loadInitial() {
+    this.directoryService.get().subscribe(entries => {
+      this.loadEntries(entries)
+    });
+  }
+
   private loadMoreItems() {
     const nextItems = this.allEntries.slice(this.displayedEntries.length, this.displayedEntries.length + this.itemsPerPage);
     this.displayedEntries = [...this.displayedEntries, ...nextItems];
   }
 
-  public navigateToDirectory(directoryName: string) {
-    this.path.push(directoryName)
-    this.loadDirectories();
-  }
-
-  public navigateBack() {
-    this.path.pop();
-    this.loadDirectories();
-  }
-
-  public navigateToSegment(segment: IPathSegment) {
-    if (segment.last) {
-      return;
-    }
-
-    this.path = this.path.slice(0, this.path.lastIndexOf(segment.segment) + 1);
-    this.loadDirectories();
-  }
-
-  private loadDirectories(): void {
-    this.directoryService.get(this.path.join("/")).subscribe(entries => {
-      this.allEntries = entries;
-      this.displayedEntries = [];
-      this.loadMoreItems();
-    });
-    this.pathService.updateData(this.path);
+  private loadEntries(entries: IPublicPath[]) {
+    this.allEntries = entries;
+    this.displayedEntries = [];
+    this.loadMoreItems();
   }
 
 }

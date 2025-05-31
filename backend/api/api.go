@@ -1,24 +1,30 @@
 package api
 
 import (
+	"database/sql"
+
 	"github.com/gin-gonic/gin"
+	"github.com/kalinkasolutions/FileHub/backend/api/adminapi"
 	"github.com/kalinkasolutions/FileHub/backend/api/fileapi"
 	"github.com/kalinkasolutions/FileHub/backend/api/middleware"
 	config "github.com/kalinkasolutions/FileHub/backend/config"
 	logger "github.com/kalinkasolutions/FileHub/backend/logger"
+	"github.com/kalinkasolutions/FileHub/backend/services/adminservice"
+	"github.com/kalinkasolutions/FileHub/backend/services/publicpathservice"
 )
 
 type Api struct {
-	router  *gin.Engine
-	config  config.Config
-	logger  logger.ILogger
-	fileApi fileapi.FileApi
+	router *gin.Engine
+	config config.Config
+	logger logger.ILogger
+	db     *sql.DB
 }
 
-func NewApi(config config.Config, logger logger.ILogger) *Api {
+func NewApi(config config.Config, logger logger.ILogger, db *sql.DB) *Api {
 	return &Api{
 		config: config,
 		logger: logger,
+		db:     db,
 	}
 }
 
@@ -36,14 +42,17 @@ func (a *Api) Load() {
 	}
 
 	a.router.SetTrustedProxies(a.config.TrustedProxies)
-
 	a.router.Static("/static", "./static")
 
 	a.logger.Info("Starting API on port: %s", a.config.Port)
 
-	a.fileApi = *fileapi.NewFileApi(a.logger, a.router)
-	a.fileApi.Load()
+	publicPathService := publicpathservice.NewPublicPathService(a.logger, a.db)
+	fileApi := fileapi.NewFileApi(a.logger, a.router, publicPathService)
+	fileApi.Load()
+
+	adminService := adminservice.NewAdminService(a.logger, a.db)
+	adminApi := adminapi.NewAdminApi(a.logger, a.router, adminService)
+	adminApi.Load()
 
 	a.router.Run(":" + a.config.Port)
-
 }

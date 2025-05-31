@@ -1,4 +1,3 @@
 <header class="flex-row">
-    <span *ngFor="let segment of path; let last = last" (click)="segmentChange({segment, last})" class="path-segment">{{
-        segment }}</span>
+    <span *ngFor="let segment of path; let last = last" (click)="segmentChange(segment, last)" class="path-segment">{{ segment.Name }}</span>
 </header>

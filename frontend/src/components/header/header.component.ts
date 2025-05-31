@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
-import { IPathSegment } from '@models/IPathSegment';
+import { IPublicPath } from '@models/IPublicPath';
 import { PathService } from '@services/path.service';
 
 
@@ -13,18 +13,21 @@ import { PathService } from '@services/path.service';
 })
 export class GlobalHeader implements OnInit {
 
-    @Input() public path: string[] = [];
-    @Output() navigateToSegment = new EventEmitter<{ segment: string, last: boolean }>();
+    @Input() public path: IPublicPath[] = [];
+    @Output() navigateToSegment = new EventEmitter<IPublicPath>();
 
     constructor(private pathService: PathService) { }
 
     public ngOnInit(): void {
-        this.pathService.path$.subscribe(path => {
+        this.pathService.NextSegment$.subscribe(path => {
             this.path = path;
         });
     }
 
-    public segmentChange(segment: IPathSegment) {
+    public segmentChange(segment: IPublicPath, last: boolean) {
+        if (last) {
+            return;
+        }
         this.pathService.segmentChange(segment)
     }
 }
