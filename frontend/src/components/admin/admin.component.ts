@@ -19,10 +19,10 @@ export class AdminComponent implements OnInit {
 
   constructor(private adminService: AdminService, private notificationService: NotificationService) { }
 
-  ngOnInit(): void {
+  public ngOnInit(): void {
     this.adminService.getBasePaths().subscribe(basePaths => {
       this.basePaths = basePaths.map(x => ({ ...x, updatePath: x.path, edit: false }));
-    })
+    });
   }
 
   public edit(model: IBasePathModel) {

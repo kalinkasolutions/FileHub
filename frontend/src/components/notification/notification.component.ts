@@ -1,7 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { INotifcationModel as INotificationModel, INotification, NotificationLevel } from '@models/INotifcation';
 import { NotificationService } from '@services/notification.service';
+import { Subject, takeUntil } from 'rxjs';
 
 @Component({
     standalone: true,
@@ -10,18 +11,25 @@ import { NotificationService } from '@services/notification.service';
     styleUrl: './notification.component.scss',
     imports: [CommonModule]
 })
-export class Notification implements OnInit {
+export class Notification implements OnInit, OnDestroy {
 
     public notifications: INotificationModel[] = [];
+
     private readonly defaultDuration = 5000;
     private readonly animationDuration = 300;
+    private destroy$ = new Subject<void>();
 
     constructor(private notificationService: NotificationService) { }
 
     public ngOnInit(): void {
-        this.notificationService.notifcations$.subscribe((notification) => {
+        this.notificationService.notifcations$.pipe(takeUntil(this.destroy$)).subscribe((notification) => {
             this.addNotification(notification);
         });
+    }
+
+    public ngOnDestroy(): void {
+        this.destroy$.next();
+        this.destroy$.complete();
     }
 
     public kill(notification: INotificationModel) {

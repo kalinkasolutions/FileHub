@@ -1,9 +1,11 @@
 import { CommonModule } from '@angular/common';
-import { AfterViewInit, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { FileEntry } from '@components/fileentry/fileentry.component';
 import { IPublicPath } from '@models/IPublicPath';
 import { DirectoryService } from '@services/directory.service';
 import { PathService } from '@services/path.service';
+import { takeUntil } from 'rxjs';
+import { Subject } from 'rxjs/internal/Subject';
 
 @Component({
   standalone: true,
@@ -12,11 +14,13 @@ import { PathService } from '@services/path.service';
   styleUrl: 'directorylist.component.scss',
   imports: [CommonModule, FileEntry]
 })
-export class DirectoryList implements OnInit, AfterViewInit {
+export class DirectoryList implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('sentinel') sentinel!: ElementRef;
 
   private allEntries: IPublicPath[] = [];
   private itemsPerPage = 50;
+  private destroy$ = new Subject<void>();
+
 
   public displayedEntries: IPublicPath[] = [];
 
@@ -25,7 +29,7 @@ export class DirectoryList implements OnInit, AfterViewInit {
   public ngOnInit(): void {
     this.loadInitial()
 
-    this.pathService.segmentNavigation$.subscribe(x => {
+    this.pathService.segmentNavigation$.pipe(takeUntil(this.destroy$)).subscribe(x => {
       if (x.ItemId === "" && x.Id === 0) {
         // intial home item
         this.loadInitial()
@@ -47,6 +51,11 @@ export class DirectoryList implements OnInit, AfterViewInit {
     }, { rootMargin: '300px' });
 
     observer.observe(this.sentinel.nativeElement);
+  }
+
+  public ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   public navigateToDirectory(publicPath: IPublicPath) {
