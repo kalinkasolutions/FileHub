@@ -20,6 +20,7 @@ type PubliPathService struct {
 type IPublicPathService interface {
 	GetBasePaths() ([]PublicPath, error)
 	GetNavigationPaths(basePathId int, navigationPath string) (string, []PublicPath, error)
+	GetValidFilePath(basePathId int, navigationPath string) (string, error)
 }
 
 type PublicPath struct {
@@ -64,11 +65,8 @@ func (pps *PubliPathService) GetBasePaths() ([]PublicPath, error) {
 }
 
 func (pps *PubliPathService) GetNavigationPaths(basePathId int, navigationPath string) (string, []PublicPath, error) {
-	var basePath Path
-	err := pps.db.QueryRow("SELECT Id, Path FROM Paths WHERE Id = ?", basePathId).Scan(&basePath.Id, &basePath.Path)
-
+	basePath, err := pps.getBasePath(basePathId)
 	if err != nil {
-		pps.logger.Error("failed to get public path with id: %d\n%v", basePathId, err)
 		return "", nil, fmt.Errorf("failed to navigate")
 	}
 
@@ -91,6 +89,27 @@ func (pps *PubliPathService) GetNavigationPaths(basePathId int, navigationPath s
 	}
 
 	return path.Base(finalPath), pps.getDirectoryInfos(pathEntries), nil
+}
+
+func (pps *PubliPathService) GetValidFilePath(basePathId int, navigationPath string) (string, error) {
+	basePath, err := pps.getBasePath(basePathId)
+	if err != nil {
+		return "", fmt.Errorf("path not valid")
+	}
+
+	return cleanPath(basePath.Path, navigationPath), nil
+}
+
+func (pps *PubliPathService) getBasePath(basePathId int) (Path, error) {
+	var basePath Path
+
+	err := pps.db.QueryRow("SELECT Id, Path FROM Paths WHERE Id = ?", basePathId).Scan(&basePath.Id, &basePath.Path)
+
+	if err != nil {
+		pps.logger.Error("failed to get public path with id: %d\n%v", basePathId, err)
+		return basePath, err
+	}
+	return basePath, nil
 }
 
 func (pps *PubliPathService) getDirectoryInfos(directory []Path) []PublicPath {

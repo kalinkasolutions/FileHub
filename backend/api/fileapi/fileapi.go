@@ -2,9 +2,11 @@ package fileapi
 
 import (
 	"archive/zip"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	logger "github.com/kalinkasolutions/FileHub/backend/logger"
@@ -34,6 +36,7 @@ func (fa *FileApi) Load() {
 	fa.router.GET("api/files", fa.getFileList())
 	fa.router.POST("api/files/navigate", fa.navigate())
 	fa.router.GET("api/files/download-folder", fa.downloadFolderAsZip())
+	fa.router.GET("api/files/download-file/:id/*path", fa.downloadFile())
 }
 
 func (fa *FileApi) getFileList() gin.HandlerFunc {
@@ -76,6 +79,40 @@ func (fa *FileApi) navigate() gin.HandlerFunc {
 			"NavigationName": navigationName,
 			"Entries":        navigation,
 		})
+	}
+}
+
+func (fa *FileApi) downloadFile() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		paramId := ctx.Param("id")
+		path := ctx.Param("path")
+
+		id, err := strconv.Atoi(paramId)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+			return
+		}
+
+		validatedFilePath, err := fa.publicPathService.GetValidFilePath(id, path)
+
+		if err != nil {
+			ctx.JSON(http.StatusNotFound, gin.H{
+				"error": "file path was not found",
+			})
+			return
+		}
+
+		fileStats, err := os.Stat(validatedFilePath)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error": "unable to open file",
+			})
+			return
+		}
+		ctx.Header("Content-Disposition", "attachment; filename=\""+fileStats.Name()+"\"")
+		ctx.Header("Content-Type", "application/octet-stream")
+		ctx.Header("Content-Length", fmt.Sprintf("%d", fileStats.Size()))
+		ctx.File(validatedFilePath)
 	}
 }
 

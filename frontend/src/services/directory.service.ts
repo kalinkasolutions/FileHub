@@ -21,8 +21,4 @@ export class DirectoryService {
             Path: publicPath.NextSegment
         });
     }
-
-    public downoadAsZip() {
-        return this.httpClient.get<any>("http://localhost:4122/api/files/download-folder");
-    }
 }

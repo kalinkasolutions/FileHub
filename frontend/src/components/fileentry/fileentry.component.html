@@ -2,6 +2,6 @@
     <span *ngIf="fileEntry.IsDir" class="material-icons">folder</span>
     <span *ngIf="!fileEntry.IsDir" class="material-icons">insert_drive_file</span>
     <span class="flex-grow" title="{{ fileEntry.Name }}">{{ fileEntry.Name }}</span>
-    <span *ngIf="!fileEntry.IsDir" class="material-icons">download</span>
+    <span *ngIf="!fileEntry.IsDir" class="material-icons" (click)="download(fileEntry)">download</span>
     <span class="file-size">{{ getFileSize(fileEntry) }}<span></span></span>
 </div>
