@@ -72,3 +72,4 @@ Thumbs.db
 .angular/
 
 node_modules/
+__debug_bin*
