@@ -1,6 +1,8 @@
 package adminapi
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/kalinkasolutions/FileHub/backend/logger"
 	"github.com/kalinkasolutions/FileHub/backend/services/adminservice"
@@ -32,18 +34,18 @@ func (aa *AdminApi) insertBasePath() gin.HandlerFunc {
 		var path adminservice.Path
 
 		if err := ctx.BindJSON(&path); err != nil {
-			ctx.JSON(400, "Bad Request")
+			ctx.JSON(http.StatusBadRequest, "bad request")
 			return
 		}
 
 		insertedPath, err := aa.adminService.InsertBasePath(path)
 
 		if err != nil {
-			ctx.JSON(400, err.Error())
+			ctx.JSON(http.StatusBadRequest, err.Error())
 			return
 		}
 
-		ctx.JSON(201, insertedPath)
+		ctx.JSON(http.StatusCreated, insertedPath)
 	}
 }
 
@@ -52,7 +54,7 @@ func (aa *AdminApi) getBasePaths() gin.HandlerFunc {
 		paths, err := aa.adminService.GetBasePaths()
 
 		if err != nil {
-			ctx.JSON(400, err.Error())
+			ctx.JSON(http.StatusBadRequest, err.Error())
 			return
 		}
 
@@ -60,7 +62,7 @@ func (aa *AdminApi) getBasePaths() gin.HandlerFunc {
 			paths = []adminservice.Path{}
 		}
 
-		ctx.JSON(200, paths)
+		ctx.JSON(http.StatusOK, paths)
 	}
 }
 
@@ -69,14 +71,14 @@ func (aa *AdminApi) updateBasePath() gin.HandlerFunc {
 		var path adminservice.Path
 
 		if err := ctx.BindJSON(&path); err != nil {
-			ctx.JSON(400, "Bad Request")
+			ctx.JSON(http.StatusBadRequest, "Bad Request")
 			return
 		}
 
 		updatePath, err := aa.adminService.UpdateBasePath(path)
 
 		if err != nil {
-			ctx.JSON(400, err.Error())
+			ctx.JSON(http.StatusBadRequest, err.Error())
 			return
 		}
 
@@ -89,14 +91,14 @@ func (aa *AdminApi) deleteBasePath() gin.HandlerFunc {
 		var path adminservice.Path
 
 		if err := ctx.BindJSON(&path); err != nil {
-			ctx.JSON(400, "Bad Request")
+			ctx.JSON(http.StatusBadRequest, "Bad Request")
 			return
 		}
 
 		deletePath, err := aa.adminService.DeleteBasePath(path)
 
 		if err != nil {
-			ctx.JSON(400, err.Error())
+			ctx.JSON(http.StatusBadRequest, err.Error())
 			return
 		}
 

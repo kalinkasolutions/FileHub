@@ -8,6 +8,7 @@ import (
 	"github.com/kalinkasolutions/FileHub/backend/datalayer"
 	logger "github.com/kalinkasolutions/FileHub/backend/logger"
 	"github.com/kalinkasolutions/FileHub/backend/loggersink/consolelogsink"
+	"github.com/kalinkasolutions/FileHub/backend/loggersink/dblogsink"
 )
 
 func main() {
@@ -20,6 +21,8 @@ func main() {
 
 	config := config.LoadConfig(configPath, logger)
 	db := datalayer.NewDb(logger, config)
+
+	logger.AddSink(dblogsink.NewDbSink(db))
 
 	api := api.NewApi(config, logger, db)
 	api.Load()

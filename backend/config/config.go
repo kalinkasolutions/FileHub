@@ -45,3 +45,10 @@ func LoadConfig(configPath string, logger logger.ILogger) Config {
 
 	return config
 }
+
+func CurrentProtocol(config Config) string {
+	if config.Ssl {
+		return "https://"
+	}
+	return "http://"
+}

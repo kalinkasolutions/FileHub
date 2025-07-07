@@ -2,21 +2,27 @@ package fileapi
 
 import (
 	"archive/zip"
+	"bufio"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
-	"strconv"
+	"path/filepath"
 
 	"github.com/gin-gonic/gin"
+	"github.com/kalinkasolutions/FileHub/backend/api/utils"
+	"github.com/kalinkasolutions/FileHub/backend/config"
 	logger "github.com/kalinkasolutions/FileHub/backend/logger"
 	"github.com/kalinkasolutions/FileHub/backend/services/publicpathservice"
+	"github.com/kalinkasolutions/FileHub/backend/services/shareservice"
 )
 
 type FileApi struct {
 	router            *gin.Engine
 	logger            logger.ILogger
+	config            config.Config
 	publicPathService publicpathservice.IPublicPathService
+	shareService      shareservice.IShareService
 }
 
 type NavigateParams struct {
@@ -24,19 +30,22 @@ type NavigateParams struct {
 	Path string `json:"Path"`
 }
 
-func NewFileApi(logger logger.ILogger, router *gin.Engine, publicPathService publicpathservice.IPublicPathService) *FileApi {
+func NewFileApi(logger logger.ILogger, router *gin.Engine, config config.Config, publicPathService publicpathservice.IPublicPathService, shareService shareservice.IShareService) *FileApi {
 	return &FileApi{
 		router:            router,
 		logger:            logger,
 		publicPathService: publicPathService,
+		shareService:      shareService,
+		config:            config,
 	}
 }
 
 func (fa *FileApi) Load() {
 	fa.router.GET("api/files", fa.getFileList())
 	fa.router.POST("api/files/navigate", fa.navigate())
-	fa.router.GET("api/files/download-folder", fa.downloadFolderAsZip())
-	fa.router.GET("api/files/download-file/:id/*path", fa.downloadFile())
+	fa.router.GET("api/files/download/:id/*path", fa.download())
+	fa.router.GET("public-api/files/download/:id", fa.downloadPublicShare())
+
 }
 
 func (fa *FileApi) getFileList() gin.HandlerFunc {
@@ -82,83 +91,110 @@ func (fa *FileApi) navigate() gin.HandlerFunc {
 	}
 }
 
-func (fa *FileApi) downloadFile() gin.HandlerFunc {
+func (fa *FileApi) downloadPublicShare() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		paramId := ctx.Param("id")
-		path := ctx.Param("path")
 
-		id, err := strconv.Atoi(paramId)
+		id := ctx.Param("id")
+
+		share, err := fa.shareService.GetShareById(id)
 		if err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
-			return
+			fa.logger.Error("failed to get share with id: %s, %v", id, err)
+			ctx.Redirect(http.StatusFound, utils.RedirectUri(fa.config))
 		}
 
-		validatedFilePath, err := fa.publicPathService.GetValidFilePath(id, path)
-
-		if err != nil {
-			ctx.JSON(http.StatusNotFound, gin.H{
-				"error": "file path was not found",
-			})
-			return
-		}
-
-		fileStats, err := os.Stat(validatedFilePath)
-		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{
-				"error": "unable to open file",
-			})
-			return
-		}
-		ctx.Header("Content-Disposition", "attachment; filename=\""+fileStats.Name()+"\"")
-		ctx.Header("Content-Type", "application/octet-stream")
-		ctx.Header("Content-Length", fmt.Sprintf("%d", fileStats.Size()))
-		ctx.File(validatedFilePath)
+		fa.handleFileOrDirectroyDownload(ctx, share.Path)
 	}
 }
 
-func (fa *FileApi) downloadFolderAsZip() gin.HandlerFunc {
+func (fa *FileApi) download() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		ctx.Header("Content-Type", "application/zip")
-		ctx.Header("Content-Disposition", "attachment; filename=\"download.zip\"")
-		ctx.Status(200)
+		validatedFilePath, success := utils.TryGetValidatedPathFromParam(ctx, fa.publicPathService)
 
-		writer := ctx.Writer
-
-		zipWriter := zip.NewWriter(writer)
-		defer zipWriter.Close()
-
-		file, err := os.Open("/mnt/storage/movies/Young Woman and the Sea (2024)/Die.junge.Frau.und.das.Meer.2024.German.DL.1080p.DSNP.WEB.H264-Oergel.mkv")
-
-		if err != nil {
-			fa.logger.Error("Failed to open requested file: %s\n%v", file.Name(), err)
-			ctx.JSON(http.StatusBadRequest, gin.H{
-				"error": "Failed to download file",
+		if !success {
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error": "failed to download",
 			})
 			return
 		}
 
-		defer file.Close()
+		fa.handleFileOrDirectroyDownload(ctx, validatedFilePath)
+	}
+}
 
-		zipFile, err := zipWriter.CreateHeader(&zip.FileHeader{
-			Name: file.Name(),
-		})
-
-		if err != nil {
-			fa.logger.Error("Failed to create zip entry: %s\n%v", file.Name(), err)
-			ctx.JSON(http.StatusBadRequest, gin.H{
-				"error": "Failed to download",
-			})
-			return
-		}
-
-		_, err = io.Copy(zipFile, file)
-		if err != nil {
-			fa.logger.Error("Failed writing to client, could be due cancelation: %s\n%v", file.Name(), err)
-			ctx.JSON(http.StatusBadRequest, gin.H{
-				"error": "Failed to download",
-			})
-			return
-		}
+func (fa *FileApi) handleFileOrDirectroyDownload(ctx *gin.Context, path string) {
+	fileStats, err := os.Stat(path)
+	if err != nil {
+		fa.logger.Error("failed to read filestats for path: %s, %v", path, err)
+		ctx.Redirect(http.StatusFound, utils.RedirectUri(fa.config))
+		return
 	}
 
+	if fileStats.IsDir() {
+		fa.downloadDirectoryAsZip(ctx, path)
+	} else {
+		fa.downloadFile(ctx, fileStats, path)
+	}
+}
+
+func (fa *FileApi) downloadFile(ctx *gin.Context, fileStats os.FileInfo, path string) {
+	ctx.Header("Content-Disposition", "attachment; filename=\""+fileStats.Name()+"\"")
+	ctx.Header("Content-Type", "application/octet-stream")
+	ctx.Header("Content-Length", fmt.Sprintf("%d", fileStats.Size()))
+	ctx.File(path)
+}
+
+func (fa *FileApi) downloadDirectoryAsZip(ctx *gin.Context, validatedFilePath string) {
+	ctx.Header("Content-Type", "application/zip")
+	ctx.Header("Content-Disposition", "attachment; filename=\"download.zip\"")
+	ctx.Status(http.StatusOK)
+
+	zipWriter := zip.NewWriter(bufio.NewWriter(ctx.Writer))
+	defer zipWriter.Close()
+
+	err := filepath.Walk(validatedFilePath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		relPath, err := filepath.Rel(validatedFilePath, path)
+		if err != nil {
+			return err
+		}
+
+		if info.IsDir() {
+			relPath += "/"
+		}
+
+		header, err := zip.FileInfoHeader(info)
+		if err != nil {
+			return err
+		}
+
+		header.Name = relPath
+		if !info.IsDir() {
+			header.Method = zip.Store
+		}
+
+		writer, err := zipWriter.CreateHeader(header)
+		if err != nil {
+			return err
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		file, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		_, err = io.Copy(writer, file)
+		return err
+	})
+
+	if err != nil {
+		fa.logger.Warning("Aborted creating zip for path: %s", validatedFilePath)
+	}
 }

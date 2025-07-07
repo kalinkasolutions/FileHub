@@ -2,7 +2,7 @@
     "DatabasePath": "./data",
     "DatabaseName": "db.sqlite3",
     "Ssl": false,
-    "Domain": "10.0.10.10:4122",
+    "Domain": "localhost:4200",
     "Port": "4122",
     "SMTP_Username": "",
     "SMTP_Password": "",

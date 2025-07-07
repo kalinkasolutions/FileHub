@@ -7,10 +7,12 @@ import (
 	"github.com/kalinkasolutions/FileHub/backend/api/adminapi"
 	"github.com/kalinkasolutions/FileHub/backend/api/fileapi"
 	"github.com/kalinkasolutions/FileHub/backend/api/middleware"
+	"github.com/kalinkasolutions/FileHub/backend/api/shareapi"
 	config "github.com/kalinkasolutions/FileHub/backend/config"
 	logger "github.com/kalinkasolutions/FileHub/backend/logger"
 	"github.com/kalinkasolutions/FileHub/backend/services/adminservice"
 	"github.com/kalinkasolutions/FileHub/backend/services/publicpathservice"
+	"github.com/kalinkasolutions/FileHub/backend/services/shareservice"
 )
 
 type Api struct {
@@ -44,15 +46,13 @@ func (a *Api) Load() {
 	a.router.SetTrustedProxies(a.config.TrustedProxies)
 	a.router.Static("/static", "./static")
 
-	a.logger.Info("Starting API on port: %s", a.config.Port)
-
 	publicPathService := publicpathservice.NewPublicPathService(a.logger, a.db)
-	fileApi := fileapi.NewFileApi(a.logger, a.router, publicPathService)
-	fileApi.Load()
+	shareService := shareservice.NewShareservice(a.logger, a.db)
 
-	adminService := adminservice.NewAdminService(a.logger, a.db)
-	adminApi := adminapi.NewAdminApi(a.logger, a.router, adminService)
-	adminApi.Load()
+	fileapi.NewFileApi(a.logger, a.router, a.config, publicPathService, shareService).Load()
+	adminapi.NewAdminApi(a.logger, a.router, adminservice.NewAdminService(a.logger, a.db)).Load()
+	shareapi.NewShareApi(a.logger, a.router, a.config, publicPathService, shareService).Load()
 
+	a.logger.Info("Starting API on port: %s", a.config.Port)
 	a.router.Run(":" + a.config.Port)
 }
