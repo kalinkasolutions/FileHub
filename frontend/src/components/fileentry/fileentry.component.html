@@ -1,7 +1,9 @@
-<div class="file-entry flex-row" [ngClass]="{ 'directory': fileEntry.IsDir }" (click)="entryClicked(fileEntry)">
+<div class="file-entry flex-row">
     <span *ngIf="fileEntry.IsDir" class="material-icons">folder</span>
     <span *ngIf="!fileEntry.IsDir" class="material-icons">insert_drive_file</span>
-    <span class="flex-grow" title="{{ fileEntry.Name }}">{{ fileEntry.Name }}</span>
-    <span *ngIf="!fileEntry.IsDir" class="material-icons" (click)="download(fileEntry)">download</span>
+    <span class="flex-grow" [ngClass]="{ 'directory': fileEntry.IsDir }" title="{{ fileEntry.Name }}"
+        (click)="entryClicked(fileEntry)">{{ fileEntry.Name }}</span>
+    <span class="material-icons" *ngIf="!fileEntry.IsBasePath" (click)="share(fileEntry)">share</span>
+    <span class="material-icons" *ngIf="!fileEntry.IsBasePath" (click)="download(fileEntry)">download</span>
     <span class="file-size">{{ getFileSize(fileEntry) }}<span></span></span>
 </div>

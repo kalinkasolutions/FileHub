@@ -5,7 +5,6 @@ import { BehaviorSubject, Subject, subscribeOn } from "rxjs";
 @Injectable({ providedIn: 'root' })
 export class PathService {
 
-
     private pathSubject = new BehaviorSubject<IPublicPath[]>([{ NextSegment: "", Id: 0, Name: "home", IsBasePath: true, IsDir: true, Size: 0, ItemId: "" }]);
     private segmentNavigationSubject = new Subject<IPublicPath>();
 
