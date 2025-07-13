@@ -28,4 +28,8 @@ export class PathService {
         this.pathSubject.next(newPath);
         this.segmentNavigationSubject.next(segment);
     }
+
+    public static getPathName(path: string): string {
+        return path.substring(path.lastIndexOf("/") + 1, path.length);
+    }
 }

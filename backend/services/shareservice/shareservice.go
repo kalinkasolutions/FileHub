@@ -19,16 +19,16 @@ type IShareService interface {
 	InsertShare(insertPath Share) (Share, error)
 	GetShares() ([]Share, error)
 	GetShareById(id string) (Share, error)
-	UpdateDownloadCount(id string, count int) error
+	UpdateDownloadCount(id string) error
 	DeleteShare(deletePath Share) (Share, error)
 }
 
 type Share struct {
-	Id               string `json:"id"`
-	CreatedAt        string `json:"createdAt"`
-	Path             string `json:"path"`
-	DownloadCount    int    `json:"downloadCount"`
-	MaxDownloadCount int    `json:"maxDownloadCount"`
+	Id               string `json:"Id"`
+	CreatedAt        string `json:"CreatedAt"`
+	Path             string `json:"Path"`
+	DownloadCount    int    `json:"DownloadCount"`
+	MaxDownloadCount int    `json:"MaxDownloadCount"`
 }
 
 func NewShareservice(logger logger.ILogger, db *sql.DB) *ShareService {
@@ -74,11 +74,11 @@ func (as *ShareService) GetShares() ([]Share, error) {
 	return datalayer.GetItems[Share](rows)
 }
 
-func (as *ShareService) UpdateDownloadCount(id string, count int) error {
-	_, err := as.db.Exec("UPDATE Shares SET DownloadCount = ? WHERE Id = ?", count, id)
+func (as *ShareService) UpdateDownloadCount(id string) error {
+	_, err := as.db.Exec("UPDATE Shares SET DownloadCount = DownloadCount + 1 WHERE Id = ?", id)
 
 	if err != nil {
-		as.logger.Error("failed to update share with id: %s", id)
+		as.logger.Error("failed to increment downloadcount share with id: %s", id)
 		return fmt.Errorf("failed to update share")
 	}
 

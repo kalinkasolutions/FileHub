@@ -1,3 +1,5 @@
+@use 'variables' as *;
+
 .path-segment:not(:last-child)::after {
     content: 'chevron_right';
     font-family: 'Material Icons';
@@ -6,8 +8,8 @@
 }
 
 .path-segment:not(:last-child):hover {
-    color: rgb(207 13 207 / 0.85);
     cursor: pointer;
+    color: $green;
     padding: 0.4em;
     transition: padding 0.15s ease-in-out;
 }
@@ -17,7 +19,27 @@
     transition: padding 0.15s ease-in-out;
 }
 
+.path-segments {
+    width: 80%;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
 header {
     padding: 1em;
     height: 60px;
+}
+
+header span {
+    display: inline-block;
+}
+
+.nav {
+    margin-left: 0.5em;
+    cursor: pointer;
+}
+
+.nav:hover {
+    text-decoration: underline;
+    color: $green;
 }

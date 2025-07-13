@@ -3,16 +3,18 @@ import { Injectable } from "@angular/core";
 import { IBasePath } from "@models/IBasePath";
 import { catchError, Observable, throwError } from "rxjs";
 import { NotificationService } from "./notification.service";
-import { NotificationLevel } from "@models/INotifcation";
+import { BaseService } from "./base.service";
 
 @Injectable({
     providedIn: 'root'
 })
-export class AdminService {
+export class BasePathService extends BaseService {
 
     constructor(private httpClient: HttpClient,
-        private notificationService: NotificationService
-    ) { }
+        notificationService: NotificationService
+    ) {
+        super(notificationService);
+    }
 
     public insert(path: IBasePath): Observable<IBasePath> {
         return this.httpClient.post<IBasePath>("http://localhost:4122/api/admin/base-path", path).pipe(catchError(this.handleError));
@@ -31,15 +33,6 @@ export class AdminService {
         return this.httpClient.delete<IBasePath>("http://localhost:4122/api/admin/base-path", {
             body: path
         }).pipe(catchError(this.handleError));
-    }
-
-    private handleError = (error: any): Observable<never> => {
-        this.notificationService.notify({
-            level: NotificationLevel.error,
-            title: "Request failed",
-            message: error.error
-        })
-        return throwError(() => error);
     }
 
 }

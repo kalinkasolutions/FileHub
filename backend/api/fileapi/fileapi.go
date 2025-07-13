@@ -44,8 +44,8 @@ func (fa *FileApi) Load() {
 	fa.router.GET("api/files", fa.getFileList())
 	fa.router.POST("api/files/navigate", fa.navigate())
 	fa.router.GET("api/files/download/:id/*path", fa.download())
-	fa.router.GET("public-api/files/download/:id", fa.downloadPublicShare())
 
+	fa.router.GET("public-api/files/download/:id", fa.downloadPublicShare())
 }
 
 func (fa *FileApi) getFileList() gin.HandlerFunc {
@@ -97,10 +97,12 @@ func (fa *FileApi) downloadPublicShare() gin.HandlerFunc {
 		id := ctx.Param("id")
 
 		share, err := fa.shareService.GetShareById(id)
+
 		if err != nil {
-			fa.logger.Error("failed to get share with id: %s, %v", id, err)
 			ctx.Redirect(http.StatusFound, utils.RedirectUri(fa.config))
 		}
+
+		fa.shareService.UpdateDownloadCount(share.Id)
 
 		fa.handleFileOrDirectroyDownload(ctx, share.Path)
 	}

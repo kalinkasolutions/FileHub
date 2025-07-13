@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
+import { ActivatedRoute, RouterModule } from '@angular/router';
 import { IPublicPath } from '@models/IPublicPath';
 import { PathService } from '@services/path.service';
 import { Subject, takeUntil } from 'rxjs';
@@ -10,20 +11,30 @@ import { Subject, takeUntil } from 'rxjs';
     selector: 'global-header',
     templateUrl: './header.component.html',
     styleUrl: './header.component.scss',
-    imports: [CommonModule]
+    imports: [CommonModule, RouterModule]
 })
 export class GlobalHeader implements OnInit, OnDestroy {
 
     @Input() public path: IPublicPath[] = [];
     @Output() navigateToSegment = new EventEmitter<IPublicPath>();
 
+    public showPathSegments = false;
+    public showHeader = true;
+
     private destroy$ = new Subject<void>();
 
-    constructor(private pathService: PathService) { }
+
+    constructor(private pathService: PathService, private route: ActivatedRoute) { }
 
     public ngOnInit(): void {
         this.pathService.NextSegment$.pipe(takeUntil(this.destroy$)).subscribe(path => {
             this.path = path;
+        });
+
+        this.route.data.subscribe(data => {
+            this.showPathSegments = data["showPathSegments"] ?? this.showPathSegments;
+            this.showHeader = data["showHeader"] ?? this.showHeader;
+            console.log(data)
         });
     }
 

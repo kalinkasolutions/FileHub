@@ -4,13 +4,13 @@ import (
 	"database/sql"
 
 	"github.com/gin-gonic/gin"
-	"github.com/kalinkasolutions/FileHub/backend/api/adminapi"
+	"github.com/kalinkasolutions/FileHub/backend/api/basepath"
 	"github.com/kalinkasolutions/FileHub/backend/api/fileapi"
 	"github.com/kalinkasolutions/FileHub/backend/api/middleware"
 	"github.com/kalinkasolutions/FileHub/backend/api/shareapi"
 	config "github.com/kalinkasolutions/FileHub/backend/config"
 	logger "github.com/kalinkasolutions/FileHub/backend/logger"
-	"github.com/kalinkasolutions/FileHub/backend/services/adminservice"
+	"github.com/kalinkasolutions/FileHub/backend/services/basepathservice"
 	"github.com/kalinkasolutions/FileHub/backend/services/publicpathservice"
 	"github.com/kalinkasolutions/FileHub/backend/services/shareservice"
 )
@@ -50,7 +50,7 @@ func (a *Api) Load() {
 	shareService := shareservice.NewShareservice(a.logger, a.db)
 
 	fileapi.NewFileApi(a.logger, a.router, a.config, publicPathService, shareService).Load()
-	adminapi.NewAdminApi(a.logger, a.router, adminservice.NewAdminService(a.logger, a.db)).Load()
+	basepath.NewBasePathApi(a.router, basepathservice.NewBasePathService(a.logger, a.db)).Load()
 	shareapi.NewShareApi(a.logger, a.router, a.config, publicPathService, shareService).Load()
 
 	a.logger.Info("Starting API on port: %s", a.config.Port)

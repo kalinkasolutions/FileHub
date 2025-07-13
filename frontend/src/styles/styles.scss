@@ -1,3 +1,5 @@
+@use 'variables' as *;
+
 html {
     background-color: rgba(0, 0, 0, 0.8);
     color: #ffffffe3;
@@ -35,8 +37,14 @@ ul {
     list-style: none;
 }
 
+a.nav {
+    color: inherit;
+    outline: none;
+}
+
+
 .material-icons {
-    color: green;
+    color: $green;
 }
 
 .flex-row {
@@ -105,7 +113,7 @@ input {
 
 input:focus-visible {
     outline: none;
-    border-bottom-color: green;
+    border-bottom-color: $green;
 }
 
 .input-row {
@@ -126,14 +134,16 @@ input:focus-visible {
 
 .box {
     margin: 0.5em;
-    width: 400px;
-    border: 5px solid green;
+    min-width: 300px;
+    width: 100%;
+    max-width: 450px;
+    border: 5px solid $green;
     box-shadow: #141415 1px 0px 29px 0px;
     background-color: rgb(43, 40, 40);
     height: 40vh;
     flex-direction: column;
     display: flex;
-    padding-bottom: 0.2em
+    padding-bottom: 0.2em;
 }
 
 .box ul,
@@ -153,10 +163,49 @@ input:focus-visible {
 }
 
 .title {
-    border-bottom: 5px solid green;
+    border-bottom: 5px solid #4bc44b;
     margin-bottom: 1em;
 }
 
 .non-edit-row {
     padding: 0.5em 0 0.5em 0;
+}
+
+.row {
+    padding: 0 0 0 0;
+}
+
+.tiny-font-size {
+    font-size: xx-small;
+    padding: 0 0 0.5em 0;
+}
+
+.box-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, 450px);
+    gap: 1rem;
+    justify-content: start;
+}
+
+.row-icon {
+    margin-left: 0.5em;
+}
+
+
+@media (max-width: 470px) {
+    .box {
+        box-sizing: border-box;
+        width: 100%;
+        max-width: unset;
+        min-width: unset;
+        margin: 0.5em 0;
+    }
+
+    .box-grid {
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 0 0.5em;
+    }
 }

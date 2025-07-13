@@ -34,12 +34,12 @@ export class FileEntry {
 
     public share(entry: IPublicPath) {
         this.shareService.share(entry).subscribe(share => {
-            navigator.clipboard.writeText(share.Link)
+            navigator.clipboard.writeText(share.Link);
             this.notificationService.notify({
                 level: NotificationLevel.success,
-                title: "Item shared",
-                message: "Link copied to clipboard",
-            })
+                title: "Share link copied",
+                message: `Link for '${entry.Name}' copied to clipboard`,
+            });
         });
     }
 

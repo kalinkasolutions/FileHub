@@ -1,7 +1,6 @@
 package shareapi
 
 import (
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -33,8 +32,60 @@ func NewShareApi(logger logger.ILogger, router *gin.Engine, config config.Config
 }
 
 func (ss *ShareApi) Load() {
+	ss.router.GET("api/admin/shares", ss.getShares())
+	ss.router.DELETE("api/admin/share", ss.deleteShare())
+
 	ss.router.POST("api/share/create", ss.share())
+
 	ss.router.GET(("public-api/share/validate/:id"), ss.validate())
+}
+
+func (ss *ShareApi) getShares() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		shares, err := ss.shareService.GetShares()
+
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, "Failed to get shares")
+			return
+		}
+
+		if shares == nil {
+			shares = []shareservice.Share{}
+		}
+
+		var result []gin.H
+		for _, share := range shares {
+			result = append(result, gin.H{
+				"Id":               share.Id,
+				"Path":             share.Path,
+				"DownloadCount":    share.DownloadCount,
+				"MaxDownloadCount": share.MaxDownloadCount,
+				"Link":             utils.GetShareLink(ss.config, share.Id),
+			})
+		}
+
+		ctx.JSON(http.StatusOK, result)
+	}
+}
+
+func (ss *ShareApi) deleteShare() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		var share shareservice.Share
+
+		if err := ctx.BindJSON(&share); err != nil {
+			ctx.JSON(http.StatusBadRequest, "Bad Request")
+			return
+		}
+
+		deletePath, err := ss.shareService.DeleteShare(share)
+
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, "Failed to delete share")
+			return
+		}
+
+		ctx.JSON(200, deletePath)
+	}
 }
 
 func (ss *ShareApi) share() gin.HandlerFunc {
@@ -61,7 +112,7 @@ func (ss *ShareApi) share() gin.HandlerFunc {
 			return
 		}
 
-		ctx.JSON(http.StatusCreated, gin.H{"Link": fmt.Sprintf("%s%s/share/%s", config.CurrentProtocol(ss.config), ss.config.Domain, share.Id)})
+		ctx.JSON(http.StatusCreated, gin.H{"Link": utils.GetShareLink(ss.config, share.Id)})
 	}
 }
 
@@ -71,7 +122,6 @@ func (ss *ShareApi) validate() gin.HandlerFunc {
 
 		share, err := ss.shareService.GetShareById(id)
 		if err != nil {
-			ss.logger.Warning("could not find share with id %s, %v", share.Id, err)
 			ctx.Redirect(http.StatusFound, utils.RedirectUri(ss.config))
 			return
 		}

@@ -1,3 +1,5 @@
+@use 'variables' as *;
+
 .notification-container {
     position: absolute;
     right: 0.5em;
@@ -21,7 +23,8 @@
 }
 
 .notification.success {
-    background: rgba(18, 241, 55, 0.7);
+    background: $green;
+    color: #000000;
 }
 
 .notification.info {

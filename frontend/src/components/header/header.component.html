@@ -1,3 +1,10 @@
-<header class="flex-row">
-    <span *ngFor="let segment of path; let last = last" (click)="segmentChange(segment, last)" class="path-segment">{{ segment.Name }}</span>
+<header class="flex-row" *ngIf="showHeader">
+    <div class="flex-row path-segments" *ngIf="showPathSegments">
+        <span *ngFor="let segment of path; let last = last" (click)="segmentChange(segment, last)"
+            class="path-segment">{{
+            segment.Name }}</span>
+    </div>
+    <span class="flex-grow"></span>
+    <a class="nav" routerLink="/">directories</a>
+    <a class="nav" routerLink="/admin">admin</a>
 </header>

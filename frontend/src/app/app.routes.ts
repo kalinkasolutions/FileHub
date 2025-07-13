@@ -5,8 +5,8 @@ import { NotFoundComponent } from '@components/notfound/notfound.component';
 import { PublicShare as PublicShareComponent } from '@components/publicshare/publicshare.component';
 
 export const routes: Routes = [
-    { path: "", component: FilebrowserComponent },
+    { path: "", component: FilebrowserComponent, data: { showPathSegments: true } },
     { path: "admin", component: AdminComponent },
-    { path: "share/:id", component: PublicShareComponent },
-    { path: '**', component: NotFoundComponent }
+    { path: "share/:id", component: PublicShareComponent, data: { showHeader: false } },
+    { path: '**', component: NotFoundComponent, data: { showHeader: false } }
 ];

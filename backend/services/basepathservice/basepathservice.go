@@ -1,4 +1,4 @@
-package adminservice
+package basepathservice
 
 import (
 	"database/sql"
@@ -10,12 +10,12 @@ import (
 	"github.com/kalinkasolutions/FileHub/backend/logger"
 )
 
-type AdminService struct {
+type BasePathService struct {
 	logger logger.ILogger
 	db     *sql.DB
 }
 
-type IAdminService interface {
+type IBasePathService interface {
 	InsertBasePath(insertPath Path) (Path, error)
 	GetBasePaths() ([]Path, error)
 	UpdateBasePath(updatePath Path) (Path, error)
@@ -28,14 +28,14 @@ type Path struct {
 	Path      string `json:"path"`
 }
 
-func NewAdminService(logger logger.ILogger, db *sql.DB) *AdminService {
-	return &AdminService{
+func NewBasePathService(logger logger.ILogger, db *sql.DB) *BasePathService {
+	return &BasePathService{
 		logger: logger,
 		db:     db,
 	}
 }
 
-func (as *AdminService) InsertBasePath(newPath Path) (Path, error) {
+func (as *BasePathService) InsertBasePath(newPath Path) (Path, error) {
 	cleanedPath := path.Clean(newPath.Path)
 	result, err := as.db.Exec("INSERT INTO Paths (CreatedAt, Path) VALUES (?, ?)", time.Now().Format(time.RFC3339), cleanedPath)
 
@@ -54,7 +54,7 @@ func (as *AdminService) InsertBasePath(newPath Path) (Path, error) {
 	return as.getBasePathById(int(lastInsertID))
 }
 
-func (as *AdminService) getBasePathById(id int) (Path, error) {
+func (as *BasePathService) getBasePathById(id int) (Path, error) {
 	var path Path
 	err := as.db.QueryRow("SELECT * FROM Paths WHERE Id = ?", id).Scan(&path.Id, &path.CreatedAt, &path.Path)
 
@@ -66,7 +66,7 @@ func (as *AdminService) getBasePathById(id int) (Path, error) {
 	return path, nil
 }
 
-func (as *AdminService) GetBasePaths() ([]Path, error) {
+func (as *BasePathService) GetBasePaths() ([]Path, error) {
 	rows, err := as.db.Query("SELECT Id, CreatedAt, Path FROM Paths")
 
 	if err != nil {
@@ -77,7 +77,7 @@ func (as *AdminService) GetBasePaths() ([]Path, error) {
 	return datalayer.GetItems[Path](rows)
 }
 
-func (as *AdminService) UpdateBasePath(updatePath Path) (Path, error) {
+func (as *BasePathService) UpdateBasePath(updatePath Path) (Path, error) {
 	updatePath.Path = path.Clean(updatePath.Path)
 	_, err := as.db.Exec("UPDATE Paths SET Path = ? WHERE Id = ?", updatePath.Path, updatePath.Id)
 
@@ -89,7 +89,7 @@ func (as *AdminService) UpdateBasePath(updatePath Path) (Path, error) {
 	return updatePath, nil
 }
 
-func (as *AdminService) DeleteBasePath(deletePath Path) (Path, error) {
+func (as *BasePathService) DeleteBasePath(deletePath Path) (Path, error) {
 	_, err := as.db.Exec("DELETE FROM Paths WHERE Id = ?", deletePath.Id)
 
 	if err != nil {

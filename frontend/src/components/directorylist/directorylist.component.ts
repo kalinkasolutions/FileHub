@@ -31,7 +31,6 @@ export class DirectoryList implements OnInit, AfterViewInit, OnDestroy {
 
     this.pathService.segmentNavigation$.pipe(takeUntil(this.destroy$)).subscribe(x => {
       if (x.ItemId === "" && x.Id === 0) {
-        // intial home item
         this.loadInitial()
         return;
       }
