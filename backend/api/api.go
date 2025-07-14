@@ -2,6 +2,9 @@ package api
 
 import (
 	"database/sql"
+	"net/http"
+	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/kalinkasolutions/FileHub/backend/api/basepath"
@@ -44,7 +47,6 @@ func (a *Api) Load() {
 	}
 
 	a.router.SetTrustedProxies(a.config.TrustedProxies)
-	a.router.Static("/static", "./static")
 
 	publicPathService := publicpathservice.NewPublicPathService(a.logger, a.db)
 	shareService := shareservice.NewShareservice(a.logger, a.db)
@@ -52,6 +54,25 @@ func (a *Api) Load() {
 	fileapi.NewFileApi(a.logger, a.router, a.config, publicPathService, shareService).Load()
 	basepath.NewBasePathApi(a.router, basepathservice.NewBasePathService(a.logger, a.db)).Load()
 	shareapi.NewShareApi(a.logger, a.router, a.config, publicPathService, shareService).Load()
+
+	if !a.config.Debug {
+		a.router.Static("/static", "./frontend")
+		a.router.NoRoute(func(c *gin.Context) {
+			path := c.Request.URL.Path
+
+			if strings.HasPrefix(path, "/api") || strings.HasPrefix(path, "/public-api") {
+				c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+				return
+			}
+
+			filePath := "./frontend" + path
+			if info, err := os.Stat(filePath); err == nil && !info.IsDir() {
+				c.File(filePath)
+			} else {
+				c.File("./frontend/index.html")
+			}
+		})
+	}
 
 	a.logger.Info("Starting API on port: %s", a.config.Port)
 	a.router.Run(":" + a.config.Port)
