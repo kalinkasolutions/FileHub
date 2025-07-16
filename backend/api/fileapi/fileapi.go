@@ -7,7 +7,9 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
+	"regexp"
 
 	"github.com/gin-gonic/gin"
 	"github.com/kalinkasolutions/FileHub/backend/api/utils"
@@ -147,7 +149,9 @@ func (fa *FileApi) downloadFile(ctx *gin.Context, fileStats os.FileInfo, path st
 
 func (fa *FileApi) downloadDirectoryAsZip(ctx *gin.Context, validatedFilePath string) {
 	ctx.Header("Content-Type", "application/zip")
-	ctx.Header("Content-Disposition", "attachment; filename=\"download.zip\"")
+	re := regexp.MustCompile(`[^a-zA-Z\d\s\.\-\_\(\)]`)
+	basePath := re.ReplaceAllString(path.Base(validatedFilePath), "")
+	ctx.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", basePath))
 	ctx.Status(http.StatusOK)
 
 	zipWriter := zip.NewWriter(bufio.NewWriter(ctx.Writer))

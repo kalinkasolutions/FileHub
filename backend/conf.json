@@ -5,5 +5,5 @@
     "Domain": "localhost:4200",
     "Port": "4122",
     "TrustedProxies": ["example.com"],
-    "Debug": false
+    "Debug": true
 }
