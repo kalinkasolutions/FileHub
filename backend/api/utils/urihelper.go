@@ -11,7 +11,7 @@ func RedirectUri(conf config.Config) string {
 }
 
 func GetShareLink(conf config.Config, shareId string) string {
-	return fmt.Sprintf("%s/share/%s", BasePath(conf), shareId)
+	return fmt.Sprintf("%s/og/share/%s", BasePath(conf), shareId)
 }
 
 func BasePath(conf config.Config) string {

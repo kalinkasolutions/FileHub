@@ -40,7 +40,7 @@ func (ss *ShareApi) Load() {
 	ss.router.POST("api/share/create", ss.share())
 
 	ss.router.GET(("public-api/share/validate/:id"), ss.validate())
-	ss.router.GET(("/share/:id"), ss.handleShareLink())
+	ss.router.GET(("og/share/:id"), ss.handleShareLink())
 }
 
 func (ss *ShareApi) getShares() gin.HandlerFunc {

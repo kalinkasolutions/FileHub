@@ -141,10 +141,10 @@ input:focus-visible {
     box-shadow: #141415 1px 0px 29px 0px;
     background-color: rgb(43, 40, 40);
     height: 40vh;
+    min-height: 220px;
     flex-direction: column;
     display: flex;
     padding-bottom: 0.2em;
-    min-height: 220px;
 }
 
 .box ul,
