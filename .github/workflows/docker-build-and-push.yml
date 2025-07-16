@@ -24,4 +24,8 @@ jobs:
       - name: Build and push multi-platform Docker image
         run: |
           docker buildx create --use
-          docker buildx build --platform linux/amd64,linux/arm64 -t ${{ secrets.DOCKER_HUB_USERNAME }}/filehub:${{ github.ref_name }} --push .
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            -t ${{ secrets.DOCKER_HUB_USERNAME }}/filehub:${{ github.ref_name }} \
+            -t ${{ secrets.DOCKER_HUB_USERNAME }}/filehub:latest \
+            --push .
