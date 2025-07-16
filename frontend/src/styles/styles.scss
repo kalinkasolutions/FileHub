@@ -144,6 +144,7 @@ input:focus-visible {
     flex-direction: column;
     display: flex;
     padding-bottom: 0.2em;
+    min-height: 220px;
 }
 
 .box ul,

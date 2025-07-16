@@ -23,18 +23,12 @@ export class PublicShare {
         IsDir: false
     }
 
-    constructor(private route: ActivatedRoute, private fileService: FileService, private shareService: ShareService, private meta: Meta, private titleService: Title) {
+    constructor(private route: ActivatedRoute, private fileService: FileService, private shareService: ShareService) {
+        debugger
         this.route.paramMap.subscribe(params => {
             const id = params.get('id') ?? "";
             this.shareService.validateShare(id).subscribe(share => {
                 this.share = share;
-
-                this.titleService.setTitle(`${this.share.IsDir ? 'Folder' : 'File'} shared`);
-                const ogDescription = `Name: ${this.share.Name}, Size: ${this.getFileSize(this.share.Size)}`;
-
-                this.meta.updateTag({ property: 'og:title', content: this.share.Name });
-                this.meta.updateTag({ property: 'og:description', content: ogDescription });
-                this.meta.updateTag({ property: 'og:image', content: `${location.origin}/filehub.png` });
             });
         });
     }

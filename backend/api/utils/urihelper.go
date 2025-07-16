@@ -7,9 +7,13 @@ import (
 )
 
 func RedirectUri(conf config.Config) string {
-	return fmt.Sprintf("%s%s/404", config.CurrentProtocol(conf), conf.Domain)
+	return fmt.Sprintf("%s/404", BasePath(conf))
 }
 
 func GetShareLink(conf config.Config, shareId string) string {
-	return fmt.Sprintf("%s%s/share/%s", config.CurrentProtocol(conf), conf.Domain, shareId)
+	return fmt.Sprintf("%s/share/%s", BasePath(conf), shareId)
+}
+
+func BasePath(conf config.Config) string {
+	return fmt.Sprintf("%s%s", config.CurrentProtocol(conf), conf.Domain)
 }

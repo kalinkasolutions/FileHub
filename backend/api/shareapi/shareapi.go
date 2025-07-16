@@ -1,8 +1,10 @@
 package shareapi
 
 import (
+	"fmt"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 
 	"github.com/gin-gonic/gin"
@@ -38,6 +40,7 @@ func (ss *ShareApi) Load() {
 	ss.router.POST("api/share/create", ss.share())
 
 	ss.router.GET(("public-api/share/validate/:id"), ss.validate())
+	ss.router.GET(("/share/:id"), ss.handleShareLink())
 }
 
 func (ss *ShareApi) getShares() gin.HandlerFunc {
@@ -153,4 +156,70 @@ func (ss *ShareApi) validate() gin.HandlerFunc {
 
 		ctx.JSON(http.StatusOK, gin.H{"Id": share.Id, "Size": size, "Name": filepath.Base(share.Path), "IsDir": info.IsDir()})
 	}
+}
+
+func (ss *ShareApi) handleShareLink() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		id := ctx.Param("id")
+		var title = ""
+		var size = ""
+
+		share, err := ss.shareService.GetShareById(id)
+		if err != nil {
+			title = "not available"
+		} else {
+			title = path.Base(share.Path)
+		}
+
+		info, err := os.Stat(share.Path)
+		if err != nil {
+			ss.logger.Error("failed to get stats for path: %s, %v", share.Path, err)
+		} else {
+			size = fileSize(info.Size())
+		}
+
+		description := fmt.Sprintf("%s, %s", title, size)
+		imageURL := fmt.Sprintf("%s/filehub.png", utils.BasePath(ss.config))
+		shareLink := utils.GetShareLink(ss.config, id)
+
+		ctx.Header("Content-Type", "text/html")
+		ctx.String(http.StatusOK, `<!DOCTYPE html>
+			<html>
+			<head>
+				<link rel="icon" type="image/x-icon" href="favicon.ico">
+				<meta property="og:title" content="%s" />
+				<meta property="og:description" content="%s" />
+				<meta property="og:image" content="%s" />
+				<meta property="og:type" content="website" />
+				<meta property="og:url" content="%s" />
+			</head>
+			<body>
+				<a href="/share/%s">share link</a>
+				<script>location.href = "/share/%s"</script>
+			</body>
+			</html>`, title, description, imageURL, shareLink, id, id)
+	}
+}
+
+func fileSize(size int64) string {
+	gigabytes := float64(size) / 1_000_000_000
+	if gigabytes >= 1 {
+		return fmt.Sprintf("%.2f Gb", gigabytes)
+	}
+
+	megabytes := float64(size) / 1_000_000
+	if megabytes >= 1 {
+		return fmt.Sprintf("%.2f Mb", megabytes)
+	}
+
+	kilobytes := float64(size) / 1_000
+	if kilobytes >= 1 {
+		return fmt.Sprintf("%.2f Kb", kilobytes)
+	}
+
+	if size >= 1 {
+		return fmt.Sprintf("%d bytes", size)
+	}
+
+	return ""
 }
