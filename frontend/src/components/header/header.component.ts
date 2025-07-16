@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
-import { ActivatedRoute, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { IPublicPath } from '@models/IPublicPath';
 import { PathService } from '@services/path.service';
 import { Subject, takeUntil } from 'rxjs';
@@ -24,7 +24,7 @@ export class GlobalHeader implements OnInit, OnDestroy {
     private destroy$ = new Subject<void>();
 
 
-    constructor(private pathService: PathService, private route: ActivatedRoute) { }
+    constructor(private pathService: PathService, private route: ActivatedRoute, private router: Router) { }
 
     public ngOnInit(): void {
         this.pathService.NextSegment$.pipe(takeUntil(this.destroy$)).subscribe(path => {
@@ -41,6 +41,13 @@ export class GlobalHeader implements OnInit, OnDestroy {
     public ngOnDestroy(): void {
         this.destroy$.next();
         this.destroy$.complete();
+    }
+
+    public navigate() {
+        if (this.router.url !== "/") {
+            this.pathService.reset();
+            this.router.navigateByUrl("/");
+        }
     }
 
     public segmentChange(segment: IPublicPath, last: boolean) {

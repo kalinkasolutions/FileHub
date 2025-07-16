@@ -5,7 +5,9 @@ import { BehaviorSubject, Subject, subscribeOn } from "rxjs";
 @Injectable({ providedIn: 'root' })
 export class PathService {
 
-    private pathSubject = new BehaviorSubject<IPublicPath[]>([{ NextSegment: "", Id: 0, Name: "home", IsBasePath: true, IsDir: true, Size: 0, ItemId: "" }]);
+    private readonly initial = { NextSegment: "", Id: 0, Name: "home", IsBasePath: true, IsDir: true, Size: 0, ItemId: "" };
+
+    private pathSubject = new BehaviorSubject<IPublicPath[]>([this.initial]);
     private segmentNavigationSubject = new Subject<IPublicPath>();
 
     public NextSegment$ = this.pathSubject.asObservable();
@@ -31,5 +33,11 @@ export class PathService {
 
     public static getPathName(path: string): string {
         return path.substring(path.lastIndexOf("/") + 1, path.length);
+    }
+
+    public reset() {
+        this.pathSubject.next([
+            this.initial
+        ]);
     }
 }
