@@ -1,4 +1,5 @@
 <div class="center-wreapper">
+    <img src="filehub.png" />
     <div class="box">
         <div class="title">
             You've received a shared
@@ -7,7 +8,7 @@
         </div>
         <div class="flex-col">
             <div class="row flex-grow">
-                <strong class="flex-grow">{{share.Name}}</strong>
+                <strong class="flex-grow" title="{{ share.Name }}">{{share.Name}}</strong>
                 <span class="file-size">{{getFileSize(share.Size)}}</span>
             </div>
             <div class="flex-row align-center">

@@ -1,5 +1,6 @@
 import { CommonModule } from "@angular/common";
-import { Component } from "@angular/core";
+import { Component, OnInit } from "@angular/core";
+import { Meta, Title } from "@angular/platform-browser";
 import { ActivatedRoute } from "@angular/router";
 import { IShare } from "@models/IShare";
 import { FileService } from "@services/file.service";
@@ -22,11 +23,18 @@ export class PublicShare {
         IsDir: false
     }
 
-    constructor(private route: ActivatedRoute, private shareService: ShareService, private fileService: FileService) {
+    constructor(private route: ActivatedRoute, private fileService: FileService, private shareService: ShareService, private meta: Meta, private titleService: Title) {
         this.route.paramMap.subscribe(params => {
             const id = params.get('id') ?? "";
             this.shareService.validateShare(id).subscribe(share => {
                 this.share = share;
+
+                this.titleService.setTitle(`${this.share.IsDir ? 'Folder' : 'File'} shared`);
+                const ogDescription = `Name: ${this.share.Name}, Size: ${this.getFileSize(this.share.Size)}`;
+
+                this.meta.updateTag({ property: 'og:title', content: this.share.Name });
+                this.meta.updateTag({ property: 'og:description', content: ogDescription });
+                this.meta.updateTag({ property: 'og:image', content: `${location.origin}/filehub.png` });
             });
         });
     }
