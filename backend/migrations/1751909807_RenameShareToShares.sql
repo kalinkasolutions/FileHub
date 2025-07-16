@@ -1,0 +1,1 @@
+ALTER TABLE Share RENAME TO Shares;

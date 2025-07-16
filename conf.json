@@ -1,0 +1,9 @@
+{
+    "DatabasePath": "./data",
+    "DatabaseName": "db.sqlite3",
+    "Ssl": true,
+    "Domain": "temp.kalinka.lan",
+    "Port": "4122",
+    "TrustedProxies": ["kalinka.lan"],
+    "Debug": false
+}

@@ -1,0 +1,6 @@
+<ul class="directory-list">
+    <li *ngFor="let entry of displayedEntries">
+        <file-entry [fileEntry]="entry" (navigateToDirectory)="navigateToDirectory($event)"></file-entry>
+    </li>
+    <div #sentinel class="sentinel"></div>
+</ul>

@@ -1,0 +1,7 @@
+<div class="notification-container">
+    <div class="notification" (click)="kill(notification)" *ngFor="let notification of notifications" [ngClass]="{ 'dissapearing' :
+        notification.dissapearing}" [class]="getLevel(notification)">
+        <div class="title">{{ notification.title }}</div>
+        <div class="message">{{ notification.message }}</div>
+    </div>
+</div>

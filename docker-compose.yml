@@ -1,0 +1,11 @@
+services:
+  app:
+    container_name: file-hub
+    image: kalinkasolutions/filehub:latest
+    ports:
+      - "8080:4122" 
+    volumes:
+      - ./conf.json:/app/conf.json
+      - ./data:/app/data
+      - ./mnt/storage:/srv/storage:ro # mount your drive
+    restart: always

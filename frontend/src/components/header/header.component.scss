@@ -1,0 +1,45 @@
+@use 'variables' as *;
+
+.path-segment:not(:last-child)::after {
+    content: 'chevron_right';
+    font-family: 'Material Icons';
+    margin: 0 4px;
+    vertical-align: middle;
+}
+
+.path-segment:not(:last-child):hover {
+    cursor: pointer;
+    color: $green;
+    padding: 0.4em;
+    transition: padding 0.15s ease-in-out;
+}
+
+.path-segment:not(:last-child) {
+    padding: 0.0em;
+    transition: padding 0.15s ease-in-out;
+}
+
+.path-segments {
+    width: 80%;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+header {
+    padding: 1em;
+    height: 60px;
+}
+
+header span {
+    display: inline-block;
+}
+
+.nav {
+    margin-left: 0.5em;
+    cursor: pointer;
+}
+
+.nav:hover {
+    text-decoration: underline;
+    color: $green;
+}

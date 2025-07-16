@@ -1,0 +1,211 @@
+@use 'variables' as *;
+
+html {
+    background-color: rgba(0, 0, 0, 0.8);
+    color: #ffffffe3;
+    font-family: Consolas, 'Lucida Console', monospace;
+    font-size: medium;
+    user-select: none;
+}
+
+button,
+input {
+    font-family: inherit;
+}
+
+html,
+body,
+header,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+ul,
+ol,
+div,
+li {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+
+ul {
+    list-style: none;
+}
+
+a.nav {
+    color: inherit;
+    outline: none;
+}
+
+
+.material-icons {
+    color: $green;
+}
+
+.flex-row {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-self: start;
+}
+
+.flex-row.align-center {
+    justify-content: center;
+}
+
+.flex-col {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+button {
+    padding: 1em;
+    background-color: rgba(68, 160, 68, 0.7);
+    border: none;
+    margin: 1em;
+    width: 100%;
+    color: white;
+    font-size: large;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.5s ease;
+}
+
+button:hover {
+    background-color: rgba(68, 160, 68, 0.9);
+}
+
+.ellipsis {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.flex-grow {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.material-icons {
+    cursor: pointer;
+}
+
+input {
+    background: transparent;
+    color: white;
+    border: none;
+    padding: 0.5em 0 0.5em 0;
+    border-bottom: 2px solid white;
+    width: 100%;
+    max-width: 270px;
+}
+
+input:focus-visible {
+    outline: none;
+    border-bottom-color: $green;
+}
+
+.input-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.space-between {
+    justify-content: space-between;
+}
+
+.danger {
+    color: #ec4343cf;
+}
+
+
+.box {
+    margin: 0.5em;
+    min-width: 300px;
+    width: 100%;
+    max-width: 450px;
+    border: 5px solid $green;
+    box-shadow: #141415 1px 0px 29px 0px;
+    background-color: rgb(43, 40, 40);
+    height: 40vh;
+    flex-direction: column;
+    display: flex;
+    padding-bottom: 0.2em;
+}
+
+.box ul,
+.title,
+.input-row {
+    padding: 0.5em;
+
+}
+
+.box ul {
+    overflow-y: auto;
+    flex-grow: 1;
+}
+
+.box li {
+    height: 50px
+}
+
+.title {
+    border-bottom: 5px solid #4bc44b;
+    margin-bottom: 1em;
+}
+
+.non-edit-row {
+    padding: 0.5em 0 0.5em 0;
+}
+
+.row {
+    padding: 0 0 0 0;
+}
+
+.tiny-font-size {
+    font-size: xx-small;
+    padding: 0 0 0.5em 0;
+}
+
+.box-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, 450px);
+    gap: 1rem;
+    justify-content: start;
+}
+
+.row-icon {
+    margin-left: 0.5em;
+}
+
+
+@media (max-width: 470px) {
+    .box {
+        box-sizing: border-box;
+        width: 100%;
+        max-width: unset;
+        min-width: unset;
+        margin: 0.5em 0;
+    }
+
+    .box-grid {
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 0 0.5em;
+    }
+}

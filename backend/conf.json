@@ -1,0 +1,9 @@
+{
+    "DatabasePath": "./data",
+    "DatabaseName": "db.sqlite3",
+    "Ssl": false,
+    "Domain": "localhost:4200",
+    "Port": "4122",
+    "TrustedProxies": ["example.com"],
+    "Debug": false
+}

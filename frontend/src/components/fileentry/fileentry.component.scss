@@ -1,0 +1,21 @@
+.file-entry {
+    padding: 0.3em;
+}
+
+.file-entry span {
+    margin-left: 0.3em;
+}
+
+.file-entry:hover {
+    background-color: rgba(37, 176, 223, 1);
+}
+
+.directory {
+    cursor: pointer;
+}
+
+.file-size {
+    width: 100px;
+    text-align: right;
+    font-size: small;
+}

@@ -1,0 +1,4 @@
+.github/
+.vscode/
+conf.json
+docker-compose.yml

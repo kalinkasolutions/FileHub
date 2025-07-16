@@ -1,0 +1,17 @@
+<div class="box">
+    <div class="title">CURRENTLY SHARED</div>
+    <ul>
+        <li *ngFor="let sharedPath of sharedPaths">
+            <div class="flex-row row">
+                <span class="ellipsis" title="{{ getShareName(sharedPath.Path) }}">{{
+                    getShareName(sharedPath.Path)}}</span>
+                <span class="flex-grow"></span>
+                <span title="Download count" class="row-icon">{{ sharedPath.DownloadCount }}</span>
+                <span class="material-icons row-icon" (click)="copyShareLink(sharedPath)">content_copy</span>
+                <span class="material-icons danger row-icon" (click)="deleteEntry(sharedPath)">delete</span>
+            </div>
+            <div class="flex-row row">
+                <span [title]="sharedPath.Path" class="ellipsis tiny-font-size">{{ sharedPath.Path }}</span>
+            </div>
+    </ul>
+</div>
