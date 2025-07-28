@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { IPublicPath } from '@models/IPublicPath';
 import { PathService } from '@services/path.service';
@@ -17,6 +17,7 @@ export class GlobalHeader implements OnInit, OnDestroy {
 
     @Input() public path: IPublicPath[] = [];
     @Output() navigateToSegment = new EventEmitter<IPublicPath>();
+    @ViewChild('pathSegmentsContainer') pathSegmentsContainer!: ElementRef;
 
     public showPathSegments = false;
     public showHeader = true;
@@ -34,8 +35,14 @@ export class GlobalHeader implements OnInit, OnDestroy {
         this.route.data.subscribe(data => {
             this.showPathSegments = data["showPathSegments"] ?? this.showPathSegments;
             this.showHeader = data["showHeader"] ?? this.showHeader;
-            console.log(data)
         });
+    }
+
+    ngAfterViewChecked() {
+        if (this.pathSegmentsContainer) {
+            const el = this.pathSegmentsContainer.nativeElement;
+            el.scrollLeft = el.scrollWidth;
+        }
     }
 
     public ngOnDestroy(): void {
@@ -48,6 +55,10 @@ export class GlobalHeader implements OnInit, OnDestroy {
             this.pathService.reset();
             this.router.navigateByUrl("/");
         }
+    }
+
+    public isActive(route: string) {
+        return this.router.url === route;
     }
 
     public segmentChange(segment: IPublicPath, last: boolean) {

@@ -1,8 +1,8 @@
 import { HttpClient } from "@angular/common/http";
 import { Injectable } from "@angular/core";
+import { environment } from "@env/environment";
 import { INavigation } from "@models/INavigation";
 import { IPublicPath } from "@models/IPublicPath";
-import { environment } from "environments/environment";
 import { Observable } from "rxjs";
 
 @Injectable({

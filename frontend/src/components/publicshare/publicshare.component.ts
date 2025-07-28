@@ -24,7 +24,6 @@ export class PublicShare {
     }
 
     constructor(private route: ActivatedRoute, private fileService: FileService, private shareService: ShareService) {
-        debugger
         this.route.paramMap.subscribe(params => {
             const id = params.get('id') ?? "";
             this.shareService.validateShare(id).subscribe(share => {

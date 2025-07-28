@@ -162,7 +162,7 @@ func (ss *ShareApi) handleShareLink() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		id := ctx.Param("id")
 		var title = ""
-		var size = ""
+		var formattedSize = ""
 
 		share, err := ss.shareService.GetShareById(id)
 		if err != nil {
@@ -171,14 +171,14 @@ func (ss *ShareApi) handleShareLink() gin.HandlerFunc {
 			title = path.Base(share.Path)
 		}
 
-		info, err := os.Stat(share.Path)
+		size, err := dirSize(share.Path)
 		if err != nil {
-			ss.logger.Error("failed to get stats for path: %s, %v", share.Path, err)
+			ss.logger.Error("failed to get size for path: %s, %v", share.Path, err)
 		} else {
-			size = fileSize(info.Size())
+			formattedSize = fileSize(size)
 		}
 
-		description := fmt.Sprintf("%s, %s", title, size)
+		description := fmt.Sprintf("%s, %s", title, formattedSize)
 		imageURL := fmt.Sprintf("%s/filehub.png", utils.BasePath(ss.config))
 		shareLink := utils.GetShareLink(ss.config, id)
 
@@ -199,6 +199,20 @@ func (ss *ShareApi) handleShareLink() gin.HandlerFunc {
 			</body>
 			</html>`, title, description, imageURL, shareLink, id, id)
 	}
+}
+
+func dirSize(path string) (int64, error) {
+	var size int64
+	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			size += info.Size()
+		}
+		return nil
+	})
+	return size, err
 }
 
 func fileSize(size int64) string {

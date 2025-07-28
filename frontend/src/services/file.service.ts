@@ -1,7 +1,7 @@
 import { Injectable } from "@angular/core";
+import { environment } from "@env/environment";
 import { IPublicPath } from "@models/IPublicPath";
 import { IShare } from "@models/IShare";
-import { environment } from "environments/environment";
 
 @Injectable({
     providedIn: 'root'

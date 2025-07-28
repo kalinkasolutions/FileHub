@@ -37,9 +37,32 @@ header span {
 .nav {
     margin-left: 0.5em;
     cursor: pointer;
+    text-decoration: none;
 }
 
+.active,
 .nav:hover {
     text-decoration: underline;
     color: $green;
+}
+
+.logo {
+    width: 130px;
+    margin-right: 1em;
+}
+
+@media (max-width: 600px) {
+    header {
+        display: flex;
+        flex-wrap: wrap;
+        height: auto;
+    }
+
+    .path-segments {
+        width: 100%;
+        white-space: normal;
+        overflow-x: auto;
+        order: 1;
+        margin-top: 1em;
+    }
 }

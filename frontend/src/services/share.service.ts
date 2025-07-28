@@ -7,7 +7,7 @@ import { IShareLink } from "@models/IShareLink";
 import { catchError, Observable, throwError } from "rxjs";
 import { BaseService } from "./base.service";
 import { NotificationService } from "./notification.service";
-import { environment } from "environments/environment";
+import { environment } from "@env/environment";
 
 @Injectable({ providedIn: 'root' })
 export class ShareService extends BaseService {
