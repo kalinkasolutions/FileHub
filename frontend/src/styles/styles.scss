@@ -6,6 +6,16 @@ html {
     font-family: Consolas, 'Lucida Console', monospace;
     font-size: 16px;
     user-select: none;
+    height: 100vh;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+}
+
+* {
+    box-sizing: border-box;
 }
 
 button,
@@ -29,7 +39,6 @@ div,
 li {
     margin: 0;
     padding: 0;
-    box-sizing: border-box;
 }
 
 

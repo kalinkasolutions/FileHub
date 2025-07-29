@@ -10,13 +10,16 @@
 .path-segment:not(:last-child):hover {
     cursor: pointer;
     color: $green;
-    padding: 0.4em;
-    transition: padding 0.15s ease-in-out;
 }
 
 .path-segment:not(:last-child) {
     padding: 0.0em;
     transition: padding 0.15s ease-in-out;
+}
+
+.path-segment:last-child {
+    color: $green;
+    text-decoration: underline;
 }
 
 .path-segments {
@@ -55,14 +58,14 @@ header span {
     header {
         display: flex;
         flex-wrap: wrap;
-        height: auto;
+        height: 70px;
     }
 
     .path-segments {
         width: 100%;
-        white-space: normal;
         overflow-x: auto;
         order: 1;
         margin-top: 1em;
     }
+
 }
