@@ -196,6 +196,32 @@ input:focus-visible {
     margin-left: 0.5em;
 }
 
+::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+    background: transparent;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 0;
+    padding: 0;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    margin: 0;
+    padding: 0;
+}
+
+::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+* {
+    scrollbar-color: #888 transparent;
+}
+
 
 @media (max-width: 470px) {
     .box {

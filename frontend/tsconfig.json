@@ -30,6 +30,9 @@
       ],
       "@env/*": [
         "environments/*"
+      ],
+      "@interceptors/*": [
+        "interceptors/*"
       ]
     },
   },

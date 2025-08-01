@@ -1,6 +1,8 @@
 <header class="flex-row" *ngIf="showHeader">
-    <img class="logo" src="file-hub.svg" />
-    <div #pathSegmentsContainer class="flex-row path-segments" *ngIf="showPathSegments">
+    <a href="/">
+        <img class="logo" src="file-hub.svg" />
+    </a>
+    <div #pathSegmentsContainer class="flex-row path-segments" [ngStyle]="{ visibility: showPathSegments ? 'visible' : 'hidden' }">
         <span *ngFor="let segment of path; let last = last" (click)="segmentChange(segment, last)"
             class="path-segment">{{
             segment.Name }}</span>

@@ -67,7 +67,6 @@ func (fa *FileApi) getFileList() gin.HandlerFunc {
 
 func (fa *FileApi) navigate() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-
 		var req NavigateParams
 		err := ctx.ShouldBindJSON(&req)
 
