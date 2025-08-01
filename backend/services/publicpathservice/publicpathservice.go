@@ -125,13 +125,20 @@ func (pps *PubliPathService) getDirectoryInfos(directory []Path) []PublicPath {
 			Id:          entry.Id,
 			Name:        path.Base(entry.Path),
 			IsDir:       fileInfo.IsDir(),
-			Size:        fileInfo.Size(),
+			Size:        GetSize(fileInfo),
 			NextSegment: strings.TrimPrefix(entry.Path, entry.BasePath),
 			IsBasePath:  entry.Path == entry.BasePath,
 			ItemId:      uuid.New().String(),
 		})
 	}
 	return publicPaths
+}
+
+func GetSize(fileInfo os.FileInfo) int64 {
+	if fileInfo.IsDir() {
+		return fileInfo.Size() - 2
+	}
+	return fileInfo.Size()
 }
 
 func cleanPath(basePath string, navigation string) string {
