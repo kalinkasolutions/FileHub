@@ -50,13 +50,6 @@ export class GlobalHeader implements OnInit, OnDestroy {
         this.destroy$.complete();
     }
 
-    public navigate() {
-        if (this.router.url !== "/") {
-            this.pathService.reset();
-            this.router.navigateByUrl("/");
-        }
-    }
-
     public isActive(route: string) {
         return this.router.url === route;
     }

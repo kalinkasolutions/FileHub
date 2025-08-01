@@ -13,6 +13,24 @@ export class PathService {
     public NextSegment$ = this.pathSubject.asObservable();
     public segmentNavigation$ = this.segmentNavigationSubject.asObservable();
 
+    constructor() {
+        window.addEventListener('popstate', (event) => {
+            const state = event.state;
+            if (state && state.pathSegments) {
+                this.pathSubject.next(state.pathSegments);
+                if (state.pathSegments.length) {
+                    this.segmentNavigationSubject.next(state.pathSegments[state.pathSegments.length - 1]);
+                }
+            }
+        });
+
+        history.replaceState({ pathSegments: this.pathSubject.value }, '');
+    }
+
+    public getCurrentPath(): IPublicPath[] {
+        return this.pathSubject.value;
+    }
+
     public updateData(newVal: IPublicPath) {
         const currentPath = this.pathSubject.value;
 
@@ -20,7 +38,10 @@ export class PathService {
             return;
         }
 
-        this.pathSubject.next([...currentPath, newVal]);
+        const newPath = [...currentPath, newVal];
+
+        this.pathSubject.next(newPath);
+        history.pushState({ pathSegments: newPath }, '');
     }
 
     public segmentChange(segment: IPublicPath) {
@@ -29,15 +50,10 @@ export class PathService {
 
         this.pathSubject.next(newPath);
         this.segmentNavigationSubject.next(segment);
+        history.pushState({ pathSegments: newPath }, '');
     }
 
     public static getPathName(path: string): string {
         return path.substring(path.lastIndexOf("/") + 1, path.length);
-    }
-
-    public reset() {
-        this.pathSubject.next([
-            this.initial
-        ]);
     }
 }

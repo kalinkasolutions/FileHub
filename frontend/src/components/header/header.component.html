@@ -2,12 +2,13 @@
     <a href="/">
         <img class="logo" src="file-hub.svg" />
     </a>
-    <div #pathSegmentsContainer class="flex-row path-segments" [ngStyle]="{ visibility: showPathSegments ? 'visible' : 'hidden' }">
+    <div #pathSegmentsContainer class="flex-row path-segments"
+        [ngStyle]="{ visibility: showPathSegments ? 'visible' : 'hidden' }">
         <span *ngFor="let segment of path; let last = last" (click)="segmentChange(segment, last)"
             class="path-segment">{{
             segment.Name }}</span>
     </div>
     <span class="flex-grow"></span>
-    <a class="nav" [class.active]="isActive('/')" (click)="navigate()">directories</a>
+    <a class="nav" [class.active]="isActive('/')" routerLink="/">directories</a>
     <a class="nav" [class.active]="isActive('/admin')" routerLink="/admin">admin</a>
 </header>

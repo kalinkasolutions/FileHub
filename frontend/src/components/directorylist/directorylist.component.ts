@@ -27,16 +27,30 @@ export class DirectoryList implements OnInit, AfterViewInit, OnDestroy {
   constructor(private directoryService: DirectoryService, private pathService: PathService) { }
 
   public ngOnInit(): void {
-    this.loadInitial()
-    this.pathService.segmentNavigation$.pipe(takeUntil(this.destroy$)).subscribe(x => {
-      if (x.ItemId === "" && x.Id === 0) {
-        this.loadInitial()
-        return;
+    const currentPath = this.pathService.getCurrentPath();
+
+    if (currentPath && currentPath.length > 0) {
+      const lastSegment = currentPath[currentPath.length - 1];
+      if (lastSegment.ItemId === '' && lastSegment.Id === 0) {
+        this.loadInitial();
+      } else {
+        this.directoryService.navigate(lastSegment).subscribe(navigation => {
+          this.loadEntries(navigation.Entries);
+        });
       }
-      this.directoryService.navigate(x).subscribe(navigation => {
-        this.loadEntries(navigation.Entries)
+    }
+
+    this.pathService.segmentNavigation$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(x => {
+        if (x.ItemId === '' && x.Id === 0) {
+          this.loadInitial();
+          return;
+        }
+        this.directoryService.navigate(x).subscribe(navigation => {
+          this.loadEntries(navigation.Entries);
+        });
       });
-    })
   }
 
   public ngAfterViewInit(): void {
