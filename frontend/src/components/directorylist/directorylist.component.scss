@@ -1,6 +1,6 @@
 ul.directory-list {
   width: 100%;
-  height: calc(100vh - 60px);
+  height: calc(100vh - 110px);
   overflow-y: auto;
 }
 
@@ -12,9 +12,25 @@ ul li:nth-child(2n -1) {
   height: 1px;
 }
 
+.search {
+  height: 50px;
+  padding-left: 1em;
+}
+
+.search input {
+  padding-right: 2em;
+}
+
+.search::after {
+  content: 'search';
+  font-family: 'Material Icons';
+  font-size: 16px;
+  margin-left: -16px;
+}
+
 @media (max-width: 600px) {
   ul.directory-list {
 
-    height: calc(100vh - 100px);
+    height: calc(100vh - 150px);
   }
 }

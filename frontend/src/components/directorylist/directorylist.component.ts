@@ -1,10 +1,12 @@
 import { CommonModule } from '@angular/common';
 import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { FileEntry } from '@components/fileentry/fileentry.component';
+import { INavigation } from '@models/INavigation';
 import { IPublicPath } from '@models/IPublicPath';
 import { DirectoryService } from '@services/directory.service';
 import { PathService } from '@services/path.service';
-import { takeUntil } from 'rxjs';
+import { debounceTime, takeUntil } from 'rxjs';
 import { Subject } from 'rxjs/internal/Subject';
 
 @Component({
@@ -12,30 +14,40 @@ import { Subject } from 'rxjs/internal/Subject';
   selector: 'directory-list',
   templateUrl: './directorylist.component.html',
   styleUrl: 'directorylist.component.scss',
-  imports: [CommonModule, FileEntry]
+  imports: [CommonModule, FileEntry, FormsModule]
 })
 export class DirectoryList implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('sentinel') sentinel!: ElementRef;
 
   private allEntries: IPublicPath[] = [];
+  private filteredEntries: IPublicPath[] = [];
   private itemsPerPage = 50;
   private destroy$ = new Subject<void>();
-
+  private searchSubject = new Subject<string>();
 
   public displayedEntries: IPublicPath[] = [];
+  public searchTerm: string = "";
 
-  constructor(private directoryService: DirectoryService, private pathService: PathService) { }
+  constructor(private directoryService: DirectoryService, private pathService: PathService) {
+    this.searchSubject
+      .pipe(debounceTime(300))
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(value => {
+        this.filteredEntries = this.allEntries.filter(x => x.Name.toLowerCase().startsWith(value.toLowerCase()));
+        this.displayedEntries = [];
+        this.loadMoreItems();
+      });
+  }
 
   public ngOnInit(): void {
     const currentPath = this.pathService.getCurrentPath();
-
     if (currentPath && currentPath.length > 0) {
       const lastSegment = currentPath[currentPath.length - 1];
       if (lastSegment.ItemId === '' && lastSegment.Id === 0) {
         this.loadInitial();
       } else {
         this.directoryService.navigate(lastSegment).subscribe(navigation => {
-          this.loadEntries(navigation.Entries);
+          this.navigate(navigation);
         });
       }
     }
@@ -48,7 +60,7 @@ export class DirectoryList implements OnInit, AfterViewInit, OnDestroy {
           return;
         }
         this.directoryService.navigate(x).subscribe(navigation => {
-          this.loadEntries(navigation.Entries);
+          this.navigate(navigation);
         });
       });
   }
@@ -73,25 +85,35 @@ export class DirectoryList implements OnInit, AfterViewInit, OnDestroy {
   public navigateToDirectory(publicPath: IPublicPath) {
     this.pathService.updateData(publicPath);
     this.directoryService.navigate(publicPath).subscribe(navigation => {
-      this.loadEntries(navigation.Entries)
+      this.navigate(navigation);
     });
   }
 
   private loadInitial() {
+    this.searchTerm = "";
     this.directoryService.get().subscribe(entries => {
-      this.loadEntries(entries)
+      this.allEntries = entries;
+      this.filteredEntries = entries;
+      this.displayedEntries = [];
+      this.loadMoreItems()
     });
   }
 
   private loadMoreItems() {
-    const nextItems = this.allEntries.slice(this.displayedEntries.length, this.displayedEntries.length + this.itemsPerPage);
+    const nextItems = this.filteredEntries.slice(this.displayedEntries.length, this.displayedEntries.length + this.itemsPerPage);
     this.displayedEntries = [...this.displayedEntries, ...nextItems];
   }
 
-  private loadEntries(entries: IPublicPath[]) {
-    this.allEntries = entries;
+  private navigate(navigation: INavigation) {
+    this.searchTerm = "";
+    this.allEntries = navigation.Entries;
+    this.filteredEntries = navigation.Entries;
     this.displayedEntries = [];
     this.loadMoreItems();
+  }
+
+  public search() {
+    this.searchSubject.next(this.searchTerm);
   }
 
 }
