@@ -104,6 +104,14 @@ func (fa *FileApi) downloadPublicShare() gin.HandlerFunc {
 			return
 		}
 
+		_, err = os.Stat(share.Path)
+
+		if err != nil {
+			fa.logger.Error("failed to read filestats for path: %s, %v", share.Path, err)
+			ctx.Redirect(http.StatusFound, utils.RedirectUri(fa.config))
+			return
+		}
+
 		fa.shareService.UpdateDownloadCount(share.Id)
 
 		fa.handleFileOrDirectroyDownload(ctx, share.Path)
