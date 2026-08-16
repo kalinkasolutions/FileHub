@@ -15,23 +15,32 @@ people accounts, and hand out links to individual files or folders.
 The repo ships a working `docker-compose.yml` and a documented `.env.example`.
 
 ```bash
-cp .env.example .env        # set APP_BASE_URL at minimum
-$EDITOR docker-compose.yml  # mount the directories you want to serve, read-only
+cp .env.example .env                        # set APP_BASE_URL at minimum
+$EDITOR docker-compose.yml                  # mount the directories you want to serve, read-only
+mkdir -p ./data && sudo chown -R 1654:1654 ./data   # the container is not root
 docker compose up -d
 ```
 
-The compose file publishes the container's port 4122 on host port 8080 and mounts `./data` at
-`/var/srv`, where the database and the encryption keys live.
+The `chown` is not optional: the image runs as the unprivileged uid 1654, and without it the first
+run cannot create the database and exits on the migration.
+
+The compose file publishes port **4122 on `127.0.0.1` only** and mounts `./data` at `/var/srv`,
+where the database and the encryption keys live. FileHub speaks plain HTTP — TLS belongs at the
+reverse proxy — so publishing it on all interfaces would put the login form and every download on
+the internet in cleartext, around nginx. If your proxy runs on another host, bind the port to the
+interface that host reaches you on and add that proxy to `TRUSTED_PROXIES`.
 
 ### First run
 
 There is no registration page. On a fresh database the only account is the one FileHub seeds.
 
 1. **Read the admin password.** If you left `ADMIN_PASSWORD` empty, FileHub generates one and
-   writes it to the log **once**, on the run that creates the account:
+   prints it to the container's console **once**, on the run that creates the account. It is
+   printed rather than logged on purpose — the log is also a table in the database, and a
+   bootstrap credential should not outlive its first use:
 
    ```bash
-   docker compose logs app | grep "generated password"
+   docker compose logs app | grep -A2 "initial administrator"
    ```
 
 2. **Sign in** at `APP_BASE_URL` with `ADMIN_EMAIL` (default `admin@filehub.local`).
@@ -44,7 +53,10 @@ There is no registration page. On a fresh database the only account is the one F
    account and per path, and being an admin grants nothing implicitly, so until you do this your
    own file list is empty.
 6. **Admin → Email → enter your SMTP settings and send a test.** Do this before step 7:
-   invitations are the only way an account comes into existence, and they arrive by mail.
+   invitations are the only way an account comes into existence, and they arrive by mail. The
+   password is write-only — later edits can leave it blank to keep it, *except* when you change the
+   host, port, transport or username, which clears it rather than sending your secret to a server
+   it was never given to. The screen says so when it happens.
 7. **Admin → Users → invite.** The invited person gets a link that sets their first password and
    confirms their address in one step. Grant them their base paths from the same row menu.
 
@@ -54,16 +66,18 @@ Everything is environment variables; see `.env.example` for the full comments.
 
 | Variable | What it does | Default |
 | --- | --- | --- |
-| `APP_BASE_URL` | **Public origin, no trailing slash.** Share links and the links in invitation and reset mails are built from it, so a wrong value hands out links nobody can open. | `http://localhost:8080` |
+| `APP_BASE_URL` | **Public origin, no trailing slash.** Share links and the links in invitation and reset mails are built from it, so a wrong value hands out links nobody can open. | `http://localhost:4122` |
+| `TRUSTED_PROXIES` | **Whose `X-Forwarded-For`/`X-Forwarded-Proto` FileHub believes** — IPs and/or CIDR blocks (host bits clear), comma separated. Get this wrong and the login rate limit counts the whole internet as one caller, and auth cookies lose their `Secure` flag. Narrow it to your proxy. A malformed entry stops the app rather than being skipped. | loopback + the private ranges |
 | `ADMIN_EMAIL` | Address of the seeded admin. Only used on a database with no admin. | `admin@filehub.local` |
-| `ADMIN_PASSWORD` | Bootstrap password. Leave empty to have one generated and logged once — safer than a value sitting in a file before anyone has signed in. | *(generated)* |
+| `ADMIN_PASSWORD` | Bootstrap password. Leave empty to have one generated and printed once — safer than a value sitting in a file before anyone has signed in. | *(generated)* |
 | `CONNECTION_STRING` | SQLite file. Keep it under `/var/srv` or it dies with the container. | `Data Source=/var/srv/filehub.db` |
 | `DATA_PROTECTION_KEY_PATH` | Where the encryption key ring is written. Same volume, same reason. | `/var/srv/keys` |
 | `LOG_LEVEL` | Minimum level for the console and the `Logs` table. | `Information` |
 | `EMAIL_SMTP_HOST`, `EMAIL_PORT`, `EMAIL_USERNAME`, `EMAIL_PASSWORD`, `EMAIL_FROM_ADDRESS`, `EMAIL_FROM_NAME`, `EMAIL_SECURE_SOCKET_OPTIONS` | SMTP. These only *seed* the settings row — once an admin saves the mail settings in the UI, that row is what gets used. | port `587`, `StartTls` |
 
-Only `APP_BASE_URL`, `ADMIN_EMAIL` and the SMTP block need real values; the rest have defaults
-that work.
+Only `APP_BASE_URL`, `ADMIN_EMAIL` and the SMTP block need real values; the rest have defaults that
+work, though `TRUSTED_PROXIES` is worth narrowing from the private ranges to your proxy's own
+address.
 
 ## Access model
 
@@ -72,25 +86,38 @@ that work.
 - **An account sees exactly the base paths an admin granted it.** There is no wildcard, and an
   admin has no implicit access to anything either.
 - **A share link is the one anonymous surface.** It is an unguessable id, it may carry a download
-  limit, and it stops working when the share or its base path is deleted.
-- `..` traversal is refused, and so is a symlink whose target leaves the base path.
+  limit, and it stops working when the share or its base path is deleted — or when its creator's
+  access to that base path is revoked.
+- `..` traversal is refused, and so is any path that resolves out of the base path through a
+  symlink, however many links deep.
+- **Two-factor is per account**, enabled from the account screen; enrolling and regenerating
+  recovery codes both ask for the current password, so a stolen session cannot pair a second
+  factor of its own.
 
 ## Behind a reverse proxy
 
-`nginx.example.conf` is a working reference. Two settings in it are not optional:
+`nginx.example.conf` is a working reference. Three things in it are not optional:
 
 - **`proxy_buffering off`** — otherwise nginx spools a multi-gigabyte download or a generated ZIP
   to its own disk before sending a byte, and raise `proxy_read_timeout`: building a large ZIP
   produces no output for a while, which the default 60s kills.
-- **`X-Forwarded-Proto` and `X-Forwarded-For`** — without the first, FileHub thinks every request
-  is plain HTTP and issues auth cookies without the `Secure` flag; without the second, every log
-  line and lockout counter shows the proxy's address.
+- **`X-Forwarded-Proto` and `X-Forwarded-For`**, *and* the proxy's address in `TRUSTED_PROXIES`.
+  Sending the headers is half of it: FileHub ignores them from anywhere it was not told to trust,
+  and then thinks every request is plain HTTP (auth cookies lose `Secure`) and that the whole
+  internet is one caller (the login rate limit becomes a single bucket).
+- **The two rate-limit zones.** `limit_req`/`limit_conn` are used in the site file, but
+  `limit_req_zone` and `limit_conn_zone` are only valid in `http { }` — copy those two lines from
+  the comment at the top of `nginx.example.conf` into `nginx.conf`, or nginx will not start.
+
+It also sets HSTS, `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy` and a CSP. HSTS with
+`includeSubDomains` is a commitment — turn it on once every subdomain is on TLS.
 
 ## Backups
 
 Back up the `./data` volume. It holds the SQLite database *and* the Data Protection key ring —
 restoring the database without the keys signs everyone out and makes the stored SMTP password
-unreadable (re-enter it under Admin → Email).
+unreadable (re-enter it under Admin → Email). Restore it owned by uid 1654, the same as a fresh
+install: `sudo chown -R 1654:1654 ./data`.
 
 ## Development
 
