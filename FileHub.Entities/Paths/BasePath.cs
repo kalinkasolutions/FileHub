@@ -20,5 +20,6 @@ public sealed class BasePath : IBaseEntity
     public string Name { get; set; }
 
     public ICollection<BasePathAccess> Access { get; set; } = new List<BasePathAccess>();
+    public ICollection<BasePathGroupAccess> GroupAccess { get; set; } = new List<BasePathGroupAccess>();
     public ICollection<Share> Shares { get; set; } = new List<Share>();
 }

@@ -13,4 +13,11 @@ public sealed class CreateShareDto
     /// <summary>0 means unlimited, which is what a link gets unless the creator caps it.</summary>
     [Range(0, int.MaxValue)]
     public int MaxDownloadCount { get; set; }
+
+    /// <summary>
+    /// Who the link is for. Null — the default — is today's behaviour: anonymous by URL. Set to a
+    /// group, the link only answers a signed-in member of it. Only a member of that group, or an
+    /// admin, may aim a link at it.
+    /// </summary>
+    public Guid? AudienceGroupId { get; set; }
 }

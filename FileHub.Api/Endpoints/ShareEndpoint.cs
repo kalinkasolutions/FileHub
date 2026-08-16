@@ -33,7 +33,7 @@ public static class ShareEndpoint
     private static async Task<IResult> CreateAsync(
         CreateShareDto dto, ClaimsPrincipal user, IShareService service, IOptions<AppOptions> options)
     {
-        var result = await service.CreateAsync(user.GetUserId(), dto);
+        var result = await service.CreateAsync(user.GetUserId(), user.IsInRole(Roles.Admin), dto);
 
         if (result.IsSuccess)
         {

@@ -22,9 +22,9 @@ public sealed class FileService : IFileService
         m_basePathRepository = basePathRepository;
     }
 
-    public async Task<OperationResult<List<FileEntryDto>>> GetBasePathsAsync(Guid userId)
+    public async Task<OperationResult<List<FileEntryDto>>> GetBasePathsAsync(Guid userId, bool callerIsAdmin)
     {
-        var basePaths = await m_basePathRepository.GetForUserAsync(userId);
+        var basePaths = await m_basePathRepository.GetForUserAsync(userId, callerIsAdmin);
         var entries = new List<FileEntryDto>(basePaths.Count);
 
         foreach (var basePath in basePaths)
@@ -54,7 +54,7 @@ public sealed class FileService : IFileService
         return OperationResult<List<FileEntryDto>>.Success(entries);
     }
 
-    public async Task<OperationResult<NavigationDto>> NavigateAsync(Guid userId, NavigateDto dto)
+    public async Task<OperationResult<NavigationDto>> NavigateAsync(Guid userId, bool callerIsAdmin, NavigateDto dto)
     {
         var validation = DtoValidator.Validate(dto);
         if (validation.HasError)
@@ -62,7 +62,7 @@ public sealed class FileService : IFileService
             return validation.MapError<NavigationDto>();
         }
 
-        var basePath = await m_basePathRepository.GetForUserAsync(dto.BasePathId, userId);
+        var basePath = await m_basePathRepository.GetForUserAsync(dto.BasePathId, userId, callerIsAdmin);
         if (basePath is null)
         {
             return NotGranted<NavigationDto>(userId, dto.BasePathId);
@@ -93,9 +93,9 @@ public sealed class FileService : IFileService
     }
 
     public async Task<OperationResult<ResolvedFile>> ResolveDownloadAsync(
-        Guid userId, Guid basePathId, string relativePath)
+        Guid userId, bool callerIsAdmin, Guid basePathId, string relativePath)
     {
-        var basePath = await m_basePathRepository.GetForUserAsync(basePathId, userId);
+        var basePath = await m_basePathRepository.GetForUserAsync(basePathId, userId, callerIsAdmin);
         if (basePath is null)
         {
             return NotGranted<ResolvedFile>(userId, basePathId);
@@ -233,8 +233,9 @@ public sealed class FileService : IFileService
     }
 
     /// <summary>
-    /// A base path the caller holds no grant for answers exactly like one that does not exist, so the
-    /// response cannot be used to enumerate what other users can see.
+    /// A base path the caller cannot reach — no grant of their own, no group that holds it, and not
+    /// an admin — answers exactly like one that does not exist, so the response cannot be used to
+    /// enumerate what other users can see.
     /// </summary>
     private OperationResult<T> NotGranted<T>(Guid userId, Guid basePathId)
     {

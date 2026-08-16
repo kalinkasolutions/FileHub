@@ -3,9 +3,10 @@ using Entities.Account;
 namespace Entities.Paths;
 
 /// <summary>
-/// Grants one user access to one base path. A user with no row for a base path cannot see it,
-/// navigate into it, download from it or share it — admins included, until they grant it to
-/// themselves. There is no "all paths" wildcard: absence of a row is always a denial.
+/// Grants one user access to one base path, directly. It is one of the three routes to a base
+/// path: this row, a <see cref="BasePathGroupAccess"/> row for a group the user belongs to, or the
+/// Admin role — which is an implicit grant of every base path. For everyone else, absence of a row
+/// on either side is a denial.
 /// </summary>
 public sealed class BasePathAccess : IBaseEntity
 {

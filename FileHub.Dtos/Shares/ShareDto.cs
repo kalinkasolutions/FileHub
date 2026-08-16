@@ -25,6 +25,12 @@ public sealed class ShareDto
 
     public DateTime CreatedAt { get; set; }
 
+    /// <summary>Null means anyone with the link; set means only members of that group.</summary>
+    public Guid? AudienceGroupId { get; set; }
+
+    /// <summary>The audience group's name, so the UI can label the link without a second call.</summary>
+    public string AudienceGroupName { get; set; }
+
     /// <summary>The absolute public URL; stamped by the API layer, which owns the app's base URL.</summary>
     public string Link { get; set; }
 }

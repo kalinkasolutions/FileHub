@@ -26,8 +26,9 @@ public sealed class UserDto
     public bool IsLockedOut { get; set; }
 
     /// <summary>
-    /// How many base paths this account has been granted. Zero means it can see nothing at all:
-    /// access is granted per path and absence of a grant is a denial, admins included.
+    /// How many base paths this account has been granted <em>directly</em>. Zero does not mean it
+    /// can see nothing: the account may reach base paths through a group, and an admin reaches all
+    /// of them.
     /// </summary>
     public int BasePathCount { get; set; }
 

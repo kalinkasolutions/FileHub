@@ -15,6 +15,7 @@ public sealed class BasePathRepository : IBasePathRepository
     public Task<List<BasePath>> GetAllAsync() =>
         m_context.BasePaths
             .Include(p => p.Access)
+            .Include(p => p.GroupAccess)
             .OrderBy(p => p.Name)
             .ThenBy(p => p.Path)
             .ToListAsync();
@@ -22,16 +23,24 @@ public sealed class BasePathRepository : IBasePathRepository
     public Task<BasePath?> GetAsync(Guid id) =>
         m_context.BasePaths.FirstOrDefaultAsync(p => p.Id == id);
 
-    public Task<List<BasePath>> GetForUserAsync(Guid userId) =>
+    // The three routes to a base path, in one query rather than one per route: the caller's own
+    // grant, a grant to any group they belong to, or the Admin role — which the endpoint decides
+    // and passes in, so the query says out loud what makes it true.
+    public Task<List<BasePath>> GetForUserAsync(Guid userId, bool callerIsAdmin) =>
         m_context.BasePaths
-            .Where(p => p.Access.Any(a => a.UserId == userId))
+            .Where(p => callerIsAdmin
+                        || p.Access.Any(a => a.UserId == userId)
+                        || p.GroupAccess.Any(g => g.Group.Memberships.Any(m => m.UserId == userId)))
             .OrderBy(p => p.Name)
             .ThenBy(p => p.Path)
             .ToListAsync();
 
-    public Task<BasePath?> GetForUserAsync(Guid id, Guid userId) =>
+    public Task<BasePath?> GetForUserAsync(Guid id, Guid userId, bool callerIsAdmin) =>
         m_context.BasePaths
-            .FirstOrDefaultAsync(p => p.Id == id && p.Access.Any(a => a.UserId == userId));
+            .FirstOrDefaultAsync(p => p.Id == id
+                                      && (callerIsAdmin
+                                          || p.Access.Any(a => a.UserId == userId)
+                                          || p.GroupAccess.Any(g => g.Group.Memberships.Any(m => m.UserId == userId))));
 
     public Task<bool> PathExistsAsync(string path, Guid? excludeId) =>
         m_context.BasePaths.AnyAsync(p => p.Path == path && (excludeId == null || p.Id != excludeId));
@@ -44,6 +53,12 @@ public sealed class BasePathRepository : IBasePathRepository
         m_context.BasePathAccesses
             .Where(a => a.BasePathId == basePathId)
             .Select(a => a.UserId)
+            .ToListAsync();
+
+    public Task<List<Guid>> GetGroupIdsAsync(Guid basePathId) =>
+        m_context.BasePathGroupAccesses
+            .Where(a => a.BasePathId == basePathId)
+            .Select(a => a.GroupId)
             .ToListAsync();
 
     public async Task<List<Guid>> FilterExistingUserIdsAsync(IReadOnlyCollection<Guid> userIds)
@@ -93,6 +108,21 @@ public sealed class BasePathRepository : IBasePathRepository
         foreach (var basePathId in basePathIds.Distinct())
         {
             m_context.BasePathAccesses.Add(new BasePathAccess { BasePathId = basePathId, UserId = userId });
+        }
+    }
+
+    public async Task ReplaceGroupAccessForBasePathAsync(Guid basePathId, IReadOnlyCollection<Guid> groupIds)
+    {
+        var existing = await m_context.BasePathGroupAccesses
+            .Where(a => a.BasePathId == basePathId)
+            .ToListAsync();
+
+        m_context.BasePathGroupAccesses.RemoveRange(existing);
+
+        foreach (var groupId in groupIds.Distinct())
+        {
+            m_context.BasePathGroupAccesses.Add(
+                new BasePathGroupAccess { BasePathId = basePathId, GroupId = groupId });
         }
     }
 

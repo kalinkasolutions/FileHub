@@ -30,5 +30,10 @@ public sealed class AdminShareDto
 
     public string CreatedBy { get; set; }
 
+    /// <summary>Null means anyone with the link; set means only members of that group.</summary>
+    public Guid? AudienceGroupId { get; set; }
+
+    public string AudienceGroupName { get; set; }
+
     public string Link { get; set; }
 }

@@ -1,6 +1,7 @@
 using Entities;
 using Entities.Account;
 using Entities.Email;
+using Entities.Groups;
 using Entities.Paths;
 using Entities.Shares;
 using Microsoft.AspNetCore.Identity;
@@ -17,6 +18,9 @@ public class FileHubContext : IdentityDbContext<FileHubUser, IdentityRole<Guid>,
 
     public DbSet<BasePath> BasePaths { get; set; }
     public DbSet<BasePathAccess> BasePathAccesses { get; set; }
+    public DbSet<BasePathGroupAccess> BasePathGroupAccesses { get; set; }
+    public DbSet<Group> Groups { get; set; }
+    public DbSet<GroupMembership> GroupMemberships { get; set; }
     public DbSet<Share> Shares { get; set; }
     public DbSet<EmailSetting> EmailSettings { get; set; }
 
@@ -51,6 +55,47 @@ public class FileHubContext : IdentityDbContext<FileHubUser, IdentityRole<Guid>,
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        builder.Entity<Group>(entity =>
+        {
+            // NOCASE so the unique index and every `Name ==` comparison agree, and so that "Family"
+            // and "family" are one group rather than two an admin cannot tell apart in a list.
+            entity.Property(g => g.Name).IsRequired().HasMaxLength(200).UseCollation("NOCASE");
+
+            entity.HasIndex(g => g.Name).IsUnique();
+        });
+
+        builder.Entity<GroupMembership>(entity =>
+        {
+            entity.HasIndex(m => new { m.GroupId, m.UserId }).IsUnique();
+
+            // Both sides cascade, exactly like BasePathAccess: a membership carries no state worth
+            // keeping once either the group or the account is gone.
+            entity.HasOne(m => m.Group)
+                .WithMany(g => g.Memberships)
+                .HasForeignKey(m => m.GroupId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(m => m.User)
+                .WithMany()
+                .HasForeignKey(m => m.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<BasePathGroupAccess>(entity =>
+        {
+            entity.HasIndex(a => new { a.BasePathId, a.GroupId }).IsUnique();
+
+            entity.HasOne(a => a.BasePath)
+                .WithMany(p => p.GroupAccess)
+                .HasForeignKey(a => a.BasePathId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(a => a.Group)
+                .WithMany(g => g.BasePathAccess)
+                .HasForeignKey(a => a.GroupId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         builder.Entity<Share>(entity =>
         {
             entity.Property(s => s.RelativePath).IsRequired().HasMaxLength(4096);
@@ -68,6 +113,14 @@ public class FileHubContext : IdentityDbContext<FileHubUser, IdentityRole<Guid>,
             entity.HasOne(s => s.CreatedBy)
                 .WithMany()
                 .HasForeignKey(s => s.CreatedById)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Cascade rather than the default SET NULL for an optional relationship: a link aimed
+            // at a group must not become an anonymous one because the group was deleted. The
+            // database enforces it, so no service can forget.
+            entity.HasOne(s => s.AudienceGroup)
+                .WithMany(g => g.Shares)
+                .HasForeignKey(s => s.AudienceGroupId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

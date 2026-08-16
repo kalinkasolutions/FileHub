@@ -18,11 +18,17 @@ public interface IBasePathService
 
     Task<OperationResult<Empty>> DeleteAsync(Guid id);
 
-    /// <summary>The users granted this base path.</summary>
+    /// <summary>The users granted this base path directly.</summary>
     Task<OperationResult<List<Guid>>> GetUsersAsync(Guid basePathId);
 
-    /// <summary>Replaces the users granted this base path.</summary>
+    /// <summary>Replaces the users granted this base path directly.</summary>
     Task<OperationResult<Empty>> SetUsersAsync(Guid basePathId, SetBasePathAccessDto dto);
+
+    /// <summary>The groups granted this base path — every member of one reaches it.</summary>
+    Task<OperationResult<List<Guid>>> GetGroupsAsync(Guid basePathId);
+
+    /// <summary>Replaces the groups granted this base path.</summary>
+    Task<OperationResult<Empty>> SetGroupsAsync(Guid basePathId, SetBasePathGroupsDto dto);
 
     /// <summary>The base paths one user is granted.</summary>
     Task<OperationResult<List<Guid>>> GetUserBasePathsAsync(Guid userId);

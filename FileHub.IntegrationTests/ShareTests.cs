@@ -76,7 +76,7 @@ public sealed class ShareTests : SharesTestBase
 
         await File.WriteAllTextAsync(file, new string('x', 9000));
         NewRequest();
-        var resolved = await Shares.ResolvePublicAsync(share.Id);
+        var resolved = await Shares.ResolvePublicAsync(share.Id, callerId: null, callerIsAdmin: false);
 
         // The public route is unauthenticated, so a fresh walk there would be free IO amplification
         // for anyone holding a link. It reports the stored measurement, stale or not.
@@ -134,7 +134,7 @@ public sealed class ShareTests : SharesTestBase
         var basePath = await CreateBasePathAsync(Tree.Root);
         await GrantAsync(basePath.Id, alice.Id);
 
-        var result = await Shares.CreateAsync(alice.Id, new CreateShareDto
+        var result = await Shares.CreateAsync(alice.Id, callerIsAdmin: false, new CreateShareDto
         {
             BasePathId = basePath.Id,
             RelativePath = "a.txt",
@@ -157,7 +157,7 @@ public sealed class ShareTests : SharesTestBase
         var basePath = await CreateBasePathAsync(Tree.Root);
         await GrantAsync(basePath.Id, alice.Id);
 
-        var result = await Shares.CreateAsync(alice.Id, new CreateShareDto
+        var result = await Shares.CreateAsync(alice.Id, callerIsAdmin: false, new CreateShareDto
         {
             BasePathId = basePath.Id,
             RelativePath = relativePath
@@ -174,7 +174,7 @@ public sealed class ShareTests : SharesTestBase
         var basePath = await CreateBasePathAsync(Tree.Root);
         await GrantAsync(basePath.Id, alice.Id);
 
-        var result = await Shares.CreateAsync(alice.Id, new CreateShareDto
+        var result = await Shares.CreateAsync(alice.Id, callerIsAdmin: false, new CreateShareDto
         {
             BasePathId = basePath.Id,
             RelativePath = "gone.txt"
@@ -195,7 +195,7 @@ public sealed class ShareTests : SharesTestBase
         var share = await ShareAsync(alice.Id, basePath.Id, "sub/a.txt");
 
         NewRequest();
-        var result = await Shares.ResolvePublicAsync(share.Id);
+        var result = await Shares.ResolvePublicAsync(share.Id, callerId: null, callerIsAdmin: false);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(file, result.Value.FullPath);
@@ -207,7 +207,7 @@ public sealed class ShareTests : SharesTestBase
     [Fact]
     public async Task Resolving_an_unknown_link_is_not_found()
     {
-        AssertPublicFailure(await Shares.ResolvePublicAsync(Guid.NewGuid()));
+        AssertPublicFailure(await Shares.ResolvePublicAsync(Guid.NewGuid(), callerId: null, callerIsAdmin: false));
     }
 
     [Fact]
@@ -222,7 +222,7 @@ public sealed class ShareTests : SharesTestBase
         File.Delete(file);
         NewRequest();
 
-        AssertPublicFailure(await Shares.ResolvePublicAsync(share.Id));
+        AssertPublicFailure(await Shares.ResolvePublicAsync(share.Id, callerId: null, callerIsAdmin: false));
     }
 
     [Fact]
@@ -245,7 +245,7 @@ public sealed class ShareTests : SharesTestBase
         Tree.Symlink("a.txt", Tree.OutsideFile("secret.txt"), isDirectory: false);
         NewRequest();
 
-        AssertPublicFailure(await Shares.ResolvePublicAsync(share.Id));
+        AssertPublicFailure(await Shares.ResolvePublicAsync(share.Id, callerId: null, callerIsAdmin: false));
     }
 
     [Fact]
@@ -261,7 +261,7 @@ public sealed class ShareTests : SharesTestBase
 
         await BasePaths.UpdateAsync(basePath.Id, new SaveBasePathDto { Path = second, Name = "Movies" });
         NewRequest();
-        var result = await Shares.ResolvePublicAsync(share.Id);
+        var result = await Shares.ResolvePublicAsync(share.Id, callerId: null, callerIsAdmin: false);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(Path.Combine(second, "a.txt"), result.Value.FullPath);
@@ -279,12 +279,12 @@ public sealed class ShareTests : SharesTestBase
         for (var i = 0; i < 5; i++)
         {
             NewRequest();
-            Assert.True((await Shares.ResolvePublicAsync(share.Id)).IsSuccess);
-            await Shares.RegisterDownloadAsync(share.Id);
+            Assert.True((await Shares.ResolvePublicAsync(share.Id, callerId: null, callerIsAdmin: false)).IsSuccess);
+            await Shares.RegisterDownloadAsync(share.Id, callerId: null, callerIsAdmin: false);
         }
 
         NewRequest();
-        Assert.True((await Shares.ResolvePublicAsync(share.Id)).IsSuccess);
+        Assert.True((await Shares.ResolvePublicAsync(share.Id, callerId: null, callerIsAdmin: false)).IsSuccess);
     }
 
     [Fact]
@@ -299,12 +299,12 @@ public sealed class ShareTests : SharesTestBase
         for (var i = 0; i < 2; i++)
         {
             NewRequest();
-            Assert.True((await Shares.ResolvePublicAsync(share.Id)).IsSuccess);
-            await Shares.RegisterDownloadAsync(share.Id);
+            Assert.True((await Shares.ResolvePublicAsync(share.Id, callerId: null, callerIsAdmin: false)).IsSuccess);
+            await Shares.RegisterDownloadAsync(share.Id, callerId: null, callerIsAdmin: false);
         }
 
         NewRequest();
-        AssertPublicFailure(await Shares.ResolvePublicAsync(share.Id));
+        AssertPublicFailure(await Shares.ResolvePublicAsync(share.Id, callerId: null, callerIsAdmin: false));
     }
 
     [Fact]
@@ -316,8 +316,8 @@ public sealed class ShareTests : SharesTestBase
         await GrantAsync(basePath.Id, alice.Id);
         var share = await ShareAsync(alice.Id, basePath.Id, "a.txt");
 
-        await Shares.RegisterDownloadAsync(share.Id);
-        await Shares.RegisterDownloadAsync(share.Id);
+        await Shares.RegisterDownloadAsync(share.Id, callerId: null, callerIsAdmin: false);
+        await Shares.RegisterDownloadAsync(share.Id, callerId: null, callerIsAdmin: false);
 
         NewRequest();
         Assert.Equal(2, (await Context.Shares.SingleAsync()).DownloadCount);
@@ -326,7 +326,7 @@ public sealed class ShareTests : SharesTestBase
     [Fact]
     public async Task Registering_a_download_of_an_unknown_link_fails()
     {
-        var result = await Shares.RegisterDownloadAsync(Guid.NewGuid());
+        var result = await Shares.RegisterDownloadAsync(Guid.NewGuid(), callerId: null, callerIsAdmin: false);
 
         // The same failure every other public miss answers, so the response says nothing about
         // which links exist — and the download route turns it into the app's 404 page.
@@ -350,7 +350,7 @@ public sealed class ShareTests : SharesTestBase
         for (var i = 0; i < 8; i++)
         {
             NewRequest();
-            Assert.True((await Shares.ResolvePublicAsync(share.Id)).IsSuccess);
+            Assert.True((await Shares.ResolvePublicAsync(share.Id, callerId: null, callerIsAdmin: false)).IsSuccess);
         }
 
         var granted = 0;
@@ -358,7 +358,7 @@ public sealed class ShareTests : SharesTestBase
         for (var i = 0; i < 8; i++)
         {
             NewRequest();
-            if ((await Shares.RegisterDownloadAsync(share.Id)).IsSuccess)
+            if ((await Shares.RegisterDownloadAsync(share.Id, callerId: null, callerIsAdmin: false)).IsSuccess)
             {
                 granted++;
             }
@@ -383,7 +383,7 @@ public sealed class ShareTests : SharesTestBase
         for (var i = 0; i < 8; i++)
         {
             NewRequest();
-            Assert.True((await Shares.RegisterDownloadAsync(share.Id)).IsSuccess);
+            Assert.True((await Shares.RegisterDownloadAsync(share.Id, callerId: null, callerIsAdmin: false)).IsSuccess);
         }
 
         NewRequest();
@@ -493,7 +493,7 @@ public sealed class ShareTests : SharesTestBase
         await Shares.DeleteAsync(alice.Id, callerIsAdmin: false, share.Id);
         NewRequest();
 
-        AssertPublicFailure(await Shares.ResolvePublicAsync(share.Id));
+        AssertPublicFailure(await Shares.ResolvePublicAsync(share.Id, callerId: null, callerIsAdmin: false));
     }
 
     [Fact]
@@ -512,7 +512,7 @@ public sealed class ShareTests : SharesTestBase
         // Redeeming a link is anonymous by design and looks up no user, so nothing downstream can
         // notice the revocation. It has to happen here: otherwise the admin sees a user who has
         // lost the base path while that user's public link keeps serving the file to the internet.
-        AssertPublicFailure(await Shares.ResolvePublicAsync(share.Id));
+        AssertPublicFailure(await Shares.ResolvePublicAsync(share.Id, callerId: null, callerIsAdmin: false));
     }
 
     [Fact]
@@ -548,7 +548,7 @@ public sealed class ShareTests : SharesTestBase
         Assert.True(result.IsSuccess, result.ErrorMessage);
 
         NewRequest();
-        AssertPublicFailure(await Shares.ResolvePublicAsync(share.Id));
+        AssertPublicFailure(await Shares.ResolvePublicAsync(share.Id, callerId: null, callerIsAdmin: false));
     }
 
     [Fact]
@@ -563,7 +563,7 @@ public sealed class ShareTests : SharesTestBase
         await BasePaths.SetUserBasePathsAsync(alice.Id, new SetUserBasePathsDto { BasePathIds = [basePath.Id] });
 
         NewRequest();
-        Assert.True((await Shares.ResolvePublicAsync(share.Id)).IsSuccess);
+        Assert.True((await Shares.ResolvePublicAsync(share.Id, callerId: null, callerIsAdmin: false)).IsSuccess);
     }
 
     [Fact]
