@@ -1,4 +1,5 @@
 using Dal.Repositories.BasePaths;
+using Dal.Repositories.Shares;
 using Dtos.BasePaths;
 using Entities.Paths;
 using FileHub.BusinessLogic.Validation;
@@ -11,14 +12,17 @@ public sealed class BasePathService : IBasePathService
 {
     private readonly ILogger<BasePathService> m_logger;
     private readonly IBasePathRepository m_basePathRepository;
+    private readonly IShareRepository m_shareRepository;
 
     public BasePathService(
         ILogger<BasePathService> logger,
-        IBasePathRepository basePathRepository
+        IBasePathRepository basePathRepository,
+        IShareRepository shareRepository
     )
     {
         m_logger = logger;
         m_basePathRepository = basePathRepository;
+        m_shareRepository = shareRepository;
     }
 
     public async Task<OperationResult<List<BasePathDto>>> GetAllAsync()
@@ -141,11 +145,22 @@ public sealed class BasePathService : IBasePathService
         // reasoning, and the same behaviour, as SetUserBasePathsAsync below.
         var userIds = await m_basePathRepository.FilterExistingUserIdsAsync(dto.UserIds ?? []);
 
+        // Revoking a grant has to revoke the links made under it. Deleting the base path or the
+        // user cascades and takes the links along; withdrawing a grant is the one direction the
+        // foreign keys do not cover, and the anonymous download path deliberately carries no user
+        // lookup to catch it later — so the creator loses navigation while their public link keeps
+        // serving the file to anyone holding the URL.
+        //
+        // Done before the grant change is saved, so a failure here leaves the links revoked and
+        // the grant intact rather than the other way round.
+        var revoked = await m_shareRepository.DeleteForRevokedUsersAsync(basePathId, userIds);
+
         await m_basePathRepository.ReplaceAccessForBasePathAsync(basePathId, userIds);
         await m_basePathRepository.SaveChangesAsync();
 
         m_logger.LogInformation(
-            "Base path {BasePathId} is now granted to {UserCount} user(s)", basePathId, userIds.Count);
+            "Base path {BasePathId} is now granted to {UserCount} user(s); {ShareCount} link(s) revoked with it",
+            basePathId, userIds.Count, revoked);
         return OperationResult<Empty>.Success();
     }
 
@@ -169,10 +184,16 @@ public sealed class BasePathService : IBasePathService
         var known = (await m_basePathRepository.GetAllAsync()).Select(p => p.Id).ToHashSet();
         var basePathIds = requested.Where(known.Contains).ToList();
 
+        // Same revocation as SetUsersAsync, from the other end of the same table — both screens
+        // edit the same grants, so both have to take the links with them.
+        var revoked = await m_shareRepository.DeleteForRevokedBasePathsAsync(userId, basePathIds);
+
         await m_basePathRepository.ReplaceAccessForUserAsync(userId, basePathIds);
         await m_basePathRepository.SaveChangesAsync();
 
-        m_logger.LogInformation("User {UserId} is now granted {Count} base path(s)", userId, basePathIds.Count);
+        m_logger.LogInformation(
+            "User {UserId} is now granted {Count} base path(s); {ShareCount} link(s) revoked with it",
+            userId, basePathIds.Count, revoked);
         return OperationResult<Empty>.Success();
     }
 

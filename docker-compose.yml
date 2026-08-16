@@ -3,11 +3,38 @@ services:
     container_name: file-hub
     image: kalinkasolutions/filehub:latest
     ports:
-      - "8080:4122"
+      # Published on loopback ONLY, and on the same port the container listens on so there is one
+      # number to get wrong instead of two (nginx.example.conf proxies to exactly this).
+      #
+      # The app speaks plain http — TLS terminates at the reverse proxy — so a bare "4122:4122"
+      # binds 0.0.0.0 and puts the login form and every download on the public internet in
+      # cleartext, reachable around nginx and around TLS. If the proxy runs on another host, do not
+      # widen this to 0.0.0.0: bind it to the interface that host reaches you on, firewall the
+      # port, and add that proxy's address to TRUSTED_PROXIES below.
+      - "127.0.0.1:4122:4122"
     restart: always
+    # Nothing in FileHub needs a capability or a setuid binary: it binds 4122 (above 1024) as the
+    # unprivileged uid the image now runs as, reads mounted disks and writes /var/srv. So take the
+    # rest away — the container is what an anonymous share link talks to.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # Only /var/srv and /tmp are writable, and both are mounts. This pairs with the volume below:
+    # without a /var/srv mount the app cannot create the key ring and exits at startup, which is
+    # the right failure — a FileHub whose key ring is inside the container signs everyone out on
+    # every redeploy.
+    read_only: true
+    tmpfs:
+      # The only thing the app writes outside /var/srv. .NET puts its diagnostic socket and any
+      # temporary file here, and a read-only root filesystem otherwise fails at startup.
+      - /tmp
     volumes:
       # SQLite database *and* the Data Protection key ring both live under /var/srv. Both have to
       # be on this volume: a lost key ring invalidates every auth cookie on the next redeploy.
+      #
+      # The container runs as uid 1654, so this directory has to be writable by it — once, before
+      # the first start:  mkdir -p ./data && sudo chown -R 1654:1654 ./data
       - ./data:/var/srv
       # Mount the directories FileHub should serve. Read-only on purpose — FileHub never writes to
       # them, and :ro means a bug cannot turn a browse route into a delete. A base path added in
@@ -21,7 +48,13 @@ services:
       - DataProtection__KeyPath=${DATA_PROTECTION_KEY_PATH:-/var/srv/keys}
       # Public origin of the app, no trailing slash. Share links and the links in invitation /
       # password-reset mails are built from this, so it must be what a browser actually reaches.
-      - App__BaseUrl=${APP_BASE_URL:-http://localhost:8080}
+      - App__BaseUrl=${APP_BASE_URL:-http://localhost:4122}
+      # Whose X-Forwarded-For / X-Forwarded-Proto may be believed: IP addresses and/or CIDR blocks,
+      # comma separated. Everything else has those headers ignored, so a client cannot pick its own
+      # address or claim its request arrived over https. Unset means loopback plus the private
+      # ranges; narrow it to the proxy's own address. Getting this wrong is not cosmetic — the
+      # rate limits then count the whole internet as one caller and the auth cookie loses Secure.
+      - ForwardedHeaders__TrustedProxies=${TRUSTED_PROXIES:-127.0.0.0/8, ::1/128, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, fc00::/7}
       # Bootstrap admin, seeded only when the database has no admin account yet. The account is
       # created with MustChangePassword, so the first sign-in has to replace this password.
       - Admin__Email=${ADMIN_EMAIL:-admin@filehub.local}
@@ -44,5 +77,5 @@ services:
       # One of: None, Auto, SslOnConnect, StartTls, StartTlsWhenAvailable
       - Email__SecureSocketOptions=${EMAIL_SECURE_SOCKET_OPTIONS:-StartTls}
     # TLS is expected to be terminated by a reverse proxy in front of this container; see
-    # nginx.example.conf. The app reads X-Forwarded-Proto, so the proxy must send it or every
-    # auth cookie is issued as if the request were plain http.
+    # nginx.example.conf. The app reads X-Forwarded-Proto, so the proxy must send it *and* be in
+    # TRUSTED_PROXIES, or every auth cookie is issued as if the request were plain http.

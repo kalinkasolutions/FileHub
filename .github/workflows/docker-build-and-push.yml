@@ -22,13 +22,23 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_API_TOKEN }}
 
       - name: Build and push multi-platform Docker image
+        # Everything caller-controlled comes in through the environment. A ${{ }} expression is
+        # substituted into the script *before* bash parses it, so a release tag containing shell
+        # metacharacters would run as a command — in the one step that holds the registry token.
+        # Anyone able to publish a release could push whatever image they liked, or read the token.
+        env:
+          VERSION: ${{ github.ref_name }}
+          COMMIT_SHA: ${{ github.sha }}
+          IMAGE: ${{ secrets.DOCKER_HUB_USERNAME }}/filehub
         run: |
+          set -euo pipefail
+          BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           docker buildx create --use
           docker buildx build \
             --platform linux/amd64,linux/arm64 \
-            --build-arg VERSION=${{ github.ref_name }} \
-            --build-arg COMMIT_SHA=${{ github.sha }} \
-            --build-arg BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
-            -t ${{ secrets.DOCKER_HUB_USERNAME }}/filehub:${{ github.ref_name }} \
-            -t ${{ secrets.DOCKER_HUB_USERNAME }}/filehub:latest \
+            --build-arg "VERSION=$VERSION" \
+            --build-arg "COMMIT_SHA=$COMMIT_SHA" \
+            --build-arg "BUILD_DATE=$BUILD_DATE" \
+            -t "$IMAGE:$VERSION" \
+            -t "$IMAGE:latest" \
             --push .

@@ -90,6 +90,16 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.ExpireTimeSpan = TimeSpan.FromDays(30);
     options.SlidingExpiration = true;
 
+    // The session cookie must never travel over plain http. Outside Development that is
+    // unconditional rather than SameAsRequest: TLS terminates at the proxy, so Request.Scheme is
+    // only ever "https" because X-Forwarded-Proto said so, and SameAsRequest would quietly drop
+    // the flag the moment that header is missing or comes from an untrusted hop — which is
+    // exactly the failure this is meant to survive. Development runs on plain http://localhost,
+    // where Always would mean the browser stores no cookie at all and nobody can sign in.
+    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+        ? CookieSecurePolicy.SameAsRequest
+        : CookieSecurePolicy.Always;
+
     // Everything behind auth is called by the SPA with fetch/XHR, so answer a missing or stale
     // cookie with a status code the client can act on rather than a 302 to a login page.
     options.Events.OnRedirectToLogin = context =>
@@ -124,6 +134,11 @@ builder.Services.AddAuthorization();
 // that a stranger can reach: this login is on the internet, and Identity's lockout only slows an
 // attacker down per account, not per caller. The limit is per client address and deliberately
 // loose enough that a person fumbling their password never meets it.
+//
+// Every policy here partitions on Connection.RemoteIpAddress, which is only the caller's address
+// because the forwarded-headers trust list further down is set. With the framework default the
+// proxy's own address is the partition key for the whole internet, and one attacker holding this
+// limit at 429 locks the login screen for everybody.
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -132,6 +147,20 @@ builder.Services.AddRateLimiter(options =>
         _ => new FixedWindowRateLimiterOptions
         {
             PermitLimit = 20,
+            Window = TimeSpan.FromMinutes(1)
+        }));
+
+    // The share links. They are the whole anonymous surface, and a directory link rebuilds a
+    // recursive zip on every hit — with Kestrel's minimum-data-rate floor deliberately switched
+    // off for downloads and an hour of read timeout on the proxy behind it, an unlimited leaked
+    // link is repeatable CPU and IO amplification. Sized for what opening a link actually costs:
+    // one metadata call and one download per visitor, one page per chat client unfurling it.
+    // Anything walking a list of ids meets this; a person never does.
+    options.AddPolicy("public", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 30,
             Window = TimeSpan.FromMinutes(1)
         }));
 });
@@ -174,12 +203,13 @@ if (app.Environment.IsDevelopment())
 }
 
 // TLS is terminated by the reverse proxy, so the scheme and the caller's address arrive in
-// headers. Without this the app would see every request as http from the proxy's own address,
-// which is what the Go build's TrustedProxies list was for.
-app.UseForwardedHeaders(new ForwardedHeadersOptions
-{
-    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
-});
+// headers — but ASP.NET only believes them from a peer it has been told is a proxy, and its
+// default trust list is loopback alone. The reference deployment proxies from another address, so
+// with the default the headers are silently dropped and two things collapse together: every
+// request looks like plain http (auth cookies then ship without Secure) and every caller looks
+// like the proxy (one shared rate-limit bucket, so one attacker can hold login and password reset
+// at 429 for everybody). This is the Go build's TrustedProxies list, back as configuration.
+app.UseForwardedHeaders(BuildForwardedHeadersOptions(builder.Configuration));
 
 app.UseSerilogRequestLogging();
 
@@ -214,6 +244,64 @@ app.MapFallbackToFile("index.html");
 
 await Seed.InitializeAsync(app);
 await app.RunAsync();
+
+// Reads ForwardedHeaders:TrustedProxies — a comma-separated list of IP addresses and/or CIDR
+// blocks — into the options the middleware checks the immediate peer against. Anything not on the
+// list has its X-Forwarded-* headers ignored, so a client cannot pick its own address or claim the
+// request arrived over https.
+//
+// The default is loopback plus the private ranges a reverse proxy normally sits in, which is what
+// the Go build shipped. It is a default, not a policy: on a host where something untrusted can
+// reach the container directly from a private address, set this to the proxy's exact address.
+// ForwardLimit stays at 1 — exactly one hop is taken off the right-hand end of X-Forwarded-For, so
+// whatever a client prepended to the header is carried but never believed. Behind two proxies
+// (a CDN in front of nginx) that has to become 2, and both of them have to be trusted.
+static ForwardedHeadersOptions BuildForwardedHeadersOptions(IConfiguration configuration)
+{
+    const string defaultTrustedProxies =
+        "127.0.0.0/8, ::1/128, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, fc00::/7";
+
+    var options = new ForwardedHeadersOptions
+    {
+        ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+    };
+
+    // Both start out holding loopback. Replace rather than extend, so the configured value is the
+    // whole answer to "whose X-Forwarded-* may be believed" and an operator can narrow it.
+    options.KnownProxies.Clear();
+    options.KnownIPNetworks.Clear();
+
+    var configured = configuration["ForwardedHeaders:TrustedProxies"];
+    if (string.IsNullOrWhiteSpace(configured))
+    {
+        configured = defaultTrustedProxies;
+    }
+
+    var entries = configured.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    foreach (var entry in entries)
+    {
+        if (System.Net.IPNetwork.TryParse(entry, out var network))
+        {
+            options.KnownIPNetworks.Add(network);
+            continue;
+        }
+
+        if (System.Net.IPAddress.TryParse(entry, out var address))
+        {
+            options.KnownProxies.Add(address);
+            continue;
+        }
+
+        // Refuse to start rather than run with a half-parsed trust list: a dropped entry is a
+        // deployment that looks fine and rate-limits the whole internet as one caller.
+        throw new InvalidOperationException(
+            $"ForwardedHeaders:TrustedProxies contains \"{entry}\", which is neither an IP address " +
+            "nor a CIDR block. Note that a CIDR block must have its host bits clear (10.0.0.0/8, not 10.0.0.1/8).");
+    }
+
+    return options;
+}
 
 // Maps a Microsoft-style log level name (as used in the Logging:LogLevel config section) to the
 // Serilog level the pipeline is configured with. Falls back to Information for missing values.
