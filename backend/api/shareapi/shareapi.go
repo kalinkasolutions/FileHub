@@ -169,21 +169,14 @@ func (ss *ShareApi) validate() gin.HandlerFunc {
 func (ss *ShareApi) handleShareLink() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		id := ctx.Param("id")
-		var title = ""
+		var title = "not available"
 		var formattedSize = ""
 
 		share, err := ss.shareService.GetShareById(id)
-		if err != nil {
-			title = "not available"
-		} else {
-			title = path.Base(share.Path)
-		}
 
-		size, err := dirSize(share.Path)
-		if err != nil {
-			ss.logger.Error("failed to get size for path: %s, %v", share.Path, err)
-		} else {
-			formattedSize = fileSize(size)
+		if err == nil {
+			title = path.Base(share.Path)
+			formattedSize = ss.formattedShareSize(share.Path)
 		}
 
 		description := fmt.Sprintf("%s, %s", title, formattedSize)
@@ -207,6 +200,17 @@ func (ss *ShareApi) handleShareLink() gin.HandlerFunc {
 			</body>
 			</html>`, title, description, imageURL, shareLink, id, id)
 	}
+}
+
+func (ss *ShareApi) formattedShareSize(sharePath string) string {
+	size, err := dirSize(sharePath)
+
+	if err != nil {
+		ss.logger.Error("failed to get size for path: %s, %v", sharePath, err)
+		return ""
+	}
+
+	return fileSize(size)
 }
 
 func dirSize(path string) (int64, error) {

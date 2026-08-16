@@ -101,6 +101,7 @@ func (fa *FileApi) downloadPublicShare() gin.HandlerFunc {
 
 		if err != nil {
 			ctx.Redirect(http.StatusFound, utils.RedirectUri(fa.config))
+			return
 		}
 
 		fa.shareService.UpdateDownloadCount(share.Id)
