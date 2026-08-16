@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, inject, OnDestroy, OnInit } from '@angular/core';
 import { INotifcationModel as INotificationModel, INotification, NotificationLevel } from '@models/INotifcation';
 import { NotificationService } from '@services/notification.service';
 import { Subject, takeUntil } from 'rxjs';
@@ -18,6 +18,8 @@ export class Notification implements OnInit, OnDestroy {
     private readonly defaultDuration = 5000;
     private readonly animationDuration = 300;
     private destroy$ = new Subject<void>();
+    // Zoneless: neither the notification stream nor the two timers below notify the view.
+    private readonly cdr = inject(ChangeDetectorRef);
 
     constructor(private notificationService: NotificationService) { }
 
@@ -50,6 +52,7 @@ export class Notification implements OnInit, OnDestroy {
     private addNotification(notification: INotification) {
         const notificationModel = { ...notification, duration: notification.duration ?? this.defaultDuration, id: crypto.randomUUID(), dissapearing: false, };
         this.notifications.push(notificationModel);
+        this.cdr.markForCheck();
 
         setTimeout(() => {
             this.notifications.forEach(notification => {
@@ -57,10 +60,12 @@ export class Notification implements OnInit, OnDestroy {
                     notification.dissapearing = true;
                 }
             });
+            this.cdr.markForCheck();
         }, notificationModel.duration - this.animationDuration);
 
         setTimeout(() => {
             this.notifications = this.notifications.filter(x => x.id !== notificationModel.id)
+            this.cdr.markForCheck();
         }, notificationModel.duration);
     }
 }

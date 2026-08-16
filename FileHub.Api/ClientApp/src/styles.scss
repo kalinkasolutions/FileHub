@@ -1,0 +1,432 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+@use 'ngx-toastr/toastr';
+// Temporary: the globals the not-yet-ported screens were written against. See the file.
+@use 'legacy';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  // Suppress the mobile tap-highlight flash on every tappable element (rows, buttons, icons).
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  font-family: $font-main;
+  font-size: $font-size-base;
+  line-height: 1.5;
+  // Tells the browser to draw its *own* widgets dark: the calendar glyph inside a `datetime-local`
+  // input, a `<select>`'s arrow and its dropdown. Without it those are painted for a light page and
+  // vanish into the fill — and none of them can be reached with CSS to fix afterwards.
+  color-scheme: dark;
+  // The page colour sits behind the app surface: on a phone the shell covers it, on a wide
+  // screen it's the canvas the capped shell floats on.
+  background-color: $bg-page;
+  color: $text-primary;
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  user-select: none;
+}
+
+body {
+  @include flex();
+}
+
+app-root {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  height: 100%;
+  width: 100%;
+  justify-content: center;
+  align-items: center;
+}
+
+h1 {
+  margin: $default-margin;
+  padding: 0;
+  font-size: $font-size-title;
+  font-weight: 600;
+  letter-spacing: $letter-spacing-title;
+}
+
+a {
+  color: $link-primary;
+  text-decoration: none;
+
+  &:visited,
+  &:active {
+    color: $link-primary;
+  }
+
+  @include hover {
+    color: $link-hover;
+  }
+}
+
+form {
+  @include flex();
+  padding: 0 $default-margin $default-margin;
+  gap: $default-margin;
+}
+
+.form-control {
+  @include flex();
+  gap: $small-padding;
+  padding: 0;
+}
+
+.form-control label {
+  color: $text-dim;
+  font-size: $font-size-small;
+}
+
+// Form controls don't inherit typography by default — opt them back in so the app's
+// type scale applies consistently.
+input,
+button {
+  font: inherit;
+}
+
+input:not([type='checkbox']) {
+  @include control-input;
+}
+
+// A `<select>` wears the same shell as an input; its arrow and dropdown stay native, which
+// `color-scheme: dark` above is what makes legible.
+select {
+  @include control-input;
+  font: inherit;
+  cursor: pointer;
+}
+
+// The design's checkbox: a 22px rounded box that fills with accent and shows a check.
+input[type='checkbox'] {
+  position: relative;
+  appearance: none;
+  flex-shrink: 0;
+  width: $checkbox-size;
+  height: $checkbox-size;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 1.5px solid $icon-faint;
+  border-radius: $radius-checkbox;
+  background: transparent;
+  cursor: pointer;
+  transition:
+    background-color $transition-toggle,
+    border-color $transition-toggle;
+
+  // The check is a rotated corner of a box rather than a glyph, so it needs no icon font.
+  &::after {
+    content: '';
+    position: absolute;
+    top: 3.5px;
+    left: 6.5px;
+    width: 5px;
+    height: 9px;
+    border: solid $on-accent;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg) scale(0);
+    transition: transform $transition-toggle;
+  }
+
+  &:checked {
+    border-color: $primary-green;
+    background-color: $primary-green;
+
+    &::after {
+      transform: rotate(45deg) scale(1);
+    }
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-color: $primary-green;
+  }
+}
+
+// Full-width buttons come in three flavours: accent by default, a muted `.secondary`, and a
+// destructive `.danger` outline — deleting is deliberate, not the thing the eye lands on first.
+button {
+  @include button-base;
+  @include button-colors($primary-green, $on-accent, $primary-green-hover);
+
+  &.secondary {
+    @include button-colors($border-input, $text-secondary, $surface-elevated-hover);
+  }
+
+  // `:not(.icon-btn)` keeps the outline off the square icon buttons, which carry `.danger`
+  // too but mean something quieter by it.
+  &.danger:not(.icon-btn) {
+    border: 1px solid $border-danger;
+    font-weight: 400;
+    @include button-colors(transparent, $text-danger, $danger-hover);
+  }
+
+  &:focus-visible {
+    outline: none;
+  }
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+// A file browser is a scrollbar-heavy app, so the bar is styled rather than left native:
+// a thin thumb on a transparent track, in both the WebKit and the standard property.
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+  background: transparent;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: $radius-pill;
+  background: $icon-faint;
+
+  @include hover {
+    background: $icon-quiet;
+  }
+}
+
+* {
+  scrollbar-color: $icon-faint transparent;
+  scrollbar-width: thin;
+}
+
+// Material Symbols Outlined rather than the filled Material Icons: the design's glyphs are
+// thin strokes, which is the `wght 300, FILL 0` instance loaded in index.html.
+mat-icon.mat-icon {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-variation-settings:
+    'FILL' 0,
+    'wght' 300,
+    'GRAD' 0,
+    'opsz' 24;
+  cursor: pointer;
+}
+
+// Shared icon-button treatment. `.icon-btn` alone is the filled accent look that pairs with a
+// 48px input; the modifiers are the rest of the design's set. Components may still scope
+// their own overrides.
+.icon-btn {
+  @include icon-button-base($control-height, $border-radius);
+  @include icon-button-colors($primary-green, $on-accent, $primary-green-hover, $on-accent);
+
+  // The muted fill, for an action that's available but isn't the point.
+  &.ghost {
+    @include icon-button-colors(
+      $border-input,
+      $text-secondary,
+      $surface-elevated-hover,
+      $text-primary
+    );
+  }
+
+  // Row- and header-level actions: no fill until hovered. Over an already-raised row a
+  // component overrides the hover fill with that row's own hover tint.
+  &.quiet {
+    @include icon-button-size($tap-target-min, $radius-icon);
+    @include icon-button-colors(transparent, $icon-quiet, $surface, $icon-bright);
+  }
+
+  // Destructive actions stay quiet until hovered — they sit in routine rows.
+  &.danger {
+    @include icon-button-size($tap-target-min, $radius-icon);
+    @include icon-button-colors(transparent, $text-dim, $icon-danger-bg, $icon-danger);
+  }
+
+  // An accent or secondary button shrunk to a row-sized action.
+  &.compact {
+    @include icon-button-size($tap-target-min, $radius-icon);
+  }
+}
+
+// A drag handle: the grip itself, in a tap target big enough to grab on a phone.
+.drag-handle {
+  @include flex(row);
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: $tap-target-min;
+  min-width: $tap-target-min;
+  min-height: $tap-target-min;
+  padding: 0;
+  border: none;
+  border-radius: $radius-icon;
+  background: transparent;
+  color: $icon-faint;
+  cursor: grab;
+  // Stop the browser treating a touch on the handle as a scroll gesture; without this the drag
+  // only engages after the browser's scroll-detection delay.
+  touch-action: none;
+
+  mat-icon {
+    @include icon-size;
+  }
+}
+
+.cdk-drag-preview {
+  border-radius: $border-radius;
+  background-color: $surface;
+  list-style: none;
+  box-sizing: border-box;
+  box-shadow: $shadow-drag;
+}
+
+.drag-placeholder {
+  min-height: $item-row-height;
+  border: 1px dashed $border-dashed;
+  border-radius: $border-radius;
+  background-color: $surface-muted;
+  transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+// ─── Overlays (menus, autocomplete, dialogs) ────────────────────────────────
+// The app doesn't load a Material theme, so the overlay surfaces are styled here from the
+// design's menu spec. The pane itself stays transparent — the panels inside it are rounded,
+// and a filled pane would show its square corners behind them.
+.cdk-overlay-pane {
+  background-color: transparent;
+}
+
+// `div.` on the panel selectors is deliberate: Material injects its own structural styles at
+// runtime, after this stylesheet, so a plain `.mat-mdc-menu-panel` rule loses the tie on
+// equal specificity. The element-qualified selector wins it back.
+div.mat-mdc-menu-panel {
+  --mat-menu-container-color: #{$bg-elevated};
+  --mat-menu-container-shape: #{$border-radius};
+  --mat-menu-container-elevation-shadow: #{$shadow-elevated};
+  --mat-menu-item-label-text-font: #{$font-main};
+  --mat-menu-item-label-text-size: #{$font-size-base};
+  --mat-menu-item-label-text-line-height: 1.4;
+  --mat-menu-item-label-text-weight: 400;
+  --mat-menu-item-label-text-tracking: normal;
+  --mat-menu-item-label-text-color: #e6e9e6;
+  --mat-menu-item-icon-color: #{$icon-quiet};
+  --mat-menu-item-icon-size: #{$icon-size};
+  --mat-menu-item-spacing: 12px;
+  --mat-menu-item-leading-spacing: 12px;
+  --mat-menu-item-trailing-spacing: 12px;
+  --mat-menu-item-with-icon-leading-spacing: 12px;
+  --mat-menu-item-with-icon-trailing-spacing: 12px;
+  --mat-menu-item-hover-state-layer-color: #{$surface-elevated-hover};
+  --mat-menu-item-focus-state-layer-color: #{$surface-elevated-hover};
+
+  min-width: 196px;
+  border: 1px solid $border-elevated;
+
+  .mat-mdc-menu-content {
+    padding: 6px;
+  }
+
+  // Menu items are <button>s, so the global button shape reaches them: reset the parts of it
+  // that don't belong in a menu (its own gap would stack on the icon's margin).
+  .mat-mdc-menu-item {
+    gap: 0;
+    min-height: $row-min-height;
+    margin: 0;
+    border: none;
+    border-radius: $radius-menu-item;
+    font-weight: 400;
+
+    mat-icon {
+      @include icon-size;
+    }
+  }
+
+  // The destructive entry carries the danger colour but not the outline a full-width danger
+  // button gets. The hairline above it is its own element in the menu template.
+  .mat-mdc-menu-item.danger {
+    --mat-menu-item-label-text-color: #{$text-danger};
+    --mat-menu-item-icon-color: #{$text-danger};
+    --mat-menu-item-hover-state-layer-color: #{$danger-hover-strong};
+    --mat-menu-item-focus-state-layer-color: #{$danger-hover-strong};
+
+    border: none;
+    color: $text-danger;
+  }
+
+  .menu-divider {
+    height: 1px;
+    margin: 5px $default-padding;
+    background: $border-elevated;
+  }
+}
+
+div.mat-mdc-autocomplete-panel {
+  --mat-autocomplete-background-color: #{$bg-elevated};
+  --mat-autocomplete-container-shape: #{$border-radius};
+  --mat-autocomplete-container-elevation-shadow: #{$shadow-elevated};
+  --mat-option-label-text-font: #{$font-main};
+  --mat-option-label-text-size: #{$font-size-base};
+  --mat-option-label-text-line-height: 1.4;
+  --mat-option-label-text-weight: 400;
+  --mat-option-label-text-tracking: normal;
+  --mat-option-label-text-color: #e6e9e6;
+  --mat-option-hover-state-layer-color: #{$surface-elevated-hover};
+  --mat-option-focus-state-layer-color: #{$surface-elevated-hover};
+  --mat-option-selected-state-layer-color: #{$surface-elevated-hover};
+  --mat-option-selected-state-label-text-color: #{$text-primary};
+
+  padding: 6px;
+  border: 1px solid $border-elevated;
+
+  .mat-mdc-option {
+    min-height: $row-min-height;
+    border-radius: $radius-menu-item;
+  }
+}
+
+// Dialogs are driven through Material's own custom properties rather than by out-selecting its
+// rules: the padding ones are read by `.mat-mdc-dialog-container-with-actions .mat-mdc-dialog-content`,
+// which has the same specificity as anything written here and is injected later, so setting the
+// variable is the only way to win. `div.mat-mdc-dialog-surface` is safe to select directly —
+// Material renders that element itself, unlike the content/actions tags.
+.mat-mdc-dialog-container {
+  --mat-dialog-container-color: #{$bg-elevated};
+  --mat-dialog-container-shape: #{$border-radius};
+  --mat-dialog-container-elevation-shadow: #{$shadow-elevated};
+  --mat-dialog-headline-padding: #{$default-margin} #{$default-margin} 0;
+  --mat-dialog-content-padding: #{$default-margin};
+  --mat-dialog-with-actions-content-padding: #{$default-margin};
+  --mat-dialog-actions-padding: 0 #{$default-margin} #{$default-margin};
+  --mat-dialog-supporting-text-color: #{$text-primary};
+  --mat-dialog-supporting-text-font: #{$font-main};
+  --mat-dialog-supporting-text-size: #{$font-size-base};
+  --mat-dialog-supporting-text-line-height: 1.5;
+  --mat-dialog-supporting-text-tracking: normal;
+  --mat-dialog-subhead-color: #{$text-primary};
+  --mat-dialog-subhead-font: #{$font-main};
+  --mat-dialog-subhead-size: #{$font-size-title};
+  --mat-dialog-subhead-weight: 600;
+  --mat-dialog-subhead-tracking: #{$letter-spacing-title};
+
+  // No variable exists for the space between the action buttons, and this selector does out-rank
+  // Material's plain `.mat-mdc-dialog-actions`, so the gap can be set directly.
+  .mat-mdc-dialog-actions {
+    gap: $default-padding;
+  }
+}
+
+div.mat-mdc-dialog-surface {
+  border: 1px solid $border-elevated;
+  background-color: $bg-elevated;
+  color: $text-primary;
+}

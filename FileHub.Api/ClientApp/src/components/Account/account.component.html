@@ -1,0 +1,33 @@
+<header class="screen-header">
+  <span class="title">Account</span>
+  <a routerLink="/">Back</a>
+</header>
+
+<section class="content">
+  <h2>Signed in as</h2>
+  <div class="rows">
+    <div class="row">
+      <div class="stacked">
+        <span class="label">Name</span>
+        <span class="value">{{ status()?.username || '—' }}</span>
+      </div>
+    </div>
+    <div class="row">
+      <div class="stacked">
+        <span class="label">Email</span>
+        <span class="value">{{ status()?.email || '—' }}</span>
+      </div>
+    </div>
+    <div class="row">
+      <div class="stacked">
+        <span class="label">Role</span>
+        <span class="value">{{ isAdmin() ? 'Administrator' : 'User' }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <a class="button-link" routerLink="/change-password">Change password</a>
+    <button class="danger" type="button" (click)="logout()">Sign out</button>
+  </div>
+</section>

@@ -1,13 +1,12 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, inject, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { environment } from '@env/environment';
 import { NotificationLevel } from '@models/INotifcation';
 import { IShare } from '@models/IShare';
 import { FileService } from '@services/file.service';
 import { NotificationService } from '@services/notification.service';
 import { ShareService } from '@services/share.service';
-import { FileSize } from 'util/filesize';
+import { FileSize } from '@util/filesize';
 
 @Component({
   standalone: true,
@@ -24,6 +23,8 @@ export class PublicShare {
     IsDir: false,
   };
 
+  private readonly cdr = inject(ChangeDetectorRef);
+
   constructor(
     private route: ActivatedRoute,
     private fileService: FileService,
@@ -34,6 +35,8 @@ export class PublicShare {
       const id = params.get('id') ?? '';
       this.shareService.validateShare(id).subscribe((share) => {
         this.share = share;
+        // Zoneless: an rxjs callback doesn't notify the view on its own.
+        this.cdr.markForCheck();
       });
     });
   }
@@ -43,7 +46,9 @@ export class PublicShare {
   }
 
   public get Link() {
-    return `${environment.apiUrl}/public-api/files/download/${this.share.Id}`;
+    // Every other call is relative now that the API serves the SPA, but this one is copied to the
+    // clipboard and pasted elsewhere, so it has to carry the origin.
+    return `${location.origin}/public-api/files/download/${this.share.Id}`;
   }
 
   public copyLink(e: Event) {

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, inject, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { IAdminShare } from '@models/IAdminShare';
 import { NotificationLevel } from '@models/INotifcation';
@@ -16,11 +16,15 @@ import { ShareService } from '@services/share.service';
 export class AdminShareComponent implements OnInit {
     public sharedPaths: IAdminShare[] = [];
 
+    // Zoneless: this list is written from an rxjs callback, which change detection doesn't see.
+    private readonly cdr = inject(ChangeDetectorRef);
+
     constructor(private shareService: ShareService, private notificationService: NotificationService) { }
 
     public ngOnInit(): void {
         this.shareService.getShares().subscribe(sharedPaths => {
             this.sharedPaths = sharedPaths;
+            this.cdr.markForCheck();
         });
     }
 
@@ -45,6 +49,7 @@ export class AdminShareComponent implements OnInit {
                 message: `The share ${PathService.getPathName(deletedShare.Path)} was deleted from the shares.`,
                 level: NotificationLevel.success,
             });
+            this.cdr.markForCheck();
         })
     }
 }

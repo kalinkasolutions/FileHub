@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, inject, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { IBasePathModel } from '@models/IBasePath';
 import { NotificationLevel } from '@models/INotifcation';
@@ -17,11 +17,15 @@ export class BasePathComponent implements OnInit {
   public basePaths: IBasePathModel[] = [];
   public insertPath: string = "";
 
+  // Zoneless: these lists are written from rxjs callbacks, which change detection doesn't see.
+  private readonly cdr = inject(ChangeDetectorRef);
+
   constructor(private adminService: BasePathService, private notificationService: NotificationService) { }
 
   public ngOnInit(): void {
     this.adminService.getBasePaths().subscribe(basePaths => {
       this.basePaths = basePaths.map(x => ({ ...x, updatePath: x.path, edit: false }));
+      this.cdr.markForCheck();
     });
   }
 
@@ -46,6 +50,7 @@ export class BasePathComponent implements OnInit {
         message: `The path ${insertedPath.path} was added to the shared paths.`,
         level: NotificationLevel.success,
       });
+      this.cdr.markForCheck();
     });
   }
 
@@ -57,6 +62,7 @@ export class BasePathComponent implements OnInit {
         message: `The path ${deletedBasePath.path} was deleted from the shared paths.`,
         level: NotificationLevel.success,
       });
+      this.cdr.markForCheck();
     })
   }
 
@@ -77,6 +83,7 @@ export class BasePathComponent implements OnInit {
         message: `The path ${updatedPath.path} was updated.`,
         level: NotificationLevel.success,
       });
+      this.cdr.markForCheck();
     });
   }
 

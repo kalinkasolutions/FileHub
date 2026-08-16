@@ -1,22 +1,18 @@
-import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
-import { RouterModule } from '@angular/router';
+import { Component, inject } from '@angular/core';
+import { AsyncPipe } from '@angular/common';
+import { RouterOutlet } from '@angular/router';
 import { Notification } from '@components/notification/notification.component';
 import { LoadingService } from '@services/loading.service';
-import { Observable, of } from 'rxjs';
-
 
 @Component({
   standalone: true,
   selector: 'app-root',
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
-  imports: [RouterModule, Notification, CommonModule],
+  imports: [RouterOutlet, Notification, AsyncPipe],
 })
 export class AppComponent {
-  public isLoading: Observable<boolean>;
+  private readonly loadingService = inject(LoadingService);
 
-  constructor(private loadingService: LoadingService) {
-    this.isLoading = this.loadingService.loading$;
-  }
+  public readonly isLoading = this.loadingService.loading$;
 }

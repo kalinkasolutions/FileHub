@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, inject, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { FileEntry } from '@components/fileentry/fileentry.component';
 import { INavigation } from '@models/INavigation';
@@ -24,7 +24,7 @@ export class DirectoryList implements OnInit, AfterViewInit, OnDestroy {
   private itemsPerPage = 50;
   private destroy$ = new Subject<void>();
   private searchSubject = new Subject<string>();
-  private observer?: IntersectionObserver;
+  private readonly cdr = inject(ChangeDetectorRef);
 
   public displayedEntries: IPublicPath[] = [];
   public searchTerm: string = "";
@@ -34,7 +34,7 @@ export class DirectoryList implements OnInit, AfterViewInit, OnDestroy {
       .pipe(debounceTime(300))
       .pipe(takeUntil(this.destroy$))
       .subscribe(value => {
-        this.filteredEntries = this.allEntries.filter(x => x.Name.toLowerCase().includes(value.toLowerCase()));
+        this.filteredEntries = this.allEntries.filter(x => x.Name.toLowerCase().startsWith(value.toLowerCase()));
         this.displayedEntries = [];
         this.loadMoreItems();
       });
@@ -67,7 +67,7 @@ export class DirectoryList implements OnInit, AfterViewInit, OnDestroy {
   }
 
   public ngAfterViewInit(): void {
-    this.observer = new IntersectionObserver((entries) => {
+    const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
           this.loadMoreItems();
@@ -75,11 +75,10 @@ export class DirectoryList implements OnInit, AfterViewInit, OnDestroy {
       });
     }, { rootMargin: '300px' });
 
-    this.observer.observe(this.sentinel.nativeElement);
+    observer.observe(this.sentinel.nativeElement);
   }
 
   public ngOnDestroy(): void {
-    this.observer?.disconnect();
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -104,6 +103,9 @@ export class DirectoryList implements OnInit, AfterViewInit, OnDestroy {
   private loadMoreItems() {
     const nextItems = this.filteredEntries.slice(this.displayedEntries.length, this.displayedEntries.length + this.itemsPerPage);
     this.displayedEntries = [...this.displayedEntries, ...nextItems];
+    // The app is zoneless: every path into this method is an rxjs callback or the intersection
+    // observer, none of which change detection notices on its own.
+    this.cdr.markForCheck();
   }
 
   private navigate(navigation: INavigation) {

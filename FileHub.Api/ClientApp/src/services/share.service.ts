@@ -7,7 +7,6 @@ import { IShareLink } from "@models/IShareLink";
 import { catchError, Observable, throwError } from "rxjs";
 import { BaseService } from "./base.service";
 import { NotificationService } from "./notification.service";
-import { environment } from "@env/environment";
 
 @Injectable({ providedIn: 'root' })
 export class ShareService extends BaseService {
@@ -17,14 +16,14 @@ export class ShareService extends BaseService {
     }
 
     public share(publicPath: IPublicPath) {
-        return this.httpClient.post<IShareLink>(`${environment.apiUrl}/api/share/create`, {
+        return this.httpClient.post<IShareLink>(`/api/share/create`, {
             Id: publicPath.Id,
             Path: publicPath.NextSegment
         });
     }
 
     public validateShare(id: string) {
-        return this.httpClient.get<IShare>(`${environment.apiUrl}/public-api/share/validate/${id}`).pipe(
+        return this.httpClient.get<IShare>(`/public-api/share/validate/${id}`).pipe(
             catchError(error => {
                 if (error.url) {
                     window.location = error.url;
@@ -35,11 +34,11 @@ export class ShareService extends BaseService {
     }
 
     public getShares() {
-        return this.httpClient.get<IAdminShare[]>(`${environment.apiUrl}/api/admin/shares`);
+        return this.httpClient.get<IAdminShare[]>(`/api/admin/shares`);
     }
 
     public delete(path: IAdminShare): Observable<IAdminShare> {
-        return this.httpClient.delete<IAdminShare>(`${environment.apiUrl}/api/admin/share`, {
+        return this.httpClient.delete<IAdminShare>(`/api/admin/share`, {
             body: path
         }).pipe(catchError(this.handleError));
     }

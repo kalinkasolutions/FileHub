@@ -83,5 +83,8 @@ obj/
 *.user
 data/
 
+# Angular build output — the SPA is built into the API's static root
+/FileHub.Api/wwwroot/
+
 # Claude Code agent worktrees
 .claude/worktrees/

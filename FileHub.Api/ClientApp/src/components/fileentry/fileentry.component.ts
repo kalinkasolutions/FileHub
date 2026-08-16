@@ -6,7 +6,7 @@ import { FileService } from '@services/file.service';
 import { NotificationService } from '@services/notification.service';
 import { PathService } from '@services/path.service';
 import { ShareService } from '@services/share.service';
-import { FileSize } from 'util/filesize';
+import { FileSize } from '@util/filesize';
 
 @Component({
     standalone: true,
