@@ -1,0 +1,39 @@
+@if (isLoading()) {
+  <p class="empty">Loading…</p>
+} @else if (shares().length === 0) {
+  <p class="empty">No links yet. Share a file or a folder from Files and it turns up here.</p>
+} @else {
+  <ul class="links">
+    @for (share of shares(); track share.id) {
+      <li class="link">
+        <mat-icon class="kind" [class.folder]="share.isDir">
+          {{ share.isDir ? 'folder' : 'draft' }}
+        </mat-icon>
+
+        <div class="details">
+          <span class="name" [title]="share.relativePath || share.name">{{ share.name }}</span>
+          <span class="meta">
+            {{ meta(share) }} · shared {{ share.createdAt | date: 'mediumDate' }}
+          </span>
+        </div>
+
+        <button
+          class="icon-btn quiet"
+          type="button"
+          [attr.aria-label]="'Copy the link to ' + share.name"
+          (click)="copy(share)"
+        >
+          <mat-icon>content_copy</mat-icon>
+        </button>
+        <button
+          class="icon-btn danger"
+          type="button"
+          [attr.aria-label]="'Revoke the link to ' + share.name"
+          (click)="revoke(share)"
+        >
+          <mat-icon>delete</mat-icon>
+        </button>
+      </li>
+    }
+  </ul>
+}

@@ -1,0 +1,194 @@
+@use 'mixins' as *;
+@use 'variables' as *;
+
+:host {
+  @include app-shell;
+}
+
+// The pre-rewrite chrome, still an inline custom element of its own.
+global-header {
+  display: block;
+  flex-shrink: 0;
+}
+
+.browser-header {
+  @include flex(column);
+  gap: $default-padding;
+  flex-shrink: 0;
+  padding: $header-padding;
+  border-bottom: 1px solid $border-subtle;
+}
+
+.heading {
+  @include flex(row);
+  align-items: center;
+  gap: $default-padding;
+  min-height: $tap-target-min;
+}
+
+.title {
+  overflow: hidden;
+  font-size: $font-size-title;
+  font-weight: 600;
+  letter-spacing: $letter-spacing-title;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// A trail can be deeper than the screen is wide, so it scrolls sideways — without a scrollbar of
+// its own, because the component keeps the last crumb in view.
+.crumbs {
+  @include flex(row);
+  align-items: center;
+  gap: $small-padding;
+  overflow-x: auto;
+  font-family: $font-mono;
+  font-size: $font-size-small;
+  white-space: nowrap;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.crumb {
+  min-height: 0;
+  padding: 2px $small-padding;
+  border-radius: $radius-menu-item;
+  background: transparent;
+  color: $link-primary;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 400;
+
+  @include hover {
+    background: $surface;
+    color: $link-hover;
+  }
+
+  // The crumb you are standing on. It is disabled rather than hidden so the trail keeps its shape,
+  // and it drops the dimming a disabled button normally takes.
+  &:disabled {
+    opacity: 1;
+    color: $text-muted;
+  }
+}
+
+.separator {
+  color: $icon-faint;
+}
+
+.content {
+  @include flex(column);
+  gap: $small-margin;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: $content-padding;
+}
+
+.filter {
+  flex-shrink: 0;
+}
+
+.empty {
+  margin: $default-margin $small-padding;
+  color: $text-placeholder;
+  font-size: $font-size-base;
+  line-height: 1.5;
+}
+
+.entries {
+  @include flex(column);
+  gap: $small-margin;
+}
+
+.entry {
+  @include tile-row;
+  gap: $small-padding;
+  padding: 0 $small-padding 0 12px;
+
+  @include hover {
+    background: $surface-hover;
+  }
+
+  .kind {
+    @include icon-size;
+    flex-shrink: 0;
+    color: $icon-faint;
+    cursor: default;
+  }
+
+  .kind.folder {
+    color: $primary-green;
+  }
+
+  // The whole point of the browser: names in one monospace column, so they line up and a long one
+  // truncates instead of pushing the size out of sight.
+  .name {
+    // `display: block` matters on the button: the global button shape is a flex container, and a
+    // flex container cannot ellipsize the anonymous item its text becomes — it would just clip.
+    display: block;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    padding: $default-padding 0;
+    border-radius: 0;
+    background: transparent;
+    color: $text-primary;
+    font-family: $font-mono;
+    font-size: $font-size-base;
+    font-weight: 400;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  button.name {
+    @include hover {
+      background: transparent;
+      color: $primary-green;
+    }
+  }
+
+  .size {
+    flex-shrink: 0;
+    min-width: 76px;
+    color: $text-dim;
+    font-family: $font-mono;
+    font-size: $font-size-small;
+    text-align: right;
+  }
+
+  // The row is already raised, so a row action's hover fill has to be the next surface up or it
+  // disappears into the row it sits on.
+  .icon-btn.quiet {
+    @include hover {
+      background: $surface-elevated-hover;
+    }
+  }
+}
+
+.sentinel {
+  flex-shrink: 0;
+  height: 1px;
+}
+
+.tabs {
+  @include tab-bar;
+}
+
+// From a tablet up there is room for the size column to breathe and for the rows to sit off the
+// edge of the shell.
+@media (min-width: 600px) {
+  .content {
+    padding: $default-margin;
+  }
+
+  .entry .size {
+    min-width: 110px;
+    padding-right: $default-padding;
+  }
+}

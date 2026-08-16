@@ -1,0 +1,66 @@
+@use 'mixins' as *;
+@use 'variables' as *;
+
+:host {
+  @include flex(column);
+  gap: $small-margin;
+}
+
+.empty {
+  margin: $default-margin $small-padding;
+  color: $text-placeholder;
+  font-size: $font-size-base;
+  line-height: 1.5;
+}
+
+.links {
+  @include flex(column);
+  gap: $small-margin;
+}
+
+.link {
+  @include tile-row;
+  gap: $small-padding;
+  padding: $default-padding $small-padding $default-padding 12px;
+
+  .kind {
+    @include icon-size;
+    flex-shrink: 0;
+    color: $icon-faint;
+    cursor: default;
+  }
+
+  .kind.folder {
+    color: $primary-green;
+  }
+
+  .details {
+    @include flex(column);
+    flex: 1;
+    min-width: 0;
+  }
+
+  .name {
+    overflow: hidden;
+    color: $text-primary;
+    font-family: $font-mono;
+    font-size: $font-size-base;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  // Wraps rather than truncating: the whole line is facts you came here for — how big it is, how
+  // often it has been fetched, how much of its limit is left.
+  .meta {
+    color: $text-dim;
+    font-size: $font-size-small;
+    line-height: 1.4;
+  }
+
+  // The row is raised already, so a quiet action needs the next surface up to register as hovered.
+  .icon-btn.quiet {
+    @include hover {
+      background: $surface-elevated-hover;
+    }
+  }
+}

@@ -1,0 +1,35 @@
+@use 'mixins' as *;
+@use 'variables' as *;
+
+// The dialog surface sizes to its content, so the width lives here rather than in a MatDialogConfig
+// — 92vw keeps it off the edges of a small phone.
+:host {
+  display: block;
+  width: min(360px, 92vw);
+}
+
+.target {
+  margin: 0 0 $default-margin;
+  overflow-wrap: anywhere;
+  color: $text-secondary;
+  font-family: $font-mono;
+  font-size: $font-size-base;
+}
+
+.link-row {
+  @include flex(row);
+  align-items: center;
+  gap: $default-padding;
+
+  input {
+    font-family: $font-mono;
+    font-size: $font-size-small;
+  }
+}
+
+.hint {
+  padding-left: $small-padding;
+  color: $text-muted;
+  font-size: $font-size-small;
+  line-height: 1.5;
+}
