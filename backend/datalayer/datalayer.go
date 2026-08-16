@@ -36,8 +36,16 @@ func NewDb(logger logger.ILogger, config config.Config) *sql.DB {
 	return db
 }
 
-func GetItems[T any](rows *sql.Rows) (out []T, err error) {
-	var table []T
+// GetItems scans every row into a T. Columns are bound to the struct fields positionally,
+// so the SELECT list has to be in the same order the struct declares them.
+//
+// It always returns a non-nil slice, so handlers can encode the result as [] rather
+// than null without guarding for it.
+func GetItems[T any](rows *sql.Rows) ([]T, error) {
+	defer rows.Close()
+
+	table := []T{}
+
 	for rows.Next() {
 		var data T
 		s := reflect.ValueOf(&data).Elem()
