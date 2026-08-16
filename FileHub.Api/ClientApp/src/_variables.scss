@@ -1,0 +1,138 @@
+// ─── Palette ────────────────────────────────────────────────────────────────
+// Dark theme only — the design defines no light-theme values. Every surface is a solid
+// colour rather than a translucent white, so a raised row reads the same wherever it
+// sits: on the app surface, inside a menu, or in an overlay.
+//
+// The structure of this palette is CoreList's; the colours are FileHub's. FileHub's old
+// stylesheet had exactly two of its own: the vivid terminal green `#2fc812` and the warm
+// near-black `rgb(43, 40, 40)` its panels were filled with. Both survive — the green is the
+// accent, and the warm neutral is the ramp every surface and every grey is mixed from, which
+// is what keeps this from reading as CoreList with the hue rotated.
+$bg-page: #0d0c0c; // canvas behind the app (browser background / theme colour)
+$bg-primary: #171515; // app surface: screen background, header, bottom nav
+$surface: #2b2828; // raised rows, inputs, secondary fills — FileHub's original panel fill
+$surface-hover: #332f2f; // row hover / press
+$surface-muted: #1f1c1c; // a row that isn't really a row
+$bg-elevated: #302c2c; // menus, dialogs and other floating surfaces
+$surface-elevated-hover: #3b3636; // menu-item hover
+
+$border-subtle: #262323; // section dividers, header and nav hairlines
+$border-input: #3a3535; // input and secondary-button border
+$border-elevated: #403a3a; // menu border and its internal divider
+$border-dashed: #453f3f; // empty drop-zone border
+$track: #383333; // progress-bar track, toggle when off
+
+$text-primary: #f3f1f1; // titles, item labels
+$text-secondary: #d4d0d0; // values, secondary-button labels
+$text-muted: #8d8787; // counts, helper copy, inactive nav icons
+$text-dim: #847e7e; // section labels, meta, quiet glyphs
+$text-placeholder: #746e6e; // input placeholders, empty states
+$icon-faint: #665f5f; // drag handles, unchecked checkbox border
+$icon-quiet: #a09a9a; // header / menu / row icons at rest
+$icon-bright: #eae8e8; // …and once hovered
+
+// FileHub's green. It is a far louder accent than a muted one would be, so it is used as a
+// fill only where the eye is meant to land (primary button, active tab, focus border) and as
+// a colour everywhere else.
+$primary-green: #2fc812;
+$primary-green-hover: #45db28;
+$accent-wash: rgba(47, 200, 18, 0.06); // a surface highlighted by an in-progress action
+$on-accent: #07200a; // icon / label sitting on an accent fill
+$knob-off: #948d8d; // toggle knob, off
+$knob-on: #07200a; // toggle knob, on
+
+// "This is shared out" — the accent's companion hue, picked in OKLCH at the accent's own
+// lightness and chroma so the two carry equal weight. Nothing uses it yet; it is here for the
+// file browser's share markers.
+$share-purple: #c07bff;
+
+$text-danger: #e35c5c; // destructive labels
+$text-error: #e35c5c; // inline form errors
+$border-danger: #3d2828; // destructive outline button
+$danger-hover: #2b1e1e; // destructive outline-button hover
+$danger-hover-strong: #382626; // destructive menu-item hover
+$icon-danger: #ec4343; // destructive icon button, hovered — FileHub's original danger red
+$icon-danger-bg: #2f2020; // …and the fill behind it
+
+$link-primary: $primary-green;
+$link-hover: #57e03a;
+
+// ─── Elevation ──────────────────────────────────────────────────────────────
+$shadow-elevated: 0 16px 40px rgba(0, 0, 0, 0.55); // menus, dialogs
+$shadow-fab: 0 8px 24px rgba(0, 0, 0, 0.45);
+$shadow-drag:
+  0 5px 5px -3px rgba(0, 0, 0, 0.4),
+  0 8px 10px 1px rgba(0, 0, 0, 0.4),
+  0 3px 14px 2px rgba(0, 0, 0, 0.4);
+
+// ─── Typography ───────────────────────────────────────────────────────────────
+// Sizes are absolute px on purpose: the design's type scale is final, and rem would let
+// the browser's base size drift it. Instrument Sans is loaded in index.html.
+$font-main: 'Instrument Sans', 'Helvetica Neue', Helvetica, sans-serif;
+// Filesystem paths, byte counts and share tokens are read character by character and line up
+// in columns — the one place FileHub keeps the monospace face its first UI was set in.
+$font-mono: 'JetBrains Mono', Consolas, 'Lucida Console', monospace;
+
+$font-size-app-title: 21px; // the "FileHub" wordmark
+$font-size-title: 20px; // screen titles
+$font-size-row: 16px; // row titles, file names, account values
+$font-size-base: 15px; // body text, inputs, menu items, buttons
+$font-size-small: 13px; // counts, helper copy, meta
+$font-size-label: 12px; // uppercase section labels
+
+$letter-spacing-title: -0.01em;
+$letter-spacing-label: 0.1em;
+
+// ─── Icon sizes ───────────────────────────────────────────────────────────────
+// One size for every icon in the app — menu items, row actions and header buttons alike.
+// Apply these with the `icon-size` mixin rather than by hand: a Material icon needs four
+// properties, not one.
+$icon-size: 22px;
+$icon-size-fab: 26px;
+// A glyph set inline with small text rather than standing on its own — sized to the type
+// beside it, not to the icon set.
+$icon-size-inline: 14px;
+
+// ─── Spacing ────────────────────────────────────────────────────────────────
+$small-padding: 4px;
+$default-padding: 8px;
+$small-margin: 8px; // gap between stacked rows
+$default-margin: 16px;
+
+// Semantic spacing — same value everywhere the pattern repeats.
+$header-padding: 20px 20px 16px; // padding inside every screen header
+$content-padding: 18px 16px; // padding of scrollable content areas
+$section-gap: 26px; // gap between stacked sections
+$screen-padding: 16px; // horizontal padding of screen content
+
+// ─── Sizing ─────────────────────────────────────────────────────────────────
+$tap-target-min: 40px; // minimum tap target — icon buttons and drag handles
+$row-min-height: 44px; // interactive rows and menu items
+$control-height: 48px; // inputs and full-width buttons
+$item-row-height: 56px; // primary rows: file rows, base-path rows
+$nav-height: 64px; // bottom nav / bottom bar
+$fab-size: 56px;
+$progress-height: 3px;
+$checkbox-size: 22px;
+
+$border-radius: 12px; // rows, inputs, buttons, menus
+$radius-icon: 10px; // icon buttons
+$radius-menu-item: 8px;
+$radius-checkbox: 6px;
+$radius-fab: 18px;
+$radius-pill: 999px;
+
+$max-content-width: 800px; // routed-view shell cap
+$max-form-width: 400px; // auth / form views cap
+
+// ─── Motion ─────────────────────────────────────────────────────────────────
+// The design animates three things and nothing else: progress width, hover/press
+// colour, and the toggle knob.
+$transition-progress: 200ms ease-out;
+$transition-hover: 120ms ease-out;
+$transition-toggle: 140ms ease-out;
+
+// ─── Legacy ─────────────────────────────────────────────────────────────────
+// The file browser, admin and share screens still carry their pre-rewrite stylesheets, which
+// name the accent `$green`. Delete this alias — and `_legacy.scss` — once they are ported.
+$green: $primary-green;

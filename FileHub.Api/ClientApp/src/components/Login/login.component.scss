@@ -1,0 +1,19 @@
+@use 'mixins' as *;
+@use 'variables' as *;
+
+:host {
+  @include auth-screen;
+}
+
+// The hint inside a form control sits under its input, so it carries no side margin of its own.
+.form-control .hint {
+  margin: 0;
+  padding-left: $small-padding;
+}
+
+.remember {
+  @include flex(row);
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}

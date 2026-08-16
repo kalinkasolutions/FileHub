@@ -1,0 +1,27 @@
+@use 'mixins' as *;
+@use 'variables' as *;
+
+:host {
+  @include app-shell;
+}
+
+.screen-header {
+  @include screen-header;
+}
+
+.content {
+  @include account-section;
+  overflow-y: auto;
+  padding: $content-padding;
+}
+
+// A link that has to sit in a row of buttons wears the secondary fill rather than the underline.
+.button-link {
+  @include button-base;
+  @include button-colors($border-input, $text-secondary, $surface-elevated-hover);
+  text-decoration: none;
+
+  @include hover {
+    color: $text-primary;
+  }
+}

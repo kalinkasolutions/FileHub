@@ -73,3 +73,6 @@ Thumbs.db
 
 node_modules/
 __debug_bin*
+
+# Angular build output — the SPA is built into the API's static root
+/FileHub.Api/wwwroot/

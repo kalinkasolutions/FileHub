@@ -1,0 +1,73 @@
+<div class="brand">
+  <img src="filehub.svg" alt="" />
+  <span class="wordmark">FileHub</span>
+</div>
+
+<h1>Accept invitation</h1>
+
+@if (hasValidLink()) {
+  <p class="notice">
+    @if (email()) {
+      You were invited as <strong>{{ email() }}</strong
+      >. Choose a password and the account is yours.
+    } @else {
+      Choose a password and the account is yours.
+    }
+  </p>
+
+  <form (ngSubmit)="onSubmit()" #inviteForm="ngForm">
+    <div class="form-control">
+      <label for="username">Display name (optional)</label>
+      <input
+        id="username"
+        type="text"
+        [(ngModel)]="username"
+        name="username"
+        placeholder="How you'd like to be shown"
+        autocomplete="nickname"
+      />
+    </div>
+
+    <div class="form-control">
+      <label for="password">Password</label>
+      <input
+        id="password"
+        type="password"
+        [(ngModel)]="password"
+        name="password"
+        placeholder="••••••••"
+        autocomplete="new-password"
+        minlength="4"
+        required
+      />
+    </div>
+
+    <div class="form-control">
+      <label for="confirmPassword">Repeat password</label>
+      <input
+        id="confirmPassword"
+        type="password"
+        [(ngModel)]="confirmPassword"
+        name="confirmPassword"
+        placeholder="••••••••"
+        autocomplete="new-password"
+        required
+      />
+      @if (mismatch()) {
+        <span class="error">The passwords don't match.</span>
+      }
+    </div>
+
+    <button type="submit" [disabled]="inviteForm.invalid || mismatch() || isLoading()">
+      {{ isLoading() ? 'Setting up...' : 'Set password' }}
+    </button>
+  </form>
+} @else {
+  <p class="notice">
+    This invitation link is invalid or incomplete. Ask whoever invited you to send a new one.
+  </p>
+}
+
+<div class="nav-link">
+  <a routerLink="/login">Back to sign in</a>
+</div>

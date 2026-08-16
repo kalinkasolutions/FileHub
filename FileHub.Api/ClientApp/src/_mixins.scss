@@ -1,0 +1,554 @@
+@use 'variables' as *;
+
+@mixin flex($direction: column) {
+  display: flex;
+  flex-direction: $direction;
+}
+
+// Hover feedback only where a real pointer can hover, so a tap doesn't leave a stuck
+// hover state on touch.
+@mixin hover {
+  @media (hover: hover) {
+    &:hover {
+      @content;
+    }
+  }
+}
+
+// Size a Material icon. It needs all four properties: `font-size` draws the glyph, while the
+// box `mat-icon` ships with stays 24px square and would otherwise pad the icon out.
+@mixin icon-size($size: $icon-size) {
+  font-size: $size;
+  width: $size;
+  height: $size;
+  line-height: $size;
+}
+
+// ─── Buttons ────────────────────────────────────────────────────────────────
+// Buttons are split into shape and colour so a family of variants costs one block of
+// structural CSS plus a handful of declarations each, instead of a full copy per variant.
+
+// Geometry of a square icon button.
+@mixin icon-button-size($size: $tap-target-min, $radius: $radius-icon, $icon: $icon-size) {
+  width: $size;
+  height: $size;
+  min-width: $size;
+  min-height: $size;
+  border-radius: $radius;
+
+  mat-icon {
+    @include icon-size($icon);
+  }
+}
+
+// Everything a square icon button needs except its colours.
+@mixin icon-button-base($size: $tap-target-min, $radius: $radius-icon, $icon: $icon-size) {
+  @include flex(row);
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  cursor: pointer;
+  transition:
+    background-color $transition-hover,
+    color $transition-hover;
+  @include icon-button-size($size, $radius, $icon);
+
+  mat-icon {
+    flex-shrink: 0;
+  }
+
+  &:active {
+    opacity: 0.7;
+  }
+
+  // `pointer-events: none` is what keeps a disabled button from taking on its hover fill,
+  // without every colour variant having to restate its resting colours.
+  &:disabled {
+    opacity: 0.45;
+    cursor: default;
+    pointer-events: none;
+  }
+}
+
+// The fills of one icon-button variant. `$hover-bg`/`$hover-fg` default to no change.
+@mixin icon-button-colors($bg, $fg, $hover-bg: $bg, $hover-fg: $fg) {
+  background-color: $bg;
+  color: $fg;
+
+  @include hover {
+    background-color: $hover-bg;
+    color: $hover-fg;
+  }
+}
+
+// Complete square icon button, shape and colour in one — for the odd one-off outside
+// the shared `.icon-btn` family.
+@mixin icon-button(
+  $bg,
+  $fg,
+  $size: $tap-target-min,
+  $radius: $radius-icon,
+  $icon: $icon-size,
+  $hover-bg: $bg,
+  $hover-fg: $fg
+) {
+  @include icon-button-base($size, $radius, $icon);
+  @include icon-button-colors($bg, $fg, $hover-bg, $hover-fg);
+}
+
+// Filled accent icon button (primary/confirm actions) — pairs with a 48px input.
+@mixin icon-button-accent($size: $control-height, $radius: $border-radius) {
+  @include icon-button(
+    $primary-green,
+    $on-accent,
+    $size,
+    $radius,
+    $icon-size,
+    $primary-green-hover,
+    $on-accent
+  );
+}
+
+// Destructive icon button: quiet until hovered, when it turns red rather than shouting
+// about it from the start — these sit in routine rows.
+@mixin icon-button-danger($size: $tap-target-min) {
+  @include icon-button(
+    transparent,
+    $text-dim,
+    $size,
+    $radius-icon,
+    $icon-size,
+    $icon-danger-bg,
+    $icon-danger
+  );
+}
+
+// Shape of a full-width button.
+@mixin button-base {
+  @include flex(row);
+  align-items: center;
+  justify-content: center;
+  gap: $default-padding;
+  min-height: $control-height;
+  padding: 0 $default-margin;
+  border: none;
+  border-radius: $border-radius;
+  font-size: $font-size-base;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color $transition-hover;
+
+  mat-icon {
+    flex-shrink: 0;
+    @include icon-size;
+  }
+
+  &:active {
+    opacity: 0.7;
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: default;
+    pointer-events: none;
+  }
+}
+
+// The fills of one full-width-button variant.
+@mixin button-colors($bg, $fg, $hover-bg: $bg) {
+  background-color: $bg;
+  color: $fg;
+
+  @include hover {
+    background-color: $hover-bg;
+  }
+}
+
+// Full-width secondary action: the muted fill, for actions that aren't the point of the
+// section they sit in.
+@mixin button-secondary {
+  @include button-base;
+  @include button-colors($border-input, $text-secondary, $surface-elevated-hover);
+}
+
+// ─── Controls ───────────────────────────────────────────────────────────────
+
+// A text input. `input` gets this globally; the mixin exists for the places that need it
+// on a wrapper (a field that sits an icon button beside its input wraps the two together).
+@mixin control-input {
+  width: 100%;
+  min-height: $control-height;
+  padding: 0 14px;
+  border: 1px solid $border-input;
+  border-radius: $border-radius;
+  background-color: $surface;
+  color: $text-primary;
+  font-size: $font-size-base;
+
+  &::placeholder {
+    color: $text-placeholder;
+  }
+
+  // Focus is a border colour change and nothing else — no glow, no ring.
+  &:focus,
+  &:focus-visible {
+    outline: none;
+    border-color: $primary-green;
+  }
+}
+
+// A self-contained CSS toggle switch (no Material dependency). Expected markup:
+//   <span class="switch"><input type="checkbox" .../><span class="slider"></span></span>
+// The knob is the .slider::before circle; it slides right when the input is checked.
+@mixin toggle-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 46px;
+  height: 27px;
+
+  input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 14px;
+    background: none;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  .slider {
+    position: absolute;
+    inset: 0;
+    border-radius: 14px;
+    background: $track;
+    transition: background $transition-toggle;
+
+    // 3px of padding all round leaves a 21px knob inside the 27px track.
+    &::before {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 21px;
+      height: 21px;
+      border-radius: 50%;
+      background: $knob-off;
+      transition:
+        transform $transition-toggle,
+        background $transition-toggle;
+    }
+  }
+
+  input:checked + .slider {
+    background: $primary-green;
+
+    &::before {
+      background: $knob-on;
+      transform: translateX(19px);
+    }
+  }
+
+  input:disabled + .slider {
+    opacity: 0.5;
+    cursor: default;
+  }
+}
+
+// ─── Layout ─────────────────────────────────────────────────────────────────
+
+// The uppercase label that opens a section. Sits 4px in so it lines up optically with
+// the text inside the rows below it, which carry their own padding.
+@mixin section-label {
+  padding-left: $small-padding;
+  color: $text-dim;
+  font-size: $font-size-label;
+  font-weight: 400;
+  letter-spacing: $letter-spacing-label;
+  text-transform: uppercase;
+}
+
+// The header at the top of every screen: title left, optional actions right.
+@mixin screen-header {
+  @include flex(row);
+  align-items: center;
+  justify-content: space-between;
+  gap: $default-padding;
+  flex-shrink: 0;
+  padding: $header-padding;
+  border-bottom: 1px solid $border-subtle;
+
+  .title {
+    font-size: $font-size-title;
+    font-weight: 600;
+    letter-spacing: $letter-spacing-title;
+  }
+}
+
+// A 3px done/total bar. Expected markup: <span class="progress"><span class="fill"></span></span>
+@mixin progress-bar {
+  overflow: hidden;
+  height: $progress-height;
+  border-radius: $progress-height;
+  background: $track;
+
+  .fill {
+    display: block;
+    height: 100%;
+    border-radius: $progress-height;
+    background: $primary-green;
+    transition: width $transition-progress;
+  }
+}
+
+// One of the screens reached with no session: sign in, accept an invite, reset a password. They
+// are all the same shape — a narrow centred column with a form in it and a way back underneath —
+// so the shell, the helper copy and the trailing link live here rather than six times over.
+@mixin auth-screen {
+  width: 100%;
+  max-width: $max-form-width;
+  @include flex(column);
+  align-items: stretch;
+
+  // The FileHub mark above the title, so a mail link lands somewhere recognisable.
+  .brand {
+    @include flex(row);
+    align-items: center;
+    justify-content: center;
+    gap: $default-padding;
+    margin: $default-margin $default-margin 0;
+
+    img {
+      width: 32px;
+      height: 32px;
+    }
+
+    .wordmark {
+      font-size: $font-size-app-title;
+      font-weight: 600;
+      letter-spacing: $letter-spacing-title;
+    }
+  }
+
+  .hint {
+    margin: 0 $default-margin $default-margin;
+    color: $text-muted;
+    font-size: $font-size-small;
+    line-height: 1.5;
+  }
+
+  // A hint that is the point of the screen rather than a footnote to it — the explanation on
+  // the forced password change, the outcome of a mail-link screen.
+  .notice {
+    margin: 0 $default-margin $default-margin;
+    color: $text-primary;
+    font-size: $font-size-base;
+    line-height: 1.5;
+  }
+
+  // Inside the form the copy lines up with the controls, which the form's own padding already
+  // holds off the edge — so it drops the side margin it carries when it stands on its own.
+  form .hint,
+  form .notice {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .error {
+    padding-left: $small-padding;
+    color: $text-error;
+    font-size: $font-size-small;
+  }
+
+  .nav-link {
+    align-self: center;
+    margin-bottom: $default-margin;
+
+    // A link that acts on the page rather than navigating, so it's a button underneath.
+    .link {
+      min-height: 0;
+      padding: 0;
+      background: transparent;
+      color: $link-primary;
+      font-weight: 400;
+      text-decoration: underline;
+
+      @include hover {
+        background: transparent;
+        color: $link-hover;
+      }
+    }
+  }
+}
+
+// A raised tile row — file rows, base-path rows and share rows all share this shape.
+@mixin tile-row {
+  @include flex(row);
+  align-items: center;
+  min-height: $item-row-height;
+  border-radius: $border-radius;
+  background: $surface;
+  transition: background-color $transition-hover;
+}
+
+// One block of the account screen (profile, password, two-factor, …). Each account component
+// includes this on its own :host so it carries its own layout and can be placed anywhere —
+// stacked on the settings page, or on its own elsewhere — without the page styling it.
+@mixin account-section {
+  @include flex(column);
+  gap: $default-margin;
+  padding: $default-margin 0;
+
+  // The section opener is an uppercase label rather than a heading-sized title, so a
+  // screenful of blocks reads as one list instead of a stack of competing headlines.
+  h2 {
+    @include section-label;
+    margin: 0;
+  }
+
+  h3 {
+    margin: 0;
+    font-size: $font-size-base;
+    font-weight: 600;
+  }
+
+  // The global form rule adds side padding meant for the auth screens; inside a section the
+  // controls should line up with the heading instead.
+  form {
+    padding: 0;
+    gap: $default-margin;
+  }
+
+  .hint {
+    margin: 0;
+    padding-left: $small-padding;
+    color: $text-muted;
+    font-size: $font-size-small;
+    line-height: 1.5;
+  }
+
+  // A label/value (or label/control) pair on one line, wrapping on narrow screens.
+  .row {
+    @include flex(row);
+    align-items: center;
+    justify-content: space-between;
+    gap: $default-margin;
+    min-height: 52px;
+    flex-wrap: wrap;
+  }
+
+  // Rows in a run of details are separated by hairlines rather than gaps.
+  .rows {
+    @include flex(column);
+
+    .row + .row {
+      border-top: 1px solid $border-subtle;
+    }
+  }
+
+  // Stacked label-above-value, the shape the details rows use.
+  .stacked {
+    @include flex(column);
+    gap: 3px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .label {
+    color: $text-dim;
+    font-size: $font-size-small;
+  }
+
+  .value {
+    font-size: $font-size-row;
+    // Email addresses and secrets are long and unbreakable; let them wrap rather than overflow.
+    overflow-wrap: anywhere;
+  }
+
+  .actions {
+    @include flex(row);
+    align-items: center;
+    gap: $default-padding;
+    flex-wrap: wrap;
+  }
+}
+
+// The mobile-first app shell shared by the routed views: full width on
+// phones/tablets, capped and centered on large screens.
+@mixin app-shell {
+  width: 100%;
+  max-width: $max-content-width;
+  height: 100%;
+  @include flex(column);
+  background: $bg-primary;
+}
+
+// Full-width bottom tab bar: equal columns, 64px tall. Tabs (.tab) fill the width; add
+// .active for the current tab, which takes the full accent fill.
+@mixin tab-bar {
+  @include flex(row);
+  flex-shrink: 0;
+  border-top: 1px solid $border-subtle;
+  background: $bg-primary;
+
+  .tab {
+    position: relative;
+    flex: 1;
+    @include flex(row);
+    align-items: center;
+    justify-content: center;
+    gap: $default-margin * 0.625;
+    min-height: $nav-height;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    color: $text-muted;
+    font-size: $font-size-base;
+    cursor: pointer;
+    transition:
+      background-color $transition-hover,
+      color $transition-hover;
+
+    mat-icon {
+      @include icon-size;
+    }
+
+    @include hover {
+      color: $icon-bright;
+    }
+
+    &.active {
+      background: $primary-green;
+      color: $on-accent;
+
+      @include hover {
+        color: $on-accent;
+      }
+    }
+
+    .badge {
+      position: absolute;
+      top: 12px;
+      right: 28%;
+      min-width: 16px;
+      padding: 1px 4px;
+      border-radius: $radius-pill;
+      background: $primary-green;
+      color: $on-accent;
+      font-size: 11px;
+      line-height: 1.3;
+    }
+
+    &.active .badge {
+      background: $on-accent;
+      color: $primary-green;
+    }
+  }
+}
