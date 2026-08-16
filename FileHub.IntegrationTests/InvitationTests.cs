@@ -243,6 +243,68 @@ public sealed class InvitationTests : IdentityTestBase
     }
 
     [Fact]
+    public async Task An_invitation_password_the_policy_rejects_is_a_validation_error()
+    {
+        var mail = await InviteAsync();
+
+        var result = await Identity.AcceptInviteAsync(new AcceptInviteDto
+        {
+            UserId = mail.UserId!.Value.ToString(),
+            Token = mail.Token,
+            // Eight characters, so the old [MinLength(8)] waved it through — and no lowercase letter,
+            // which is the one password rule Identity is left enforcing.
+            Password = "12345678",
+            DisplayName = string.Empty
+        });
+
+        Assert.Equal(ResultCode.Validation, result.ResultCode);
+        Assert.Contains(nameof(AcceptInviteDto.Password), result.ValidationErrors.Keys);
+    }
+
+    [Fact]
+    public async Task An_invitation_whose_password_is_refused_activates_nothing()
+    {
+        var mail = await InviteAsync();
+
+        await Identity.AcceptInviteAsync(new AcceptInviteDto
+        {
+            UserId = mail.UserId!.Value.ToString(),
+            Token = mail.Token,
+            Password = "12345678",
+            DisplayName = string.Empty
+        });
+
+        // Confirming the address first and setting the password second left a confirmed, passwordless
+        // account: activated as far as the admin screen was concerned, and resend-invite then refused
+        // to help because it had "already accepted".
+        var user = await ReloadAsync(mail.UserId.Value);
+        Assert.False(user.EmailConfirmed);
+        Assert.False(await UserManager.HasPasswordAsync(user));
+    }
+
+    [Fact]
+    public async Task An_invitation_whose_password_is_refused_leaves_the_link_usable()
+    {
+        var mail = await InviteAsync();
+        await Identity.AcceptInviteAsync(new AcceptInviteDto
+        {
+            UserId = mail.UserId!.Value.ToString(),
+            Token = mail.Token,
+            Password = "12345678",
+            DisplayName = string.Empty
+        });
+
+        var result = await AcceptAsync(mail);
+
+        // The invitee types a password the rules accept and the link they already have still works —
+        // nothing about the first attempt was applied, the token included.
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        var user = await ReloadAsync(mail.UserId.Value);
+        Assert.True(user.EmailConfirmed);
+        Assert.True(await UserManager.CheckPasswordAsync(user, Password));
+    }
+
+    [Fact]
     public async Task Resending_an_invitation_mails_a_token_that_works()
     {
         var first = await InviteAsync();

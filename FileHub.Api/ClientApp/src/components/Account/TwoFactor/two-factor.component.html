@@ -98,9 +98,24 @@
           Generating a new set replaces the old one: every code you wrote down before stops working.
         </p>
 
-        <button class="secondary" type="button" [disabled]="busy()" (click)="regenerateCodes()">
-          Generate new recovery codes
-        </button>
+        <form (ngSubmit)="regenerateCodes()">
+          <div class="form-control">
+            <label for="regenerate2fa">Password, to generate new recovery codes</label>
+            <input
+              id="regenerate2fa"
+              type="password"
+              name="regenerate2fa"
+              autocomplete="current-password"
+              placeholder="••••••••"
+              [ngModel]="regeneratePassword()"
+              (ngModelChange)="regeneratePassword.set($event)"
+            />
+          </div>
+
+          <button class="secondary" type="submit" [disabled]="busy() || !regeneratePassword()">
+            Generate new recovery codes
+          </button>
+        </form>
 
         <form (ngSubmit)="disable()">
           <div class="form-control">
@@ -131,9 +146,24 @@
           your password.
         </p>
 
-        <button type="button" [disabled]="busy()" (click)="startSetup()">
-          Set up authenticator app
-        </button>
+        <form (ngSubmit)="startSetup()">
+          <div class="form-control">
+            <label for="setup2fa">Password, to set two-factor up</label>
+            <input
+              id="setup2fa"
+              type="password"
+              name="setup2fa"
+              autocomplete="current-password"
+              placeholder="••••••••"
+              [ngModel]="setupPassword()"
+              (ngModelChange)="setupPassword.set($event)"
+            />
+          </div>
+
+          <button type="submit" [disabled]="busy() || !setupPassword()">
+            Set up authenticator app
+          </button>
+        </form>
       }
     } @else {
       <p class="hint">Loading…</p>

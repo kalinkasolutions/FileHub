@@ -30,8 +30,16 @@ public interface IAccountService
     /// <summary>Invalidates every auth cookie issued to this user, on all their devices.</summary>
     Task<OperationResult<Empty>> SignOutEverywhereAsync(Guid userId);
 
-    /// <summary>The authenticator secret to scan or type, for a user who does not have 2FA on yet.</summary>
-    Task<OperationResult<TwoFactorSetupDto>> GetTwoFactorSetupAsync(Guid userId);
+    /// <summary>
+    /// The authenticator secret to scan or type, for a user who does not have 2FA on yet.
+    /// <para>
+    /// All four two-factor operations take the account password, not just the one that turns it off.
+    /// Every one of them changes what it takes to sign in as this account, and a session cookie is a
+    /// weaker thing to hold than the password — someone with a borrowed one could otherwise pair
+    /// their own authenticator and walk away with recovery codes that survive a password change.
+    /// </para>
+    /// </summary>
+    Task<OperationResult<TwoFactorSetupDto>> StartTwoFactorSetupAsync(Guid userId, StartTwoFactorSetupDto dto);
 
     /// <summary>Verifies a code against the pending secret and, if it matches, turns 2FA on and issues recovery codes.</summary>
     Task<OperationResult<RecoveryCodesDto>> EnableTwoFactorAsync(Guid userId, EnableTwoFactorDto dto);
@@ -40,5 +48,5 @@ public interface IAccountService
     Task<OperationResult<Empty>> DisableTwoFactorAsync(Guid userId, DisableTwoFactorDto dto);
 
     /// <summary>Replaces the remaining recovery codes with a fresh set.</summary>
-    Task<OperationResult<RecoveryCodesDto>> RegenerateRecoveryCodesAsync(Guid userId);
+    Task<OperationResult<RecoveryCodesDto>> RegenerateRecoveryCodesAsync(Guid userId, RegenerateRecoveryCodesDto dto);
 }

@@ -19,9 +19,11 @@ public sealed class PasswordResetTests : IdentityTestBase
         var result = await Identity.SendPasswordResetAsync(new ForgotPasswordDto { Email = "ada@example.com" });
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(MailKind.ResetPassword, Email.Last!.Kind);
-        Assert.Equal("ada@example.com", Email.Last.Recipient);
-        Assert.False(string.IsNullOrEmpty(Email.Last.Token));
+        // Delivery is handed off rather than awaited, so the mail lands just after the answer does.
+        var mail = await Email.WaitForMailAsync();
+        Assert.Equal(MailKind.ResetPassword, mail.Kind);
+        Assert.Equal("ada@example.com", mail.Recipient);
+        Assert.False(string.IsNullOrEmpty(mail.Token));
     }
 
     [Fact]
@@ -43,6 +45,27 @@ public sealed class PasswordResetTests : IdentityTestBase
         var result = await Identity.SendPasswordResetAsync(new ForgotPasswordDto { Email = "ada@example.com" });
 
         Assert.True(result.IsSuccess);
+    }
+
+    [Fact]
+    public async Task Requesting_a_reset_answers_without_waiting_for_the_mail_to_go_out()
+    {
+        await CreateUserAsync("ada@example.com");
+
+        using var delivery = new SemaphoreSlim(0);
+        Email.BeforeSend = () => delivery.WaitAsync();
+
+        var result = await Identity.SendPasswordResetAsync(new ForgotPasswordDto { Email = "ada@example.com" });
+
+        // Reporting success for every address is defeated if only one of them waits for SMTP: a known
+        // address took the round trip (~45 ms) and an unknown one returned in ~2 ms, which said the
+        // same thing the answer refused to.
+        Assert.True(result.IsSuccess);
+        Assert.Empty(Email.Sent);
+
+        // Handed off, not dropped.
+        delivery.Release();
+        Assert.Equal("ada@example.com", (await Email.WaitForMailAsync()).Recipient);
     }
 
     [Fact]
@@ -160,6 +183,49 @@ public sealed class PasswordResetTests : IdentityTestBase
     }
 
     [Fact]
+    public async Task An_unknown_address_and_a_bad_token_give_the_same_answer()
+    {
+        await CreateUserAsync("ada@example.com");
+
+        var unknown = await Identity.ResetPasswordAsync(new ResetPasswordDto
+        {
+            Email = "nobody@example.com",
+            Token = "not-a-token",
+            Password = NewPassword
+        });
+        var badToken = await Identity.ResetPasswordAsync(new ResetPasswordDto
+        {
+            Email = "ada@example.com",
+            Token = "not-a-token",
+            Password = NewPassword
+        });
+
+        // Both halves are anonymous and this route carries no rate limit, so Identity's own "Invalid
+        // token." coming back only for an address that has an account was a free account list.
+        Assert.Equal(unknown.ResultCode, badToken.ResultCode);
+        Assert.Equal(unknown.ErrorMessage, badToken.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task A_password_the_policy_rejects_is_a_validation_error_rather_than_the_generic_answer()
+    {
+        await CreateUserAsync("ada@example.com");
+        var token = await RequestResetAsync("ada@example.com");
+
+        var result = await Identity.ResetPasswordAsync(new ResetPasswordDto
+        {
+            Email = "ada@example.com",
+            Token = token,
+            Password = "12345678"
+        });
+
+        // Everything the reset itself rejects now answers with one uninformative message, so a rule
+        // Identity enforces has to be caught by the DTO or the user is told nothing they can act on.
+        Assert.Equal(ResultCode.Validation, result.ResultCode);
+        Assert.Contains(nameof(ResetPasswordDto.Password), result.ValidationErrors.Keys);
+    }
+
+    [Fact]
     public async Task Resetting_to_a_password_below_the_minimum_length_is_a_validation_error()
     {
         await CreateUserAsync("ada@example.com");
@@ -178,8 +244,12 @@ public sealed class PasswordResetTests : IdentityTestBase
 
     private async Task<string> RequestResetAsync(string email)
     {
+        var alreadySent = Email.Sent.Count;
+
         var result = await Identity.SendPasswordResetAsync(new ForgotPasswordDto { Email = email });
         Assert.True(result.IsSuccess);
-        return Email.Last!.Token;
+
+        // The send is handed off to a background task, so the token arrives after the answer does.
+        return (await Email.WaitForMailAsync(alreadySent + 1)).Token;
     }
 }

@@ -8,15 +8,14 @@ namespace FileHub.Endpoints;
 
 /// <summary>
 /// The anonymous half of authentication: signing in and out, and the links a user follows while
-/// signed out. Login, the two-factor step and logout talk to <c>SignInManager</c> here rather than
-/// through a service, because what they produce is the sign-in cookie itself.
+/// signed out. The two-factor step and logout talk to <c>SignInManager</c> here rather than through a
+/// service, because what they produce is the sign-in cookie itself; the password step went the other
+/// way, into <see cref="IIdentityService"/>, so that its DTO is validated and its rules — one answer
+/// for every failure a stranger can provoke — are testable without HTTP.
 /// </summary>
 public static class AuthEndpoint
 {
     private const string LogCategory = "FileHub.Endpoints.Auth";
-
-    /// <summary>Same reply for an unknown address and a wrong password, so neither can be probed.</summary>
-    private const string BadCredentials = "Bad email or password.";
 
     public static void MapAuthEndpoint(this IEndpointRouteBuilder builder)
     {
@@ -57,71 +56,9 @@ public static class AuthEndpoint
         return (await identityService.ConfirmEmailChangeAsync(confirmEmailChangeDto)).ToHttpResult();
     }
 
-    private static async Task<IResult> LoginAsync(
-        LoginDto loginDto,
-        SignInManager<FileHubUser> signInManager,
-        UserManager<FileHubUser> userManager,
-        ILoggerFactory loggerFactory
-    )
+    private static async Task<IResult> LoginAsync(LoginDto loginDto, IIdentityService identityService)
     {
-        var logger = loggerFactory.CreateLogger(LogCategory);
-        var email = loginDto.Email?.Trim();
-        if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(loginDto.Password))
-        {
-            return Results.Problem(detail: BadCredentials, statusCode: StatusCodes.Status400BadRequest);
-        }
-
-        // Sign-in resolves by email only; a username is a display name and intentionally not an identifier.
-        var user = await userManager.FindByEmailAsync(email);
-        if (user is null)
-        {
-            logger.LogInformation("Failed login attempt for unknown email \"{Email}\"", email);
-            return Results.Problem(detail: BadCredentials, statusCode: StatusCodes.Status400BadRequest);
-        }
-
-        var result = await signInManager.PasswordSignInAsync(
-            user,
-            loginDto.Password,
-            isPersistent: true,
-            // This form is on the public internet, so a wrong password has to cost something: enough
-            // failures lock the account for the window Identity is configured with.
-            lockoutOnFailure: true
-        );
-
-        if (result.RequiresTwoFactor)
-        {
-            // The password was right but no cookie is issued yet: SignInManager parked the user id in
-            // the two-factor cookie, and login-2fa finishes the sign-in from there.
-            logger.LogInformation("User {UserId} passed the password step and needs a two-factor code", user.Id);
-            return Results.Ok(new LoginResultDto { RequiresTwoFactor = true });
-        }
-
-        if (result.IsLockedOut)
-        {
-            logger.LogInformation("Login attempt for locked-out user {UserId}", user.Id);
-            return Results.Problem(
-                detail: "Too many failed attempts. Please try again later.",
-                statusCode: StatusCodes.Status400BadRequest);
-        }
-
-        if (result.IsNotAllowed)
-        {
-            // Only reachable with the correct password, so naming the reason leaks nothing an attacker
-            // doesn't already have — and without it a user who never accepted their invitation is stuck.
-            logger.LogInformation("User {UserId} tried to log in with an unconfirmed email address", user.Id);
-            return Results.Problem(
-                detail: "This account has not been activated yet. Follow the invitation link you were sent.",
-                statusCode: StatusCodes.Status400BadRequest);
-        }
-
-        if (!result.Succeeded)
-        {
-            logger.LogInformation("Failed login attempt for user {UserId}", user.Id);
-            return Results.Problem(detail: BadCredentials, statusCode: StatusCodes.Status400BadRequest);
-        }
-
-        logger.LogInformation("User {UserId} ({Username}) logged in", user.Id, user.UserName);
-        return Results.Ok(new LoginResultDto { MustChangePassword = user.MustChangePassword });
+        return (await identityService.LoginAsync(loginDto)).ToHttpResult();
     }
 
     private static async Task<IResult> LoginTwoFactorAsync(
