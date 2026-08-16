@@ -1,0 +1,27 @@
+<h2>Signed-in devices</h2>
+
+<p class="hint">
+  If you lost a device, or left yourself signed in somewhere, end those sessions here. This device
+  stays signed in.
+</p>
+
+<!-- The delay is the server's, not a spinner: other devices are only re-checked on an interval. -->
+<p class="hint">
+  It takes up to a minute to take effect — the other devices keep working until the server next
+  re-checks them.
+</p>
+
+@if (confirming()) {
+  <p class="hint">
+    Every other browser and phone signed in to this account will have to sign in again.
+  </p>
+
+  <span class="actions">
+    <button class="danger" type="button" [disabled]="busy()" (click)="signOutEverywhere()">
+      {{ busy() ? 'Signing out…' : 'Sign them out' }}
+    </button>
+    <button class="secondary" type="button" [disabled]="busy()" (click)="cancel()">Cancel</button>
+  </span>
+} @else {
+  <button class="secondary" type="button" (click)="ask()">Sign out other devices</button>
+}

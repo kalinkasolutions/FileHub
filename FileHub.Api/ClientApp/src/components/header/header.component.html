@@ -1,14 +1,60 @@
-<header class="flex-row" *ngIf="showHeader">
-    <a href="/">
-        <img class="logo" src="file-hub.svg" />
+@if (signedIn()) {
+  <a class="brand" routerLink="/" title="FileHub">
+    <img src="filehub.svg" alt="" />
+    <span class="wordmark">FileHub</span>
+  </a>
+  <!-- Where you are, spelled out rather than left to the highlighted icon alone. -->
+  <span class="section">{{ section() }}</span>
+
+  <span class="spacer"></span>
+
+  <nav>
+    <a
+      class="icon-btn quiet"
+      routerLink="/"
+      title="Files"
+      aria-label="Files"
+      [class.active]="section() === 'Files'"
+    >
+      <mat-icon>folder</mat-icon>
     </a>
-    <div #pathSegmentsContainer class="flex-row path-segments"
-        [ngStyle]="{ visibility: showPathSegments ? 'visible' : 'hidden' }">
-        <span *ngFor="let segment of path; let last = last" (click)="segmentChange(segment, last)"
-            class="path-segment">{{
-            segment.Name }}</span>
-    </div>
-    <span class="flex-grow"></span>
-    <a class="nav" [class.active]="isActive('/')" routerLink="/">directories</a>
-    <a class="nav" [class.active]="isActive('/admin')" routerLink="/admin">admin</a>
-</header>
+
+    @if (isAdmin()) {
+      <a
+        class="icon-btn quiet"
+        routerLink="/admin"
+        title="Admin"
+        aria-label="Admin"
+        [class.active]="section() === 'Admin'"
+      >
+        <mat-icon>shield_person</mat-icon>
+      </a>
+    }
+
+    <a
+      class="icon-btn quiet"
+      routerLink="/account"
+      title="Account"
+      aria-label="Account"
+      [class.active]="section() === 'Account'"
+    >
+      <mat-icon>person</mat-icon>
+    </a>
+
+    <button
+      class="icon-btn quiet"
+      type="button"
+      (click)="signOut()"
+      title="Sign out"
+      aria-label="Sign out"
+    >
+      <mat-icon>logout</mat-icon>
+    </button>
+  </nav>
+} @else {
+  <!-- No session: the mark, and nothing that would need one. -->
+  <span class="brand">
+    <img src="filehub.svg" alt="" />
+    <span class="wordmark">FileHub</span>
+  </span>
+}

@@ -1,4 +1,41 @@
 @use 'variables' as *;
+@use 'mixins' as *;
+
+// Two shapes, one element. Without chrome — the auth screens and the 404 — the routed view is a
+// centred block on the page background, which is what `app-root` already arranges. With chrome it
+// becomes the app surface: header pinned at the top, the view filling the rest, capped and centred
+// on a wide screen the way `app-shell` caps the views themselves.
+.shell {
+  width: 100%;
+  height: 100%;
+  @include flex(column);
+  align-items: center;
+  justify-content: center;
+
+  // The outlet renders its component as a *sibling*, so the tag itself is an empty element that
+  // would otherwise sit in the flex line and take a share of it.
+  router-outlet {
+    display: none;
+  }
+}
+
+.shell.chromed {
+  justify-content: flex-start;
+
+  > * {
+    width: 100%;
+    max-width: $max-content-width;
+  }
+
+  // The routed view takes what the header leaves. Its own `app-shell` sets `height: 100%`, which
+  // here would be the shell's full height *plus* the header — so the height comes from the flex
+  // line instead.
+  > :not(app-header) {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+  }
+}
 
 .loading-overlay {
   position: fixed;
@@ -15,7 +52,7 @@
   width: 48px;
   height: 48px;
   border: 5px solid rgba(255, 255, 255, 0.1);
-  border-top-color: $green;
+  border-top-color: $primary-green;
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }

@@ -1,0 +1,63 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
+:host {
+  @include account-section;
+
+  form {
+    gap: 12px;
+  }
+}
+
+.qr {
+  align-self: center;
+  width: 220px;
+  max-width: 100%;
+  height: auto;
+  padding: $default-padding;
+  border-radius: $border-radius;
+  // The encoder draws dark-on-light; keep the quiet zone white so scanners cope.
+  background: #fff;
+}
+
+.app-link {
+  align-self: center;
+  font-size: $font-size-small;
+  text-align: center;
+}
+
+.key {
+  font-family: $font-mono;
+  font-size: $font-size-base;
+  letter-spacing: 0.05em;
+  // styles.scss turns selection off app-wide; the key is one of the few things here worth
+  // selecting by hand.
+  user-select: text;
+}
+
+.on {
+  color: $primary-green;
+}
+
+.hint.warn {
+  color: $text-danger;
+}
+
+.codes {
+  @include flex(column);
+  gap: $small-padding;
+  padding: 12px $default-margin;
+  border-radius: $border-radius;
+  background: $surface;
+  font-family: $font-mono;
+  font-size: $font-size-base;
+  // The codes are the one thing on this screen worth selecting.
+  user-select: text;
+}
+
+@media (min-width: 600px) {
+  .codes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}
