@@ -1,7 +1,6 @@
 @if (signedIn()) {
   <a class="brand" routerLink="/" title="FileHub">
-    <img src="filehub.svg" alt="" />
-    <span class="wordmark">FileHub</span>
+    <img src="file-hub.svg" alt="" />
   </a>
   <!-- Where you are, spelled out rather than left to the highlighted icon alone. -->
   <span class="section">{{ section() }}</span>
@@ -54,7 +53,6 @@
 } @else {
   <!-- No session: the mark, and nothing that would need one. -->
   <span class="brand">
-    <img src="filehub.svg" alt="" />
-    <span class="wordmark">FileHub</span>
+    <img src="file-hub.svg" alt="" />
   </span>
 }

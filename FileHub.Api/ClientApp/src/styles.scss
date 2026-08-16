@@ -1,7 +1,6 @@
 @use 'variables' as *;
 @use 'mixins' as *;
 @use 'ngx-toastr/toastr';
-// Temporary: the globals the not-yet-ported screens were written against. See the file.
 
 *,
 *::before,
@@ -155,16 +154,26 @@ input[type='checkbox'] {
 // destructive `.danger` outline — deleting is deliberate, not the thing the eye lands on first.
 button {
   @include button-base;
-  @include button-colors($primary-green, $on-accent, $primary-green-hover);
+  @include button-colors($accent-fill, $on-accent, $accent-fill-hover);
 
+  // Outlined rather than filled: only one thing on a screen should look like the thing to press.
   &.secondary {
-    @include button-colors($border-input, $text-secondary, $surface-elevated-hover);
+    background-color: transparent;
+    border: 2px solid $border-input;
+    color: $text-primary;
+    font-weight: 400;
+
+    @include hover {
+      background-color: transparent;
+      border-color: $primary-green;
+      color: $primary-green;
+    }
   }
 
   // `:not(.icon-btn)` keeps the outline off the square icon buttons, which carry `.danger`
   // too but mean something quieter by it.
   &.danger:not(.icon-btn) {
-    border: 1px solid $border-danger;
+    border: 2px solid $border-danger;
     font-weight: 400;
     @include button-colors(transparent, $text-danger, $danger-hover);
   }
@@ -195,7 +204,7 @@ ul {
 
 ::-webkit-scrollbar-thumb {
   border-radius: $radius-pill;
-  background: $icon-faint;
+  background: #888;
 
   @include hover {
     background: $icon-quiet;
@@ -203,19 +212,23 @@ ul {
 }
 
 * {
-  scrollbar-color: $icon-faint transparent;
+  scrollbar-color: #888 transparent;
   scrollbar-width: thin;
 }
 
 // Material Symbols Outlined rather than the filled Material Icons: the design's glyphs are
 // thin strokes, which is the `wght 300, FILL 0` instance loaded in index.html.
+// Icons are set in the accent, which is the app's oldest visual habit: the green glyph is how a
+// row says it can be acted on. Anything that colours its own contents — a filled button, a tab —
+// overrides this with `color: inherit`.
 mat-icon.mat-icon {
+  color: $primary-green;
   font-family: 'Material Symbols Outlined';
   font-weight: normal;
   font-style: normal;
   font-variation-settings:
     'FILL' 0,
-    'wght' 300,
+    'wght' 400,
     'GRAD' 0,
     'opsz' 24;
   cursor: pointer;
@@ -226,7 +239,7 @@ mat-icon.mat-icon {
 // their own overrides.
 .icon-btn {
   @include icon-button-base($control-height, $border-radius);
-  @include icon-button-colors($primary-green, $on-accent, $primary-green-hover, $on-accent);
+  @include icon-button-colors($accent-fill, $on-accent, $accent-fill-hover, $on-accent);
 
   // The muted fill, for an action that's available but isn't the point.
   &.ghost {
@@ -329,7 +342,7 @@ div.mat-mdc-menu-panel {
   --mat-menu-item-focus-state-layer-color: #{$surface-elevated-hover};
 
   min-width: 196px;
-  border: 1px solid $border-elevated;
+  border: 2px solid $primary-green;
 
   .mat-mdc-menu-content {
     padding: 6px;
@@ -385,7 +398,7 @@ div.mat-mdc-autocomplete-panel {
   --mat-option-selected-state-label-text-color: #{$text-primary};
 
   padding: 6px;
-  border: 1px solid $border-elevated;
+  border: 2px solid $primary-green;
 
   .mat-mdc-option {
     min-height: $row-min-height;
@@ -425,7 +438,17 @@ div.mat-mdc-autocomplete-panel {
 }
 
 div.mat-mdc-dialog-surface {
-  border: 1px solid $border-elevated;
+  border: $border-panel-width solid $primary-green;
   background-color: $bg-elevated;
   color: $text-primary;
+}
+
+// ─── Small screens ──────────────────────────────────────────────────────────
+// The root size steps down rather than each rule having a phone variant: spacing is expressed in
+// em/rem throughout, so one declaration tightens the whole app on a narrow screen.
+@media (max-width: 470px) {
+  html,
+  body {
+    font-size: 14px;
+  }
 }

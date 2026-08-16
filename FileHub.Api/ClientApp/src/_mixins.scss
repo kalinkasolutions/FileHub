@@ -24,6 +24,40 @@
   line-height: $size;
 }
 
+// ─── The panel ──────────────────────────────────────────────────────────────
+// FileHub's one structural idea: content stands in a box drawn with a thick accent rule on a
+// darker fill. Everything that is a "thing" on a screen — a listing, a form, a settings block —
+// is one of these. Use it rather than inventing a card.
+@mixin panel {
+  @include flex(column);
+  border: $border-panel-width solid $primary-green;
+  background-color: $surface;
+  box-shadow: $shadow-elevated;
+
+  // The panel's own heading, ruled off in the lighter accent so the rule reads as part of the
+  // border rather than as a line of content.
+  > .title {
+    padding: $small-padding;
+    border-bottom: $border-panel-width solid $primary-green-hover;
+    font-size: $font-size-title;
+  }
+}
+
+// A grid of panels that becomes a single column on a phone. The track is a fixed width rather
+// than a fraction: a listing is a column of file names, and a half-empty 900px panel reads worse
+// than two 450px ones.
+@mixin panel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax($panel-min-width, $max-form-width));
+  gap: $default-margin;
+  justify-content: start;
+
+  @media (max-width: 470px) {
+    @include flex(column);
+    gap: $small-margin;
+  }
+}
+
 // ─── Buttons ────────────────────────────────────────────────────────────────
 // Buttons are split into shape and colour so a family of variants costs one block of
 // structural CSS plus a handful of declarations each, instead of a full copy per variant.
@@ -50,13 +84,12 @@
   padding: 0;
   border: none;
   cursor: pointer;
-  transition:
-    background-color $transition-hover,
-    color $transition-hover;
+  transition: $transition-hover;
   @include icon-button-size($size, $radius, $icon);
 
   mat-icon {
     flex-shrink: 0;
+    color: inherit;
   }
 
   &:active {
@@ -101,12 +134,12 @@
 // Filled accent icon button (primary/confirm actions) — pairs with a 48px input.
 @mixin icon-button-accent($size: $control-height, $radius: $border-radius) {
   @include icon-button(
-    $primary-green,
+    $accent-fill,
     $on-accent,
     $size,
     $radius,
     $icon-size,
-    $primary-green-hover,
+    $accent-fill-hover,
     $on-accent
   );
 }
@@ -125,23 +158,26 @@
   );
 }
 
-// Shape of a full-width button.
+// Shape of a button. Square, bold and roomy — the original's `padding: 1em` slab, kept as a
+// min-height so a button in a row does not have to be full width to look right.
 @mixin button-base {
   @include flex(row);
   align-items: center;
   justify-content: center;
-  gap: $default-padding;
+  gap: $small-padding;
   min-height: $control-height;
-  padding: 0 $default-margin;
+  padding: 0 $default-padding;
   border: none;
   border-radius: $border-radius;
+  font-family: $font-main;
   font-size: $font-size-base;
-  font-weight: 500;
+  font-weight: 700;
   cursor: pointer;
-  transition: background-color $transition-hover;
+  transition: $transition-hover;
 
   mat-icon {
     flex-shrink: 0;
+    color: inherit;
     @include icon-size;
   }
 
@@ -156,7 +192,7 @@
   }
 }
 
-// The fills of one full-width-button variant.
+// The fills of one button variant.
 @mixin button-colors($bg, $fg, $hover-bg: $bg) {
   background-color: $bg;
   color: $fg;
@@ -166,59 +202,67 @@
   }
 }
 
-// Full-width secondary action: the muted fill, for actions that aren't the point of the
-// section they sit in.
+// Secondary action: outlined rather than filled, so the accent slab stays the one thing on a
+// screen that looks like the thing to press.
 @mixin button-secondary {
   @include button-base;
-  @include button-colors($border-input, $text-secondary, $surface-elevated-hover);
+  background-color: transparent;
+  color: $text-primary;
+  border: 2px solid $border-input;
+
+  @include hover {
+    border-color: $primary-green;
+    color: $primary-green;
+  }
 }
 
 // ─── Controls ───────────────────────────────────────────────────────────────
 
-// A text input. `input` gets this globally; the mixin exists for the places that need it
-// on a wrapper (a field that sits an icon button beside its input wraps the two together).
+// A text input: a ruled line rather than a filled box, which is what makes a FileHub form look
+// like a terminal prompt instead of a settings dialog. The rule turns green on focus, and that
+// is the whole focus treatment — no ring, no glow.
 @mixin control-input {
   width: 100%;
   min-height: $control-height;
-  padding: 0 14px;
-  border: 1px solid $border-input;
-  border-radius: $border-radius;
-  background-color: $surface;
+  padding: $small-padding 0;
+  border: none;
+  border-bottom: 2px solid $border-input;
+  border-radius: 0;
+  background-color: transparent;
   color: $text-primary;
+  font-family: $font-main;
   font-size: $font-size-base;
 
   &::placeholder {
     color: $text-placeholder;
   }
 
-  // Focus is a border colour change and nothing else — no glow, no ring.
   &:focus,
   &:focus-visible {
     outline: none;
-    border-color: $primary-green;
+    border-bottom-color: $primary-green;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
   }
 }
 
 // A self-contained CSS toggle switch (no Material dependency). Expected markup:
 //   <span class="switch"><input type="checkbox" .../><span class="slider"></span></span>
-// The knob is the .slider::before circle; it slides right when the input is checked.
+// Square, like everything else: the knob is a block that slides, not a pill that rolls.
 @mixin toggle-switch {
   position: relative;
   flex-shrink: 0;
   width: 46px;
-  height: 27px;
+  height: 26px;
 
   input {
     position: absolute;
-    inset: 0;
     width: 100%;
     height: 100%;
-    min-height: 0;
     margin: 0;
-    padding: 0;
-    border: none;
-    border-radius: 14px;
-    background: none;
     opacity: 0;
     cursor: pointer;
   }
@@ -226,47 +270,48 @@
   .slider {
     position: absolute;
     inset: 0;
-    border-radius: 14px;
-    background: $track;
-    transition: background $transition-toggle;
+    border: 2px solid $border-input;
+    background-color: transparent;
+    transition: $transition-hover;
+    pointer-events: none;
 
-    // 3px of padding all round leaves a 21px knob inside the 27px track.
     &::before {
       content: '';
       position: absolute;
       top: 3px;
       left: 3px;
-      width: 21px;
-      height: 21px;
-      border-radius: 50%;
-      background: $knob-off;
+      width: 16px;
+      height: 16px;
+      background-color: $knob-off;
       transition:
         transform $transition-toggle,
-        background $transition-toggle;
+        background-color $transition-toggle;
     }
   }
 
   input:checked + .slider {
-    background: $primary-green;
+    border-color: $primary-green;
 
     &::before {
-      background: $knob-on;
-      transform: translateX(19px);
+      transform: translateX(20px);
+      background-color: $knob-on;
     }
   }
 
   input:disabled + .slider {
-    opacity: 0.5;
+    opacity: 0.45;
+  }
+
+  input:disabled {
     cursor: default;
   }
 }
 
 // ─── Layout ─────────────────────────────────────────────────────────────────
 
-// The uppercase label that opens a section. Sits 4px in so it lines up optically with
-// the text inside the rows below it, which carry their own padding.
+// The uppercase label that opens a section.
 @mixin section-label {
-  padding-left: $small-padding;
+  padding-left: 0;
   color: $text-dim;
   font-size: $font-size-label;
   font-weight: 400;
@@ -274,70 +319,69 @@
   text-transform: uppercase;
 }
 
-// The header at the top of every screen: title left, optional actions right.
+// The header at the top of a screen: title left, optional actions right, ruled off in accent —
+// the same rule a panel's title carries, so a screen reads as one big panel.
 @mixin screen-header {
   @include flex(row);
   align-items: center;
   justify-content: space-between;
   gap: $default-padding;
   flex-shrink: 0;
-  padding: $header-padding;
-  border-bottom: 1px solid $border-subtle;
+  padding: $small-padding $header-padding;
+  border-bottom: 2px solid $primary-green;
 
   .title {
     font-size: $font-size-title;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: $letter-spacing-title;
   }
 }
 
-// A 3px done/total bar. Expected markup: <span class="progress"><span class="fill"></span></span>
+// A done/total bar.
 @mixin progress-bar {
   overflow: hidden;
   height: $progress-height;
-  border-radius: $progress-height;
   background: $track;
 
   .fill {
     display: block;
     height: 100%;
-    border-radius: $progress-height;
     background: $primary-green;
-    transition: width $transition-progress;
+    transition: $transition-progress;
   }
 }
 
 // One of the screens reached with no session: sign in, accept an invite, reset a password. They
-// are all the same shape — a narrow centred column with a form in it and a way back underneath —
-// so the shell, the helper copy and the trailing link live here rather than six times over.
+// are all the same shape — the wordmark, then a panel with a form in it, then a way onwards — so
+// the shell, the helper copy and the trailing link live here rather than six times over.
 @mixin auth-screen {
   width: 100%;
   max-width: $max-form-width;
   @include flex(column);
   align-items: stretch;
+  gap: $default-margin;
 
-  // The FileHub mark above the title, so a mail link lands somewhere recognisable.
+  // The wordmark above the form, so a mail link lands somewhere recognisable.
   .brand {
     @include flex(row);
     align-items: center;
     justify-content: center;
-    gap: $default-padding;
-    margin: $default-margin $default-margin 0;
 
     img {
-      width: 32px;
-      height: 32px;
-    }
-
-    .wordmark {
-      font-size: $font-size-app-title;
-      font-weight: 600;
-      letter-spacing: $letter-spacing-title;
+      width: 200px;
+      max-width: 70%;
+      height: auto;
     }
   }
 
+  form {
+    @include panel;
+    gap: $default-margin;
+    padding: $default-padding;
+  }
+
   .hint {
-    margin: 0 $default-margin $default-margin;
+    margin: 0;
     color: $text-muted;
     font-size: $font-size-small;
     line-height: 1.5;
@@ -346,34 +390,26 @@
   // A hint that is the point of the screen rather than a footnote to it — the explanation on
   // the forced password change, the outcome of a mail-link screen.
   .notice {
-    margin: 0 $default-margin $default-margin;
+    margin: 0;
     color: $text-primary;
     font-size: $font-size-base;
     line-height: 1.5;
   }
 
-  // Inside the form the copy lines up with the controls, which the form's own padding already
-  // holds off the edge — so it drops the side margin it carries when it stands on its own.
-  form .hint,
-  form .notice {
-    margin-left: 0;
-    margin-right: 0;
-  }
-
   .error {
-    padding-left: $small-padding;
+    margin: 0;
     color: $text-error;
     font-size: $font-size-small;
   }
 
   .nav-link {
     align-self: center;
-    margin-bottom: $default-margin;
 
     // A link that acts on the page rather than navigating, so it's a button underneath.
     .link {
       min-height: 0;
       padding: 0;
+      border: none;
       background: transparent;
       color: $link-primary;
       font-weight: 400;
@@ -387,23 +423,34 @@
   }
 }
 
-// A raised tile row — file rows, base-path rows and share rows all share this shape.
+// A row in a listing: file rows, base-path rows, share rows, user rows. Flat and ruled rather
+// than raised — a listing is a column of names, and a stack of cards breaks the column.
 @mixin tile-row {
   @include flex(row);
   align-items: center;
+  gap: $small-padding;
   min-height: $item-row-height;
-  border-radius: $border-radius;
-  background: $surface;
-  transition: background-color $transition-hover;
+  padding: 0 $small-padding;
+  border-bottom: 1px solid $border-subtle;
+  background: transparent;
+  transition: $transition-hover;
+
+  @include hover {
+    background: $surface-hover;
+  }
+
+  &:last-child {
+    border-bottom: none;
+  }
 }
 
 // One block of the account screen (profile, password, two-factor, …). Each account component
 // includes this on its own :host so it carries its own layout and can be placed anywhere —
 // stacked on the settings page, or on its own elsewhere — without the page styling it.
 @mixin account-section {
-  @include flex(column);
+  @include panel;
   gap: $default-margin;
-  padding: $default-margin 0;
+  padding: $default-padding;
 
   // The section opener is an uppercase label rather than a heading-sized title, so a
   // screenful of blocks reads as one list instead of a stack of competing headlines.
@@ -415,19 +462,22 @@
   h3 {
     margin: 0;
     font-size: $font-size-base;
-    font-weight: 600;
+    font-weight: 700;
   }
 
-  // The global form rule adds side padding meant for the auth screens; inside a section the
-  // controls should line up with the heading instead.
+  // The global form rule adds padding meant for the auth screens; inside a section the controls
+  // should line up with the heading instead, and it must not draw a panel inside a panel.
   form {
-    padding: 0;
+    @include flex(column);
     gap: $default-margin;
+    padding: 0;
+    border: none;
+    background: transparent;
+    box-shadow: none;
   }
 
   .hint {
     margin: 0;
-    padding-left: $small-padding;
     color: $text-muted;
     font-size: $font-size-small;
     line-height: 1.5;
@@ -439,7 +489,7 @@
     align-items: center;
     justify-content: space-between;
     gap: $default-margin;
-    min-height: 52px;
+    min-height: $row-min-height;
     flex-wrap: wrap;
   }
 
@@ -474,81 +524,83 @@
   .actions {
     @include flex(row);
     align-items: center;
-    gap: $default-padding;
+    gap: $small-padding;
     flex-wrap: wrap;
   }
 }
 
-// The mobile-first app shell shared by the routed views: full width on
-// phones/tablets, capped and centered on large screens.
+// The mobile-first app shell shared by the routed views: full width on phones and tablets,
+// capped and left-aligned on large screens.
 @mixin app-shell {
   width: 100%;
   max-width: $max-content-width;
   height: 100%;
   @include flex(column);
-  background: $bg-primary;
+  background: transparent;
 }
 
-// Full-width bottom tab bar: equal columns, 64px tall. Tabs (.tab) fill the width; add
-// .active for the current tab, which takes the full accent fill.
+// The tab bar that switches sections *at the top of a screen*, under the header. Tabs (.tab) sit
+// in a row that scrolls sideways rather than wrapping, because a phone cannot show five of them
+// and a wrapped tab bar pushes the content it belongs to off the screen. `.active` is marked with
+// the accent and an underline rather than a fill: a filled tab reads as a button to press.
 @mixin tab-bar {
   @include flex(row);
   flex-shrink: 0;
-  border-top: 1px solid $border-subtle;
-  background: $bg-primary;
+  overflow-x: auto;
+  border-bottom: 2px solid $border-subtle;
+  background: transparent;
+  // The scrollbar would sit between the tabs and their content, where it reads as a rule.
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 
   .tab {
     position: relative;
-    flex: 1;
+    flex: 1 0 auto;
     @include flex(row);
     align-items: center;
     justify-content: center;
-    gap: $default-margin * 0.625;
-    min-height: $nav-height;
-    padding: 0;
+    gap: $small-padding;
+    min-height: $tap-target-min;
+    padding: $small-padding $default-padding;
     border: none;
+    border-bottom: 3px solid transparent;
     border-radius: 0;
     background: transparent;
     color: $text-muted;
+    font-family: $font-main;
     font-size: $font-size-base;
+    white-space: nowrap;
     cursor: pointer;
-    transition:
-      background-color $transition-hover,
-      color $transition-hover;
+    transition: $transition-hover;
 
     mat-icon {
       @include icon-size;
+      color: inherit;
     }
 
     @include hover {
-      color: $icon-bright;
+      color: $text-primary;
     }
 
     &.active {
-      background: $primary-green;
-      color: $on-accent;
+      border-bottom-color: $primary-green;
+      color: $primary-green;
 
       @include hover {
-        color: $on-accent;
+        color: $primary-green;
       }
     }
 
     .badge {
-      position: absolute;
-      top: 12px;
-      right: 28%;
       min-width: 16px;
       padding: 1px 4px;
-      border-radius: $radius-pill;
       background: $primary-green;
       color: $on-accent;
       font-size: 11px;
       line-height: 1.3;
-    }
-
-    &.active .badge {
-      background: $on-accent;
-      color: $primary-green;
     }
   }
 }
