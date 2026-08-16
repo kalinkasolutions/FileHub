@@ -40,14 +40,14 @@ func (as *BasePathService) InsertBasePath(newPath Path) (Path, error) {
 	result, err := as.db.Exec("INSERT INTO Paths (CreatedAt, Path) VALUES (?, ?)", time.Now().Format(time.RFC3339), cleanedPath)
 
 	if err != nil {
-		as.logger.Error("failed to insert path: %s\n%v", newPath, err)
+		as.logger.Error("failed to insert path: %s\n%v", newPath.Path, err)
 		return Path{}, fmt.Errorf("failed to insert path")
 	}
 
 	lastInsertID, err := result.LastInsertId()
 
 	if err != nil {
-		as.logger.Error("failed to get inserted id from result set: %s\n%v", err)
+		as.logger.Error("failed to get inserted id from result set:\n%v", err)
 		return Path{}, fmt.Errorf("failed to insert path")
 	}
 

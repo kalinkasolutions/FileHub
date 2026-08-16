@@ -66,12 +66,12 @@ func migrate(logger logger.ILogger, db *sql.DB) {
 		logger.Info("No migrations applied yet")
 		migrateToLatestVersion("0000000000", logger, db)
 	} else if err != nil {
-		logger.Fatal("Failed to migrate: %s\n\n%v", err)
+		logger.Fatal("Failed to migrate:\n\n%v", err)
 	} else {
 		var latestMigrationName string
 		err := db.QueryRow("SELECT MigrationName FROM Migrations WHERE Id = (SELECT Max(Id) FROM Migrations)").Scan(&latestMigrationName)
 		if err != nil {
-			logger.Fatal("Failed to migrate: %s\n\n%v", err)
+			logger.Fatal("Failed to migrate:\n\n%v", err)
 		}
 		migrateToLatestVersion(latestMigrationName, logger, db)
 	}

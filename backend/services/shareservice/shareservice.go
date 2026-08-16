@@ -46,7 +46,7 @@ func (as *ShareService) InsertShare(newShare Share) (Share, error) {
 	_, err := as.db.Exec("INSERT INTO Shares (Id, CreatedAt, Path, downloadCount, maxDownloadCount) VALUES (?, ?, ?, ?, ?)", id, time.Now().Format(time.RFC3339), newShare.Path, 0, 0)
 
 	if err != nil {
-		as.logger.Error("failed to insert share: %s\n%v", newShare, err)
+		as.logger.Error("failed to insert share: %s\n%v", newShare.Path, err)
 		return Share{}, fmt.Errorf("failed to insert share")
 	}
 
@@ -116,7 +116,7 @@ func (as *ShareService) DeleteShare(deleteShare Share) (Share, error) {
 	_, err := as.db.Exec("DELETE FROM Shares WHERE Id = ?", deleteShare.Id)
 
 	if err != nil {
-		as.logger.Error("Failed to delete share with id: %d\n%v", deleteShare.Id, err)
+		as.logger.Error("Failed to delete share with id: %s\n%v", deleteShare.Id, err)
 		return Share{}, fmt.Errorf("failed to delete share")
 	}
 
