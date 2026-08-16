@@ -261,6 +261,96 @@ public sealed class PathSandboxTests : IDisposable
     }
 
     [Fact]
+    public void A_link_whose_target_runs_through_a_second_link_is_refused()
+    {
+        if (!TempTree.SymlinksSupported)
+        {
+            return;
+        }
+
+        // The escape a single ResolveLinkTarget call cannot see. "sub" is a link out, which on its
+        // own is refused — but "escape"'s target *reads* as "<base>/sub/passwd", which is lexically
+        // inside the base path. Only re-resolving the target's own components gives it away, and
+        // this is the shape an attacker gets for free on a disk that is also written over Samba or
+        // by a torrent client.
+        var outside = m_tree.OutsideDir("elsewhere");
+        System.IO.File.WriteAllText(Path.Combine(outside, "passwd"), "secret");
+        m_tree.Symlink("sub", outside, isDirectory: true);
+        m_tree.Symlink("escape", "sub/passwd", isDirectory: false);
+
+        Assert.False(PathSandbox.TryResolve(m_tree.Root, "escape", out var fullPath));
+        Assert.Equal(string.Empty, fullPath);
+    }
+
+    [Fact]
+    public void A_link_whose_absolute_target_runs_back_through_a_second_link_is_refused()
+    {
+        if (!TempTree.SymlinksSupported)
+        {
+            return;
+        }
+
+        // Same escape spelled with an absolute target: it starts with the base path, so a prefix
+        // check on the target string alone reads it as contained.
+        var outside = m_tree.OutsideDir("elsewhere");
+        System.IO.File.WriteAllText(Path.Combine(outside, "passwd"), "secret");
+        m_tree.Symlink("sub", outside, isDirectory: true);
+        m_tree.Symlink("escape", Path.Combine(m_tree.Root, "sub", "passwd"), isDirectory: false);
+
+        Assert.False(PathSandbox.TryResolve(m_tree.Root, "escape", out _));
+    }
+
+    [Fact]
+    public void A_directory_below_a_link_that_runs_through_a_second_link_is_refused()
+    {
+        if (!TempTree.SymlinksSupported)
+        {
+            return;
+        }
+
+        // The directory form: "escape/." exposes the whole outside tree, and everything below it
+        // has to be refused as well, not just the link itself.
+        var outside = m_tree.OutsideDir("elsewhere");
+        System.IO.File.WriteAllText(Path.Combine(outside, "passwd"), "secret");
+        m_tree.Symlink("sub", outside, isDirectory: true);
+        m_tree.Symlink("escape", "sub/.", isDirectory: true);
+
+        Assert.False(PathSandbox.TryResolve(m_tree.Root, "escape", out _));
+        Assert.False(PathSandbox.TryResolve(m_tree.Root, "escape/passwd", out _));
+    }
+
+    [Fact]
+    public void A_link_chain_that_climbs_out_through_a_relative_target_is_refused()
+    {
+        if (!TempTree.SymlinksSupported)
+        {
+            return;
+        }
+
+        var outside = m_tree.OutsideDir("elsewhere");
+        System.IO.File.WriteAllText(Path.Combine(outside, "passwd"), "secret");
+        m_tree.Symlink("sub", outside, isDirectory: true);
+        m_tree.Dir("nested");
+        m_tree.Symlink("nested/escape", "../sub", isDirectory: true);
+
+        Assert.False(PathSandbox.TryResolve(m_tree.Root, "nested/escape", out _));
+        Assert.False(PathSandbox.TryResolve(m_tree.Root, "nested/escape/passwd", out _));
+    }
+
+    [Fact]
+    public void A_link_that_points_at_itself_is_refused_rather_than_hanging()
+    {
+        if (!TempTree.SymlinksSupported)
+        {
+            return;
+        }
+
+        m_tree.Symlink("loop", Path.Combine(m_tree.Root, "loop"), isDirectory: false);
+
+        Assert.False(PathSandbox.TryResolve(m_tree.Root, "loop", out _));
+    }
+
+    [Fact]
     public void A_symlink_inside_a_base_path_that_is_itself_a_symlink_still_resolves()
     {
         if (!TempTree.SymlinksSupported)
