@@ -2,8 +2,10 @@ using System.Threading.RateLimiting;
 using Dal;
 using Dal.Repositories.Account;
 using Dal.Repositories.Admin;
+using Dal.Repositories.BasePaths;
 using Dal.Repositories.Email;
 using Dal.Repositories.Identity;
+using Dal.Repositories.Shares;
 using Entities.Account;
 using FileHub;
 using FileHub.Authorization;
@@ -11,8 +13,11 @@ using FileHub.BusinessLogic;
 using FileHub.BusinessLogic.Email;
 using FileHub.BusinessLogic.Services.Account;
 using FileHub.BusinessLogic.Services.Admin;
+using FileHub.BusinessLogic.Services.BasePaths;
 using FileHub.BusinessLogic.Services.Email;
+using FileHub.BusinessLogic.Services.Files;
 using FileHub.BusinessLogic.Services.Identity;
+using FileHub.BusinessLogic.Services.Shares;
 using FileHub.Endpoints;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -139,6 +144,8 @@ builder.Services.AddScoped<IEmailSettingRepository, EmailSettingRepository>();
 builder.Services.AddScoped<IIdentityRepository, IdentityRepository>();
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<IUserAdminRepository, UserAdminRepository>();
+builder.Services.AddScoped<IBasePathRepository, BasePathRepository>();
+builder.Services.AddScoped<IShareRepository, ShareRepository>();
 
 builder.Services.AddScoped<IEmailSettingsProvider, EmailSettingsProvider>();
 builder.Services.AddScoped<IEmailService, EmailService>();
@@ -147,6 +154,9 @@ builder.Services.AddScoped<IIdentityService, IdentityService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IUserAdminService, UserAdminService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
+builder.Services.AddScoped<IBasePathService, BasePathService>();
+builder.Services.AddScoped<IFileService, FileService>();
+builder.Services.AddScoped<IShareService, ShareService>();
 
 var webRootPath = Path.Combine(builder.Environment.ContentRootPath, "wwwroot");
 
@@ -195,6 +205,10 @@ app.MapAccountEndpoint();
 app.MapAdminUserEndpoint();
 app.MapAdminRoleEndpoint();
 app.MapEmailSettingEndpoint();
+app.MapBasePathEndpoint();
+app.MapFileEndpoint();
+app.MapShareEndpoint();
+app.MapPublicShareEndpoint();
 
 app.MapFallbackToFile("index.html");
 
