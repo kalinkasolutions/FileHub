@@ -1,5 +1,4 @@
 import { Component, computed, inject } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '@services/auth.service';
 
@@ -14,10 +13,14 @@ import { AuthService } from '@services/auth.service';
   selector: 'not-found',
   templateUrl: './notfound.component.html',
   styleUrl: './notfound.component.scss',
-  imports: [MatIconModule, RouterLink],
+  imports: [RouterLink],
 })
 export class NotFoundComponent {
   private readonly authService = inject(AuthService);
+
+  /** The beaver's own caption, kept word for word from the app this one is a rewrite of. */
+  public readonly theBeaverText =
+    'this is the beaver.. if you found the beaver, you missed what you were looking for.';
 
   public readonly signedIn = this.authService.isAuthenticated;
 

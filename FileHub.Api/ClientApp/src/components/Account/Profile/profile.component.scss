@@ -5,10 +5,12 @@
   @include account-section;
 }
 
-// A filled tile in an otherwise flush row: the edit pencil beside the display name.
-.icon-btn.raised {
-  @include icon-button-size($tap-target-min, $radius-icon);
-  @include icon-button-colors($surface, $text-secondary, $border-input, $text-primary);
+// `.quiet` hovers to $surface, which is the panel's own fill — inside a panel that is no feedback
+// at all, so the hover is the darker tone instead.
+.icon-btn.quiet {
+  @include hover {
+    background-color: $bg-elevated;
+  }
 }
 
 // One line, ellipsised: an email is long and there's a chip to its right.
@@ -18,10 +20,9 @@
   text-overflow: ellipsis;
 }
 
-// Member-since is meta, not a value you act on — label left, value right, both quiet.
+// Member-since is meta rather than a value you act on, so it is quieter than the rest.
 .since {
   color: $text-secondary;
-  font-size: $font-size-base;
 }
 
 .chip {
@@ -48,6 +49,6 @@
 .edit-name {
   // It replaces a details row, so it keeps the row's shape rather than the form's.
   padding: 0;
-  gap: $default-margin;
+  gap: $small-margin;
   flex-wrap: nowrap;
 }

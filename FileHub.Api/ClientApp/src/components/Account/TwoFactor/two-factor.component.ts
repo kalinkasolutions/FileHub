@@ -107,9 +107,7 @@ export class TwoFactorComponent implements OnInit {
 
     this.busy.set(true);
     try {
-      this.recoveryCodes.set(
-        await this.accountService.enableTwoFactor(code, this.setupPassword()),
-      );
+      this.recoveryCodes.set(await this.accountService.enableTwoFactor(code, this.setupPassword()));
       this.setupPassword.set('');
       this.view.set('codes');
       this.toastr.success('Two-factor authentication is on');
