@@ -1,6 +1,6 @@
 import { Injectable } from "@angular/core";
 import { IPublicPath } from "@models/IPublicPath";
-import { BehaviorSubject, Subject, subscribeOn } from "rxjs";
+import { BehaviorSubject, Subject } from "rxjs";
 
 @Injectable({ providedIn: 'root' })
 export class PathService {

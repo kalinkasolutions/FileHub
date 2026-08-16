@@ -16,10 +16,6 @@ func TestConfig(t *testing.T) {
     "Ssl": false,
     "Domain": "Domain",
     "Port": "Port",
-    "SMTP_Username": "SMTP_Username",
-    "SMTP_Password": "SMTP_Password",
-    "SMTP_Host": "SMTP_Host",
-    "SMTP_Port": "SMTP_Port",
 	"TrustedProxies": ["TrustedProxy_1", "TrustedProxy_2"],
     "Debug": false
 }`), 0644)
@@ -33,10 +29,6 @@ func TestConfig(t *testing.T) {
 	assert.Equal(t, false, config.Ssl)
 	assert.Equal(t, "Domain", config.Domain)
 	assert.Equal(t, "Port", config.Port)
-	assert.Equal(t, "SMTP_Username", config.SMTP_Username)
-	assert.Equal(t, "SMTP_Password", config.SMTP_Password)
-	assert.Equal(t, "SMTP_Host", config.SMTP_Host)
-	assert.Equal(t, "SMTP_Port", config.SMTP_Port)
 	assert.Equal(t, "TrustedProxy_1", config.TrustedProxies[0])
 	assert.Equal(t, "TrustedProxy_2", config.TrustedProxies[1])
 	assert.Equal(t, false, config.Debug)

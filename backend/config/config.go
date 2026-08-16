@@ -9,16 +9,11 @@ import (
 )
 
 type Config struct {
-	Url            string
 	DatabasePath   string
 	DatabaseName   string
 	Domain         string
 	Port           string
 	Ssl            bool
-	SMTP_Username  string
-	SMTP_Password  string
-	SMTP_Host      string
-	SMTP_Port      string
 	TrustedProxies []string
 	Debug          bool
 }

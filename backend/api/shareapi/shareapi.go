@@ -145,17 +145,7 @@ func (ss *ShareApi) validate() gin.HandlerFunc {
 			return
 		}
 
-		var size int64 = 0
-		err = filepath.Walk(share.Path, func(_ string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-
-			if !info.IsDir() {
-				size += info.Size()
-			}
-			return nil
-		})
+		size, err := dirSize(share.Path)
 
 		if err != nil {
 			ss.logger.Error("failed to walk path: %s, %v", share.Path, err)
