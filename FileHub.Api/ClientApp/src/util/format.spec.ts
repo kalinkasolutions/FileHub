@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatBytes, formatDownloads, formatEntrySize } from './format';
+import { formatBytes, formatDownloads, formatEntrySize } from '@util/format';
 
 describe('formatBytes', () => {
   it('leaves anything under a kilobyte in bytes', () => {

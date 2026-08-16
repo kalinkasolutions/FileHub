@@ -12,7 +12,6 @@ import {
 import { FormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
-import { GlobalHeader } from '@components/header/header.component';
 import { IFileEntry } from '@models/IFileEntry';
 import { apiErrorMessage } from '@services/api-error';
 import { DirectoryService } from '@services/directory.service';
@@ -20,7 +19,7 @@ import { FileService } from '@services/file.service';
 import { IPathSegment, PathService } from '@services/path.service';
 import { ToastrService } from 'ngx-toastr';
 import { finalize, map } from 'rxjs';
-import { formatEntrySize } from './format';
+import { formatEntrySize } from '@util/format';
 import { IShareDialogData, ShareDialogComponent } from './share-dialog.component';
 import { ShareLinksComponent } from './share-links.component';
 
@@ -45,7 +44,7 @@ const pageSize = 50;
   selector: 'app-file-browser',
   templateUrl: './filebrowser.component.html',
   styleUrl: './filebrowser.component.scss',
-  imports: [FormsModule, MatIconModule, GlobalHeader, ShareLinksComponent],
+  imports: [FormsModule, MatIconModule, ShareLinksComponent],
 })
 export class FilebrowserComponent {
   private readonly directoryService = inject(DirectoryService);

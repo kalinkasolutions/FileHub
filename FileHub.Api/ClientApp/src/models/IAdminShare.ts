@@ -41,26 +41,3 @@ export function downloadsLabel(share: IAdminShare): string {
 
   return share.downloadCount === 1 ? '1 download' : `${share.downloadCount} downloads`;
 }
-
-/**
- * Byte counts in the decimal units a file manager shows. A directory share's size is measured
- * once and cached, so `0` on a directory usually means "not measured yet" rather than "empty" —
- * both read the same here, which is fine for a list that is about links and not about content.
- */
-export function formatSize(bytes: number): string {
-  if (bytes <= 0) {
-    return '—';
-  }
-
-  const units = ['B', 'kB', 'MB', 'GB', 'TB'];
-  let value = bytes;
-  let unit = 0;
-
-  while (value >= 1000 && unit < units.length - 1) {
-    value = value / 1000;
-    unit = unit + 1;
-  }
-
-  const rounded = unit === 0 ? value.toString() : value.toFixed(value < 10 ? 1 : 0);
-  return `${rounded} ${units[unit]}`;
-}

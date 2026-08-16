@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { IAdminShare, downloadsLabel, formatSize, shareLocation } from '@models/IAdminShare';
+import { IAdminShare, downloadsLabel, shareLocation } from '@models/IAdminShare';
 
 function share(overrides: Partial<IAdminShare> = {}): IAdminShare {
   return {
@@ -41,20 +41,5 @@ describe('downloadsLabel', () => {
     expect(downloadsLabel(share({ downloadCount: 3, maxDownloadCount: 5 }))).toBe(
       '3 of 5 downloads',
     );
-  });
-});
-
-describe('formatSize', () => {
-  it('steps through decimal units', () => {
-    expect(formatSize(512)).toBe('512 B');
-    expect(formatSize(1500)).toBe('1.5 kB');
-    expect(formatSize(20_000)).toBe('20 kB');
-    expect(formatSize(3_400_000)).toBe('3.4 MB');
-    expect(formatSize(2_000_000_000)).toBe('2.0 GB');
-  });
-
-  it('has nothing to say about an unmeasured size', () => {
-    expect(formatSize(0)).toBe('—');
-    expect(formatSize(-1)).toBe('—');
   });
 });

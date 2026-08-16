@@ -134,5 +134,3 @@ $transition-toggle: 140ms ease-out;
 
 // ─── Legacy ─────────────────────────────────────────────────────────────────
 // The file browser, admin and share screens still carry their pre-rewrite stylesheets, which
-// name the accent `$green`. Delete this alias — and `_legacy.scss` — once they are ported.
-$green: $primary-green;

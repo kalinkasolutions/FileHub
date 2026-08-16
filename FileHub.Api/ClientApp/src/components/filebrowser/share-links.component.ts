@@ -6,7 +6,7 @@ import { apiErrorMessage } from '@services/api-error';
 import { ShareService } from '@services/share.service';
 import { ToastrService } from 'ngx-toastr';
 import { finalize } from 'rxjs';
-import { formatBytes, formatDownloads } from './format';
+import { formatBytes, formatDownloads } from '@util/format';
 
 /**
  * The links this user has handed out, and the only way to take one back: the admin share list spans

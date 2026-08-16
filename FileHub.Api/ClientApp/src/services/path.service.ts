@@ -1,6 +1,5 @@
 import { Injectable, computed, signal } from '@angular/core';
 import { IFileEntry } from '@models/IFileEntry';
-import { IPublicPath } from '@models/IPublicPath';
 import { Observable, of } from 'rxjs';
 
 /** One crumb of the trail: a directory the user has opened. */
@@ -128,24 +127,5 @@ export class PathService {
     }
 
     history.replaceState(state, '');
-  }
-
-  // ─── For the screens that are still pre-rewrite ───────────────────────────
-
-  /**
-   * @deprecated The breadcrumb the pre-rewrite header renders. The browser draws its own now, so
-   * this stays empty rather than showing it twice; it exists only so that header goes on compiling.
-   */
-  public readonly NextSegment$: Observable<IPublicPath[]> = of([]);
-
-  /** @deprecated The pre-rewrite header's breadcrumb click. Use {@link goTo}. */
-  public segmentChange(_segment: IPublicPath): void {
-    // Nothing: the header's breadcrumb is empty, so this is never reached.
-  }
-
-  /** @deprecated The admin share list uses this to name a share from its stored path. `ShareDto`
-   * and `AdminShareDto` both carry `name` now, so it has nothing left to do. */
-  public static getPathName(path: string): string {
-    return path.substring(path.lastIndexOf('/') + 1);
   }
 }

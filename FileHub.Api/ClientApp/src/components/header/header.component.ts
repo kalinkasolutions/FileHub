@@ -79,16 +79,3 @@ export class HeaderComponent {
     void this.router.navigate(['/login']);
   }
 }
-
-/**
- * @deprecated Nothing. The header is app chrome now — `app.component` renders it once, above the
- * routed view — but the not-yet-rebuilt file browser and admin screens still carry a
- * `<global-header>` tag of their own. This keeps them compiling and renders nothing; delete it, and
- * the tags, once those two screens are ported.
- */
-@Component({
-  selector: 'global-header',
-  standalone: true,
-  template: '',
-})
-export class GlobalHeader {}

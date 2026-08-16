@@ -2,7 +2,8 @@ import { DatePipe } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
-import { IAdminShare, downloadsLabel, formatSize, shareLocation } from '@models/IAdminShare';
+import { IAdminShare, downloadsLabel, shareLocation } from '@models/IAdminShare';
+import { formatBytes } from '@util/format';
 import { AdminShareService } from '@services/admin-share.service';
 import { apiErrorMessage } from '@services/api-error';
 import { ToastrService } from 'ngx-toastr';
@@ -43,7 +44,7 @@ export class AdminSharesComponent implements OnInit {
   }
 
   public size(share: IAdminShare): string {
-    return formatSize(share.size);
+    return formatBytes(share.size);
   }
 
   public copy(share: IAdminShare): void {

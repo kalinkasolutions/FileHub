@@ -5,12 +5,6 @@
   @include app-shell;
 }
 
-// The pre-rewrite chrome, still an inline custom element of its own.
-global-header {
-  display: block;
-  flex-shrink: 0;
-}
-
 .browser-header {
   @include flex(column);
   gap: $default-padding;

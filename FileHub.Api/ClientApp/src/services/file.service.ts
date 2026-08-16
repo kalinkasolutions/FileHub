@@ -1,6 +1,5 @@
 import { Injectable } from '@angular/core';
 import { IFileEntry } from '@models/IFileEntry';
-import { IShare } from '@models/IShare';
 
 /**
  * Encodes a relative path for the download route's catch-all segment.
@@ -38,11 +37,6 @@ export class FileService {
       this.downloadUrl(entry.id, entry.nextSegment),
       downloadName(entry.name, entry.isDir),
     );
-  }
-
-  /** The anonymous half: a share link redeemed without a session. */
-  public downloadPublicShare(share: IShare): void {
-    this.start(`/public-api/share/${share.Id}/download`, downloadName(share.Name, share.IsDir));
   }
 
   /**

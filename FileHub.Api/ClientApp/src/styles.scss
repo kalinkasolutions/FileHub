@@ -2,7 +2,6 @@
 @use 'mixins' as *;
 @use 'ngx-toastr/toastr';
 // Temporary: the globals the not-yet-ported screens were written against. See the file.
-@use 'legacy';
 
 *,
 *::before,
