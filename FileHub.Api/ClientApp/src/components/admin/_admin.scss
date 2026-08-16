@@ -1,0 +1,135 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
+// The four admin sections are the same shape — an uppercase label, a line of explanation, a form
+// and a list of rows — so the shape lives here rather than four times over. It is a local partial
+// and not a global mixin: nothing outside the admin area is built this way.
+@mixin admin-section {
+  @include flex(column);
+  gap: $default-margin;
+  padding: $content-padding;
+
+  h2 {
+    @include section-label;
+    margin: 0;
+  }
+
+  h3 {
+    margin: 0;
+    font-size: $font-size-base;
+    font-weight: 600;
+  }
+
+  .hint {
+    margin: 0;
+    padding-left: $small-padding;
+    color: $text-muted;
+    font-size: $font-size-small;
+    line-height: 1.5;
+  }
+
+  // A hint about something that is wrong or about to be: an ungranted base path, a mail that
+  // did not go out.
+  .warn {
+    color: $text-danger;
+  }
+
+  // The global form rule pads for the auth screens; inside a section the controls line up with
+  // the label above them.
+  form {
+    padding: 0;
+    gap: $default-padding;
+  }
+
+  .list {
+    @include flex(column);
+    gap: $small-margin;
+  }
+
+  .empty {
+    padding: $default-margin $small-padding;
+    color: $text-placeholder;
+    font-size: $font-size-small;
+  }
+
+  .actions {
+    @include flex(row);
+    align-items: center;
+    gap: $default-padding;
+    flex-wrap: wrap;
+  }
+}
+
+// One row of an admin list: the label block on the left, the row's own actions on the right.
+// Wraps rather than truncates — a base path and an email address are both worth reading whole.
+@mixin admin-row {
+  @include tile-row;
+  gap: $default-padding;
+  padding: $default-padding $default-padding $default-padding $default-margin;
+  flex-wrap: wrap;
+
+  .main {
+    @include flex(column);
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .name {
+    font-size: $font-size-row;
+    overflow-wrap: anywhere;
+  }
+
+  .meta {
+    color: $text-dim;
+    font-size: $font-size-small;
+    overflow-wrap: anywhere;
+  }
+
+  // Filesystem paths and share links are read character by character, so they keep the mono face.
+  .path {
+    color: $text-secondary;
+    font-family: $font-mono;
+    font-size: $font-size-small;
+    overflow-wrap: anywhere;
+  }
+
+  .row-actions {
+    @include flex(row);
+    align-items: center;
+    gap: $small-padding;
+    margin-left: auto;
+
+    // A quiet icon button hovers to `$surface`, which is this row's own fill — over a row it has
+    // to take the row's hover tint instead or the hover is invisible.
+    .icon-btn.quiet {
+      @include hover {
+        background-color: $surface-hover;
+      }
+    }
+  }
+}
+
+// The small pill that carries a status or a role name.
+@mixin admin-chip {
+  @include flex(row);
+  align-items: center;
+  gap: $small-padding;
+  padding: 1px 10px;
+  border-radius: $radius-pill;
+  background: $surface-muted;
+  color: $text-dim;
+  font-size: $font-size-label;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+
+  // "Invited" and "disabled" both mean the account cannot sign in, and both are the admin's to
+  // act on — they are the only states worth a colour.
+  &.invited {
+    color: $primary-green;
+  }
+
+  &.disabled {
+    color: $text-danger;
+  }
+}

@@ -1,0 +1,48 @@
+<h2>Share links</h2>
+<p class="hint">
+  Every link in the installation, whoever created it. A link needs no sign-in, so anyone who has one
+  can read what it points at until it is revoked.
+</p>
+
+@if (shares().length === 0) {
+  <p class="empty">No links have been created yet.</p>
+}
+
+<ul class="list">
+  @for (share of shares(); track share.id) {
+    <li class="row">
+      <div class="main">
+        <span class="name">
+          <mat-icon class="kind">{{ share.isDir ? 'folder' : 'draft' }}</mat-icon>
+          {{ share.name }}
+        </span>
+        <span class="path">{{ location(share) }}</span>
+        <span class="meta">
+          {{ downloads(share) }} · {{ size(share) }} · by {{ share.createdBy }} ·
+          {{ share.createdAt | date: 'mediumDate' }}
+        </span>
+      </div>
+
+      <div class="row-actions">
+        <button
+          class="icon-btn quiet"
+          type="button"
+          title="Copy link"
+          aria-label="Copy link"
+          (click)="copy(share)"
+        >
+          <mat-icon>content_copy</mat-icon>
+        </button>
+        <button
+          class="icon-btn danger"
+          type="button"
+          title="Revoke link"
+          aria-label="Revoke link"
+          (click)="remove(share)"
+        >
+          <mat-icon>link_off</mat-icon>
+        </button>
+      </div>
+    </li>
+  }
+</ul>

@@ -1,0 +1,26 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+@use '../admin' as *;
+
+:host {
+  @include admin-section;
+}
+
+.row {
+  @include admin-row;
+  align-items: flex-start;
+  padding-top: $default-padding + 2;
+
+  .name {
+    @include flex(row);
+    align-items: center;
+    gap: $default-padding;
+  }
+
+  // The file/folder glyph sits inside the name line, so it is sized to the text beside it.
+  .kind {
+    @include icon-size($font-size-row);
+    color: $icon-quiet;
+    cursor: default;
+  }
+}

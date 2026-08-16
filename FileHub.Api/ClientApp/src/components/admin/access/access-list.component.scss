@@ -1,0 +1,77 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
+// The editor drops into the row it belongs to, so it wears the elevated fill rather than the row
+// fill — it is a panel on top of the list, not another row in it.
+:host {
+  @include flex(column);
+  gap: $default-padding;
+  padding: $default-margin;
+  border: 1px solid $border-elevated;
+  border-radius: $border-radius;
+  background: $bg-elevated;
+}
+
+.head {
+  @include flex(row);
+  align-items: center;
+  justify-content: space-between;
+  gap: $default-padding;
+
+  h3 {
+    margin: 0;
+    font-size: $font-size-base;
+    font-weight: 600;
+  }
+
+  .count {
+    color: $text-dim;
+    font-size: $font-size-small;
+  }
+}
+
+.empty {
+  margin: 0;
+  color: $text-placeholder;
+  font-size: $font-size-small;
+}
+
+.options {
+  @include flex(column);
+  max-height: 320px;
+  overflow-y: auto;
+
+  label {
+    @include flex(row);
+    align-items: center;
+    gap: 12px;
+    min-height: $row-min-height;
+    padding: $small-padding 0;
+    cursor: pointer;
+  }
+
+  .text {
+    @include flex(column);
+    min-width: 0;
+  }
+
+  .label {
+    font-size: $font-size-base;
+    overflow-wrap: anywhere;
+  }
+
+  .hint {
+    color: $text-dim;
+    font-size: $font-size-small;
+    overflow-wrap: anywhere;
+  }
+}
+
+.buttons {
+  @include flex(row);
+  gap: $default-padding;
+
+  button {
+    flex: 1;
+  }
+}

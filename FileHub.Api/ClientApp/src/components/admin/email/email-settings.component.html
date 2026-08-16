@@ -1,0 +1,134 @@
+<h2>Send a test email</h2>
+<p class="hint">
+  The only way to know these settings work. Send one before inviting anybody — an invitation that
+  does not arrive leaves an account nobody can sign in to.
+</p>
+
+<div class="test">
+  @if (!configured()) {
+    <p class="hint warn">No SMTP host is set, so FileHub sends nothing at all.</p>
+  }
+
+  <div class="form-control">
+    <label for="test-recipient">Recipient</label>
+    <input
+      id="test-recipient"
+      type="email"
+      name="recipient"
+      [(ngModel)]="recipient"
+      placeholder="you@example.com"
+      autocomplete="off"
+    />
+  </div>
+
+  <button type="button" [disabled]="sending() || !recipient()" (click)="sendTest()">
+    {{ sending() ? 'Sending...' : 'Send test email' }}
+  </button>
+
+  @if (testSent()) {
+    <p class="hint ok">Sent. If it does not arrive, the address or the spam filter is next.</p>
+  }
+
+  @if (testError()) {
+    <p class="error">{{ testError() }}</p>
+  }
+</div>
+
+<h2>SMTP settings</h2>
+
+<form (ngSubmit)="save()" #settingsForm="ngForm">
+  <div class="form-control">
+    <label for="smtp-host">Host</label>
+    <input
+      id="smtp-host"
+      type="text"
+      name="smtpHost"
+      [(ngModel)]="smtpHost"
+      placeholder="smtp.example.com"
+      autocomplete="off"
+      required
+    />
+  </div>
+
+  <div class="form-control">
+    <label for="smtp-port">Port</label>
+    <input
+      id="smtp-port"
+      type="number"
+      name="port"
+      [(ngModel)]="port"
+      min="1"
+      max="65535"
+      required
+    />
+  </div>
+
+  <div class="form-control">
+    <label for="smtp-security">Encryption</label>
+    <select id="smtp-security" name="security" [(ngModel)]="security">
+      @for (option of options; track option.value) {
+        <option [value]="option.value">{{ option.label }}</option>
+      }
+    </select>
+  </div>
+
+  <div class="form-control">
+    <label for="smtp-username">Username <span class="optional">optional</span></label>
+    <input
+      id="smtp-username"
+      type="text"
+      name="username"
+      [(ngModel)]="username"
+      autocomplete="off"
+    />
+  </div>
+
+  <div class="form-control">
+    <label for="smtp-password">Password</label>
+    <input
+      id="smtp-password"
+      type="password"
+      name="password"
+      [(ngModel)]="password"
+      [placeholder]="passwordHint()"
+      autocomplete="new-password"
+    />
+    <span class="hint">
+      @if (hasPassword()) {
+        A password is stored. FileHub cannot show it — leave this empty to keep it, or type a new
+        one to replace it.
+      } @else {
+        No password is stored yet. Leaving this empty keeps it that way.
+      }
+    </span>
+  </div>
+
+  <div class="form-control">
+    <label for="from-address">From address</label>
+    <input
+      id="from-address"
+      type="email"
+      name="fromAddress"
+      [(ngModel)]="fromAddress"
+      placeholder="filehub@example.com"
+      autocomplete="off"
+      required
+    />
+  </div>
+
+  <div class="form-control">
+    <label for="from-name">From name <span class="optional">optional</span></label>
+    <input
+      id="from-name"
+      type="text"
+      name="fromName"
+      [(ngModel)]="fromName"
+      placeholder="FileHub"
+      autocomplete="off"
+    />
+  </div>
+
+  <button type="submit" [disabled]="settingsForm.invalid || saving()">
+    {{ saving() ? 'Saving...' : 'Save settings' }}
+  </button>
+</form>

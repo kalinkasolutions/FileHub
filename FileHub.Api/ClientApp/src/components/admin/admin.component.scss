@@ -1,0 +1,40 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
+:host {
+  @include app-shell;
+}
+
+.screen-header {
+  @include screen-header;
+}
+
+// The four sections share one scroll container, the way the shell's own content area does.
+.content {
+  @include flex(column);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.loading {
+  padding: $content-padding;
+  color: $text-placeholder;
+  font-size: $font-size-small;
+}
+
+.tabs {
+  @include tab-bar;
+
+  // Four tabs plus their labels do not fit a narrow phone, and the icons carry the meaning on
+  // their own there — the label comes back as soon as there is room for it.
+  .label {
+    display: none;
+  }
+}
+
+@media (min-width: 420px) {
+  .tabs .label {
+    display: inline;
+  }
+}

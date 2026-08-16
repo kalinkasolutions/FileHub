@@ -1,0 +1,128 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+@use '../admin' as *;
+
+:host {
+  @include admin-section;
+}
+
+.entry {
+  @include flex(column);
+  gap: $default-padding;
+}
+
+.row {
+  @include admin-row;
+  align-items: flex-start;
+  padding-top: $default-padding + 2;
+}
+
+.chip {
+  @include admin-chip;
+}
+
+.chips {
+  @include flex(row);
+  gap: $small-padding;
+  flex-wrap: wrap;
+  margin-top: $small-padding;
+}
+
+// "you" rides along with the name rather than the chips: it is about the row, not about the
+// account's state.
+.you {
+  margin-left: $small-padding;
+  color: $text-dim;
+  font-size: $font-size-small;
+}
+
+// The role counts read as a strip of small tiles — they are a summary, not a list to act on.
+.roles {
+  @include flex(row);
+  gap: $small-margin;
+  flex-wrap: wrap;
+
+  .role {
+    @include flex(column);
+    gap: 2px;
+    padding: $default-padding $default-margin;
+    border-radius: $border-radius;
+    background: $surface;
+  }
+
+  .name {
+    font-size: $font-size-base;
+  }
+
+  .meta {
+    color: $text-dim;
+    font-size: $font-size-small;
+  }
+}
+
+// An account exists but nobody can reach it — the one failure that has to survive a toast.
+.undelivered {
+  @include flex(column);
+  gap: $default-padding;
+  padding: $default-margin;
+  border: 1px solid $border-danger;
+  border-radius: $border-radius;
+  background: $danger-hover;
+
+  p {
+    margin: 0;
+    font-size: $font-size-small;
+    line-height: 1.5;
+  }
+}
+
+.panel {
+  padding: $default-margin;
+  border: 1px solid $border-elevated;
+  border-radius: $border-radius;
+  background: $bg-elevated;
+
+  .label {
+    color: $text-dim;
+    font-size: $font-size-small;
+  }
+}
+
+.check {
+  @include flex(row);
+  align-items: center;
+  gap: 12px;
+  min-height: $row-min-height;
+  cursor: pointer;
+
+  .text {
+    @include flex(column);
+    min-width: 0;
+  }
+}
+
+.buttons {
+  @include flex(row);
+  gap: $default-padding;
+
+  button {
+    flex: 1;
+  }
+}
+
+// A sentence that acts on the page rather than navigating, so it is a button wearing link paint.
+.link {
+  display: inline;
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  color: $link-primary;
+  font-size: inherit;
+  font-weight: 400;
+  text-decoration: underline;
+
+  @include hover {
+    background: transparent;
+    color: $link-hover;
+  }
+}

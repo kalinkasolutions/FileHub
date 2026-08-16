@@ -1,0 +1,42 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+@use '../admin' as *;
+
+:host {
+  @include admin-section;
+}
+
+.entry {
+  @include flex(column);
+  gap: $default-padding;
+}
+
+.row {
+  @include admin-row;
+}
+
+// A path is typed and compared character by character, so the field it is typed into keeps the
+// mono face the row shows it in.
+.mono {
+  font-family: $font-mono;
+}
+
+.optional {
+  color: $text-placeholder;
+}
+
+.edit {
+  padding: $default-margin;
+  border: 1px solid $border-elevated;
+  border-radius: $border-radius;
+  background: $bg-elevated;
+}
+
+.buttons {
+  @include flex(row);
+  gap: $default-padding;
+
+  button {
+    flex: 1;
+  }
+}
