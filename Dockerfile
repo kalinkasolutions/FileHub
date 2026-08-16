@@ -1,15 +1,15 @@
-FROM golang:latest AS builder
+FROM golang:1.24-bookworm AS builder
 WORKDIR /app
 COPY backend/go.mod backend/go.sum ./
-RUN go mod tidy
+RUN go mod download
 COPY backend/ .
-RUN CGO_ENABLED=1 go build  -v -o main .
+RUN CGO_ENABLED=1 go build -v -o main .
 
 
-FROM node:22 AS frontend-builder
+FROM node:22-bookworm-slim AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
-RUN npm install
+RUN npm ci
 COPY frontend/ .
 RUN npm run build -- --configuration production
 
@@ -22,6 +22,11 @@ COPY --from=builder /app/main .
 COPY --from=builder /app/migrations/ ./migrations
 COPY --from=frontend-builder /app/frontend/dist/browser ./frontend/
 RUN chmod +x /app/main
-RUN ls -la /app/
+
+# Run as a normal user instead of root. The host directory bind-mounted at
+# /app/data must be writable by uid 1000: chown -R 1000:1000 ./data
+RUN useradd --uid 1000 --create-home filehub
+RUN mkdir -p /app/data && chown -R filehub:filehub /app
+USER filehub
 
 CMD ["./main"]
