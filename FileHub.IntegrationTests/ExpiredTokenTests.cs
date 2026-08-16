@@ -32,6 +32,11 @@ public sealed class ExpiredTokenTests : TestHostBase
         services.Configure<DataProtectionTokenProviderOptions>(options =>
             options.TokenLifespan = TimeSpan.FromMilliseconds(1));
 
+        // IdentityRepository signs users in, so it needs a real SignInManager to be resolvable.
+        services.AddHttpContextAccessor();
+        services.AddAuthentication();
+        services.AddIdentityCore<FileHubUser>().AddSignInManager();
+
         services.AddScoped<IIdentityRepository, IdentityRepository>();
         services.AddScoped<IUserAdminRepository, UserAdminRepository>();
         services.AddScoped<IIdentityService, IdentityService>();
@@ -74,7 +79,7 @@ public sealed class ExpiredTokenTests : TestHostBase
     {
         var ada = await CreateUserAsync("ada@example.com");
         await Identity.SendPasswordResetAsync(new ForgotPasswordDto { Email = "ada@example.com" });
-        var token = Email.Last!.Token;
+        var token = (await Email.WaitForMailAsync()).Token;
 
         await Task.Delay(50);
 
