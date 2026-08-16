@@ -375,7 +375,8 @@ public sealed class UserAdminTests : AdminTestBase
     [Fact]
     public async Task Taking_the_admin_role_away_ends_the_sessions_that_still_carry_it()
     {
-        var ada = await CreateAdminAsync("ada@example.com");
+        // A second admin, so the demotion is not refused for taking the last one away.
+        await CreateAdminAsync("ada@example.com");
         var grace = await CreateAdminAsync("grace@example.com");
         var stampBefore = await UserManager.GetSecurityStampAsync(grace);
 
