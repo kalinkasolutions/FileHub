@@ -59,7 +59,7 @@ export class PublicShare {
       })
       .catch((err) => {
         this.notificationService.notify({
-          level: NotificationLevel.success,
+          level: NotificationLevel.error,
           title: 'Direct link',
           message: `Failed to copy to clipboard ${err.message}`,
         });
