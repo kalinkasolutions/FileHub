@@ -13,8 +13,44 @@ public interface IIdentityRepository
     Task<FileHubUser?> FindByEmailAsync(string email);
     Task<FileHubUser?> FindByIdAsync(Guid userId);
 
+    /// <summary>
+    /// Signs the user in with a persistent cookie, counting a wrong password towards the lockout.
+    /// Issues the cookie itself on success, or parks the user id for the two-factor step.
+    /// </summary>
+    Task<SignInOutcome> PasswordSignInAsync(FileHubUser user, string password);
+
+    /// <summary>Whether <paramref name="password"/> is the user's current password. Does not sign anyone in.</summary>
+    Task<bool> CheckPasswordAsync(FileHubUser user, string password);
+
+    /// <summary>
+    /// Counts a failed attempt towards the lockout. Needed for the attempts <c>PasswordSignInAsync</c>
+    /// rejects before it reaches the password, which it therefore never counts.
+    /// </summary>
+    Task AccessFailedAsync(FileHubUser user);
+
+    /// <summary>
+    /// Verifies <paramref name="password"/> against a throwaway hash and discards the answer. Called
+    /// when the address has no account, so that reply costs the same hashing work as a real failed
+    /// sign-in: returning early instead made an unknown address answer in ~2 ms against ~55 ms for a
+    /// known one, which is the same disclosure as a different error message.
+    /// </summary>
+    void VerifyDummyPassword(string password);
+
+    /// <summary>
+    /// Runs Identity's own password rules without writing anything, so a password it would reject can
+    /// be refused before any part of a multi-step flow has been applied.
+    /// </summary>
+    Task<OperationResult<Empty>> ValidatePasswordAsync(FileHubUser user, string password);
+
     /// <summary>Redeems the email-confirmation token the invitation mail carried.</summary>
     Task<OperationResult<Empty>> ConfirmEmailAsync(FileHubUser user, string token);
+
+    /// <summary>
+    /// Puts the address back to unconfirmed. Undoes a redeemed invitation whose password step then
+    /// failed — confirming does not rotate the security stamp, so the link the invitee holds still
+    /// works afterwards.
+    /// </summary>
+    Task<OperationResult<Empty>> SetEmailUnconfirmedAsync(FileHubUser user);
 
     /// <summary>
     /// Sets the password of an account that has none, which is the state an admin-created account is

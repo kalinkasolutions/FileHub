@@ -5,6 +5,7 @@ using Entities.Account;
 using FileHub.BusinessLogic.Services.Admin;
 using FileHub.BusinessLogic.Services.Identity;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Shared;
@@ -40,7 +41,9 @@ public abstract class IdentityTestBase : TestHostBase
         services.Configure<IdentityOptions>(options => options.SignIn.RequireConfirmedEmail = true);
 
         services.AddHttpContextAccessor();
-        services.AddAuthentication();
+        // The cookie schemes, so a successful sign-in has somewhere to write the cookie. Without them
+        // every failure path still works and only the one that hands out a session throws.
+        services.AddAuthentication(IdentityConstants.ApplicationScheme).AddIdentityCookies();
         services.AddIdentityCore<FileHubUser>().AddSignInManager();
 
         services.AddScoped<IIdentityRepository, IdentityRepository>();
@@ -67,6 +70,17 @@ public abstract class IdentityTestBase : TestHostBase
         var mail = Email.Last!;
         Assert.Equal(MailKind.Invite, mail.Kind);
         return mail;
+    }
+
+    /// <summary>
+    /// Puts a request-shaped <see cref="HttpContext"/> where <c>SignInManager</c> looks for one, so a
+    /// successful sign-in has a response to write its cookie onto. Call it from the test method rather
+    /// than the constructor: the accessor is <c>AsyncLocal</c>-backed.
+    /// </summary>
+    protected void UseHttpContext()
+    {
+        Services.GetRequiredService<IHttpContextAccessor>().HttpContext =
+            new DefaultHttpContext { RequestServices = Services };
     }
 
     protected async Task<FileHubUser> ReloadAsync(Guid userId)

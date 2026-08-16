@@ -10,6 +10,16 @@ namespace FileHub.BusinessLogic.Services.Identity;
 public interface IIdentityService
 {
     /// <summary>
+    /// Signs in with an email address and a password, writing the auth cookie — or, when the account
+    /// carries a second factor, parking the sign-in for <c>api/auth/login-2fa</c> to finish.
+    /// <para>
+    /// Anonymous and on the internet, so every failure a stranger can provoke has to look and cost the
+    /// same: one message, and one password hash comparison whether or not the address exists.
+    /// </para>
+    /// </summary>
+    Task<OperationResult<LoginResultDto>> LoginAsync(LoginDto loginDto);
+
+    /// <summary>
     /// Activates an admin-created account from its invitation link: redeems the email-confirmation
     /// token, sets the first password and clears the forced-change flag. One call, because the token
     /// was mailed to the address on the account — using it proves the address as well.
