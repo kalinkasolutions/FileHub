@@ -1,2 +1,120 @@
 <global-header></global-header>
-<directory-list></directory-list>
+
+<header class="browser-header">
+  <div class="heading">
+    @if (!pathService.isAtTop() && tab() === 'files') {
+      <button
+        class="icon-btn quiet"
+        type="button"
+        aria-label="Up one level"
+        (click)="pathService.up()"
+      >
+        <mat-icon>arrow_back</mat-icon>
+      </button>
+    }
+    <span class="title">{{ tab() === 'files' ? title() : 'Your links' }}</span>
+  </div>
+
+  @if (tab() === 'files') {
+    <nav #crumbs class="crumbs" aria-label="Breadcrumb">
+      <button
+        class="crumb"
+        type="button"
+        [disabled]="pathService.isAtTop()"
+        (click)="pathService.goHome()"
+      >
+        home
+      </button>
+      @for (segment of pathService.segments(); track segment.basePathId + ':' + segment.path) {
+        <span class="separator" aria-hidden="true">/</span>
+        <button class="crumb" type="button" [disabled]="$last" (click)="pathService.goTo($index)">
+          {{ segment.name }}
+        </button>
+      }
+    </nav>
+  }
+</header>
+
+<main class="content">
+  @if (tab() === 'files') {
+    <!-- Nothing to filter in an empty folder, and the box would be the only thing in it. -->
+    @if (entries().length > 0) {
+      <input
+        class="filter"
+        type="search"
+        name="filter"
+        placeholder="Filter this folder"
+        [ngModel]="search()"
+        (ngModelChange)="onSearch($event)"
+      />
+    }
+
+    @if (isLoading()) {
+      <p class="empty">Loading…</p>
+    } @else if (visible().length === 0) {
+      <p class="empty">{{ emptyMessage() }}</p>
+    } @else {
+      <ul class="entries">
+        @for (entry of visible(); track entry.itemId) {
+          <li class="entry">
+            <mat-icon class="kind" [class.folder]="entry.isDir">
+              {{ entry.isDir ? 'folder' : 'draft' }}
+            </mat-icon>
+
+            @if (entry.isDir) {
+              <button
+                class="name directory"
+                type="button"
+                [title]="entry.name"
+                (click)="open(entry)"
+              >
+                {{ entry.name }}
+              </button>
+            } @else {
+              <span class="name" [title]="entry.name">{{ entry.name }}</span>
+            }
+
+            <span class="size">{{ size(entry) }}</span>
+
+            <!-- A base path is the whole disk: it is neither downloadable as one zip nor a
+                 sensible thing to hand out a public link to. -->
+            @if (!entry.isBasePath) {
+              <button
+                class="icon-btn quiet"
+                type="button"
+                [attr.aria-label]="'Share ' + entry.name"
+                (click)="share(entry)"
+              >
+                <mat-icon>link</mat-icon>
+              </button>
+              <button
+                class="icon-btn quiet"
+                type="button"
+                [attr.aria-label]="'Download ' + entry.name"
+                (click)="download(entry)"
+              >
+                <mat-icon>download</mat-icon>
+              </button>
+            }
+          </li>
+        }
+      </ul>
+
+      <!-- Crossing this is what puts the next page of rows in the DOM. -->
+      <div #sentinel class="sentinel"></div>
+    }
+  } @else {
+    <app-share-links></app-share-links>
+  }
+</main>
+
+<nav class="tabs">
+  <button class="tab" type="button" [class.active]="tab() === 'files'" (click)="showTab('files')">
+    <mat-icon>folder_open</mat-icon>
+    <span>Files</span>
+  </button>
+  <button class="tab" type="button" [class.active]="tab() === 'links'" (click)="showTab('links')">
+    <mat-icon>link</mat-icon>
+    <span>Links</span>
+  </button>
+</nav>
