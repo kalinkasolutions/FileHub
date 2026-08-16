@@ -2,7 +2,7 @@ name: Build and Push Multi-Platform Docker Image
 
 on:
   release:
-    types: [published] 
+    types: [published]
 
 jobs:
   build:
@@ -26,6 +26,9 @@ jobs:
           docker buildx create --use
           docker buildx build \
             --platform linux/amd64,linux/arm64 \
+            --build-arg VERSION=${{ github.ref_name }} \
+            --build-arg COMMIT_SHA=${{ github.sha }} \
+            --build-arg BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
             -t ${{ secrets.DOCKER_HUB_USERNAME }}/filehub:${{ github.ref_name }} \
             -t ${{ secrets.DOCKER_HUB_USERNAME }}/filehub:latest \
             --push .

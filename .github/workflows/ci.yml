@@ -7,25 +7,21 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-dotnet@v4
         with:
-          go-version-file: backend/go.mod
+          dotnet-version: '10.0.x'
 
-      - run: go build ./...
-      - run: go vet ./...
-      - run: go test ./...
+      - run: dotnet build FileHub.slnx -c Release
+      - run: dotnet test FileHub.slnx -c Release --no-build
 
   frontend:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: frontend
+        working-directory: FileHub.Api/ClientApp
     steps:
       - uses: actions/checkout@v4
 
@@ -33,7 +29,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: FileHub.Api/ClientApp/package-lock.json
 
       - run: npm ci
       - run: npm run build
