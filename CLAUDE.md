@@ -66,9 +66,9 @@ Projects reference each other in a strict line: `Api → BusinessLogic → Dal �
 it — an interface never shares a file with its implementation.
 
 A folder named after a type shadows that type inside it (CS0118), which is why the service folders
-are `Services/Files`, `Services/Shares`, `Services/BasePaths` and the entity folders are
-`Entities/Paths`, `Entities/Shares` — `Services/Share` would make every `Share` parameter in the
-folder fail to compile.
+are `Services/Files`, `Services/Shares`, `Services/BasePaths`, `Services/Groups` and the entity
+folders are `Entities/Paths`, `Entities/Shares`, `Entities/Groups` — `Services/Share` would make
+every `Share` parameter in the folder fail to compile, and `Services/Group` every `Group` one.
 
 `FileHub.Dal` carries a `FrameworkReference` to `Microsoft.AspNetCore.App`: `SignInManager` writes
 the auth cookie and therefore ships in the shared framework rather than in the Identity packages.
@@ -159,7 +159,9 @@ deliberate always-succeed contract was defeated by its own success path taking 4
 If you add an anonymous endpoint that looks an account up, this is the standard it has to meet.
 
 **The only anonymous routes are `public-api/*` and `og/share/*`** — the share links and their Open
-Graph previews. Everything else answers 401 (not a 302: `ConfigureApplicationCookie` replaces the
+Graph previews. They stay anonymous, but they do read `HttpContext.User` when there is one, because
+a link aimed at a group only answers a member (see *A share can be aimed at a group*). Everything
+else answers 401 (not a 302: `ConfigureApplicationCookie` replaces the
 redirect, because every authenticated call comes from the SPA's `fetch` and needs a status code it
 can act on).
 
@@ -203,27 +205,52 @@ only consulted at sign-in, so without the rotation a disabled user kept a fully 
 up to the cookie's 30 days, and a demoted admin kept the `Admin` claim. The stamp is what
 `SecurityStampValidator` compares, so rotating it ends the session within its one-minute interval.
 
-### Per-user base-path grants
+### Base-path grants, groups, and the admin wildcard
 
-A `BasePath` is a directory on the host FileHub may read. `BasePathAccess` is a grant of one base
-path to one user, and **absence of a grant row is a denial — for admins too.** There is no wildcard
-and no implicit access; a fresh admin sees nothing until they grant themselves something.
+A `BasePath` is a directory on the host FileHub may read. There are exactly three routes to one:
+
+- `BasePathAccess` — a grant of one base path to one user.
+- `BasePathGroupAccess` — a grant of one base path to one `Group`, and so to every member of it
+  (`GroupMembership`). **A user's effective access is the union of their own grants and the grants
+  of every group they belong to.**
+- **The `Admin` role, which is an implicit grant of every base path** — browsing, downloading and
+  sharing alike. This is a product decision and it reverses the rule the first version shipped
+  ("absence of a grant is a denial, admins included"); for everyone who is not an admin, the two
+  grant tables are still the whole story and absence from both is still a denial.
 
 Every listing, navigation, download and share creation starts from
-`IBasePathRepository.GetForUserAsync(id, userId)`, which returns null when there is no grant and
-which callers answer as "not found". This is the invariant most likely to be broken by a
-well-meaning change: a repository call that fetches a base path by id alone, used on a request
+`IBasePathRepository.GetForUserAsync(id, userId, callerIsAdmin)`, which returns null when the user
+can reach the base path by none of the three routes and which callers answer as "not found". The
+union is **one query**, not a grant lookup per route. This is the invariant most likely to be broken
+by a well-meaning change: a repository call that fetches a base path by id alone, used on a request
 path, silently hands every user every disk.
 
-Both grant directions are the same table, edited from either end
-(`api/admin/base-path/{id}/users` and `api/admin/users/{id}/base-paths`), and both PUTs **replace**
-rather than merge. Both also drop ids that no longer exist — the foreign key would otherwise take
-the whole grant change down with it when the admin screen holds a stale row.
+`callerIsAdmin` is threaded from the endpoint (`ClaimsPrincipal.IsInRole(Roles.Admin)`) down through
+the service to the query as an ordinary argument — the same shape `ShareService.DeleteAsync` uses.
+It is deliberately **not** resolved inside the repository from an injected accessor: a reader of the
+query has to be able to see what decides it, and a service-level test has to be able to set it.
 
-**Revoking a grant deletes the links that user made under it**, in both directions, *before* the
-grant change is saved — so a failure over-revokes rather than leaving a live anonymous link into a
-base path its creator can no longer browse. Deleting a user or a base path already cascaded; only
-revocation was silently missed, and a revoked user's public link went on serving files.
+Both directions of both grant tables are edited from either end — `api/admin/base-path/{id}/users`
+and `api/admin/users/{id}/base-paths` for the user grants, `api/admin/base-path/{id}/groups` and
+`api/admin/groups/{id}/base-paths` for the group ones — and every PUT **replaces** rather than
+merges. All of them drop ids that no longer exist; the foreign key would otherwise take the whole
+grant change down with it when the admin screen holds a stale row.
+
+A group's name is unique and stored trimmed. The column carries the `NOCASE` collation so the unique
+index and every `Name ==` comparison agree, and `GroupService` checks for a duplicate itself — a name
+that is already taken is a clean 400, not a unique-index 500.
+
+**Revoking access deletes the links that user made under it**, from every direction: the two
+base-path screens, the two group screens, removing a member from a group, and deleting a group.
+It happens *before* the change is saved, so a failure over-revokes rather than leaving a live
+anonymous link into a base path its creator can no longer browse. Deleting a user or a base path
+already cascaded; revocation is the one direction the foreign keys do not cover, and the redemption
+path deliberately carries no access lookup that could catch it later.
+
+Because access is a union, "revoked" now means *lost every route*: the three
+`DeleteShares...LosingAccessAsync` queries on `IShareRepository` take the pending state of the one
+relation being edited and check the others as they stand, so losing one of two routes revokes
+nothing — and an admin's links are never revoked at all.
 
 ### The path sandbox
 
@@ -280,6 +307,33 @@ the same call, not through the flag.
 **Size is measured once, on the authenticated create route, and stored.** The public routes must
 never walk a tree: they are unauthenticated, so a `Directory.EnumerateFileSystemEntries` there is
 free IO amplification for anyone holding a link.
+
+#### A share can be aimed at a group
+
+`Share.AudienceGroupId` is optional. **Null is the default and means anonymous by URL** — today's
+behaviour exactly. Set, the link only answers a signed-in member of that group, or an admin.
+
+- **Every refusal is the same refusal.** `public-api/share/{id}` and its download must not
+  distinguish "this link is not for you" from "no such link", so an outsider gets the one
+  `PublicFailure` an unknown id gets. `og/share/{id}` renders the generic dead-link page rather than
+  the file name, because the chat client unfurling a link is never signed in — leaking it there
+  would defeat the audience for every link ever pasted.
+- The three public routes stay `AllowAnonymous` and now read `HttpContext.User`, which
+  `UseAuthentication()` has already decoded. A link with no audience costs no extra query, so the
+  anonymous case is as cheap as it was.
+- **The audience is re-checked in `TryRegisterDownloadAsync`'s conditional UPDATE**, next to the
+  download limit, rather than trusted from the resolve before it. That statement is the one place a
+  redemption is granted, so every rule about who may redeem belongs in its `WHERE` clause.
+- Who may *aim* a link at a group: a member of it, or an admin. Anyone else gets a 400 — and so does
+  a group id that does not exist, with the same message, so the error cannot be used to enumerate
+  the groups in the install.
+- **Deleting a group deletes the links aimed at it**, by `ON DELETE CASCADE` on `AudienceGroupId`
+  rather than by a service remembering to. EF's default for an optional relationship is `SET NULL`,
+  which would quietly turn every gated link into an anonymous one — a privilege escalation nobody
+  performed. The `Cascade` in `FileHubContext` is what stops that, and it must stay.
+
+`GET api/groups` is the only group route an ordinary user reaches: the groups they may aim a link
+at, which is their own — or every group, for an admin.
 
 `ShareDto.Link` is empty out of the service — the endpoint stamps it with `ShareLinks`, which is
 the only place `App:BaseUrl` turns into a URL.
@@ -366,7 +420,7 @@ would make every redeploy sign everybody out.
 
 ### Testing
 
-`FileHub.IntegrationTests` (xUnit, 370 tests) drives the **services**, not the routes: the real service →
+`FileHub.IntegrationTests` (xUnit, 427 tests) drives the **services**, not the routes: the real service →
 repository → EF/Identity stack over a per-test SQLite **in-memory** database (`TestHostBase` takes
 a delegate that registers the slice under test). SQLite rather than the EF in-memory provider,
 because the unique indexes and the `ON DELETE CASCADE` behaviour that share revocation and user
@@ -382,8 +436,10 @@ of those were.
 
 **What this level cannot see**, and what therefore needs an HTTP-level test if it is ever to be
 covered: `MustChangePasswordMiddleware`, the claims factory and cookie refresh, the role
-authorization on the route groups (`ShareService.DeleteAsync` takes `callerIsAdmin` as a
-*parameter* — nothing below the endpoint proves the caller is one), `FileDownload`'s zip and
+authorization on the route groups (`ShareService.DeleteAsync` and `CreateAsync`, `IFileService` and
+the public resolve all take `callerIsAdmin` as a *parameter* — nothing below the endpoint proves the
+caller is one, so a test pins either answer but not that the principal was read), the caller
+identity on the anonymous share routes, `FileDownload`'s zip and
 headers, `ShareLinks`, the rate limiter, and the forwarded-headers configuration. `AdminSeeder` is
 covered, because it is the part of startup that can brick an install; the migration and role half
 in `Seed` is not.
