@@ -1,3 +1,4 @@
+using System.Threading.RateLimiting;
 using Dal;
 using Entities.Account;
 using FileHub;
@@ -95,6 +96,22 @@ builder.Services.AddDataProtection()
 
 builder.Services.AddAuthorization();
 
+// The sign-in and forgot-password routes are the two anonymous endpoints that cost real work and
+// that a stranger can reach: this login is on the internet, and Identity's lockout only slows an
+// attacker down per account, not per caller. The limit is per client address and deliberately
+// loose enough that a person fumbling their password never meets it.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("auth", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 20,
+            Window = TimeSpan.FromMinutes(1)
+        }));
+});
+
 builder.Services.Configure<AdminOptions>(builder.Configuration.GetSection(AdminOptions.SectionName));
 builder.Services.Configure<AppOptions>(builder.Configuration.GetSection(AppOptions.SectionName));
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
@@ -126,6 +143,8 @@ app.UseDefaultFiles();
 app.UseStaticFiles();
 
 app.UseRouting();
+
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();
