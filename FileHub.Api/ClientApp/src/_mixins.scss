@@ -374,9 +374,24 @@
     }
   }
 
+  // The screen's title. The global `h1` rule carries side margins meant for a page heading, which
+  // here push the title out of line with the panel underneath it.
+  h1 {
+    margin: 0;
+  }
+
   form {
     @include panel;
     gap: $default-margin;
+    padding: $default-padding;
+  }
+
+  // Some of these screens have no form at all — a confirmation, or the dead-link state of one
+  // reached from a mail link. The message is then the content, so it gets the panel the form
+  // would have had rather than sitting loose on the page.
+  .message {
+    @include panel;
+    gap: $small-margin;
     padding: $default-padding;
   }
 

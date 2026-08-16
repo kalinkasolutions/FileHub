@@ -241,21 +241,19 @@ mat-icon.mat-icon {
   @include icon-button-base($control-height, $border-radius);
   @include icon-button-colors($accent-fill, $on-accent, $accent-fill-hover, $on-accent);
 
-  // The muted fill, for an action that's available but isn't the point.
-  &.ghost {
-    @include icon-button-colors(
-      $border-input,
-      $text-secondary,
-      $surface-elevated-hover,
-      $text-primary
-    );
-  }
-
-  // Row- and header-level actions: no fill until hovered. Over an already-raised row a
-  // component overrides the hover fill with that row's own hover tint.
+  // Row- and header-level actions: no fill until hovered — and it hovers to a fill *lighter* than
+  // the panel it usually sits in, because $surface is the panel's own colour and hovering to that
+  // would leave the button with no feedback exactly where most of them live.
   &.quiet {
     @include icon-button-size($tap-target-min, $radius-icon);
-    @include icon-button-colors(transparent, $icon-quiet, $surface, $icon-bright);
+    @include icon-button-colors(transparent, $icon-quiet, $surface-hover, $icon-bright);
+  }
+
+  // An action that is available but isn't the point. Outlined rather than filled: a light slab
+  // inside a dark panel reads louder than the accent button it is meant to defer to.
+  &.ghost {
+    @include icon-button-colors(transparent, $text-secondary, $surface-hover, $text-primary);
+    border: 2px solid $border-input;
   }
 
   // Destructive actions stay quiet until hovered — they sit in routine rows.

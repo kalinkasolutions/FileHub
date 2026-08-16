@@ -122,6 +122,9 @@ $radius-pill: 0;
 
 // ── Layout ──────────────────────────────────────────────────────────────────
 $max-content-width: 1200px;
+// A column of stacked blocks or prose. A form is narrow because its controls are; a column of
+// text at the shell's full width is unreadable — this sits between the two.
+$max-reading-width: 680px;
 $max-form-width: 450px;
 $panel-min-width: 300px;
 
