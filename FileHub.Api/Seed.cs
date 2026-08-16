@@ -1,7 +1,7 @@
-using System.Security.Cryptography;
 using Dal;
 using Dal.Extensions;
 using Entities.Account;
+using FileHub.BusinessLogic.Services.Admin;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -12,7 +12,8 @@ namespace FileHub;
 /// <summary>
 /// Brings an empty database up to a usable install: schema, both roles, and one admin account.
 /// Runs on every start and is idempotent — an existing admin is left exactly as it is, so a
-/// restart never resets a password that has already been changed.
+/// restart never resets a password that has already been changed. The admin half lives in
+/// <see cref="AdminSeeder"/>, which is also what repairs an install that has lost its last admin.
 /// </summary>
 public static class Seed
 {
@@ -73,65 +74,18 @@ public static class Seed
         var userManager = services.GetRequiredService<UserManager<FileHubUser>>();
         var options = services.GetRequiredService<IOptions<AdminOptions>>().Value;
 
-        // Any admin at all is enough: the seeded account may since have been renamed, re-addressed
-        // or replaced, and re-creating one from config would be a back door, not a repair.
-        var admins = await userManager.GetUsersInRoleAsync(Roles.Admin);
+        // Console.Out, not the logger: a generated bootstrap password has to reach the operator
+        // through `docker compose logs` without landing in the Logs table, which lives in the same
+        // database the account guards. Serilog's console sink writes to the same stream, so the two
+        // still come out interleaved in the container's output.
+        var result = await AdminSeeder.EnsureAdminAsync(
+            userManager, logger, options.Email, options.Password, Console.Out);
 
-        if (admins.Count > 0)
+        if (result.HasError)
         {
-            return;
+            // Startup failures are fatal on purpose: an install without a usable admin is worse
+            // than one that will not start.
+            throw new InvalidOperationException(result.ErrorMessage);
         }
-
-        var email = options.Email.Trim();
-        var password = string.IsNullOrWhiteSpace(options.Password) ? GeneratePassword() : options.Password;
-        var admin = new FileHubUser
-        {
-            UserName = "Admin",
-            Email = email,
-            // Nobody can mail this address a confirmation link yet — SMTP is configured from
-            // inside the admin area this account exists to open.
-            EmailConfirmed = true,
-            MustChangePassword = true
-        };
-
-        var created = await userManager.CreateAsync(admin, password);
-
-        if (!created.Succeeded)
-        {
-            throw new InvalidOperationException($"Could not create the admin account: {created.ToErrorString()}");
-        }
-
-        var roled = await userManager.AddToRolesAsync(admin, [Roles.Admin, Roles.User]);
-
-        if (!roled.Succeeded)
-        {
-            throw new InvalidOperationException($"Could not assign the admin roles: {roled.ToErrorString()}");
-        }
-
-        if (string.IsNullOrWhiteSpace(options.Password))
-        {
-            // The only time this password is ever readable. It is written to the log rather than
-            // shipped as a default so that an installation exposed to the internet before its first
-            // sign-in is not protected by a credential everyone already knows.
-            logger.LogWarning(
-                "Created the initial admin account <{Email}> with a generated password: {Password} — " +
-                "sign in with it now; it must be changed at first sign-in and is not logged again.",
-                email, password);
-            return;
-        }
-
-        logger.LogWarning(
-            "Created the initial admin account <{Email}> with the configured bootstrap password. " +
-            "It must be changed at first sign-in.", email);
-    }
-
-    /// <summary>
-    /// A readable random password, well above the configured minimum. The alphabet leaves out the
-    /// characters that are misread when a password is copied off a terminal (0/O, 1/l/I).
-    /// </summary>
-    private static string GeneratePassword()
-    {
-        const string alphabet = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-        return RandomNumberGenerator.GetString(alphabet, 20);
     }
 }
