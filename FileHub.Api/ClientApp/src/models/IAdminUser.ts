@@ -14,7 +14,11 @@ export interface IAdminUser {
   mustChangePassword: boolean;
   /** The account is disabled: its lockout runs into the far future. */
   isLockedOut: boolean;
-  /** How many base paths it may see. Zero means it can see nothing at all. */
+  /**
+   * How many base paths it has been granted <em>directly</em>. Zero does not mean it can see
+   * nothing: access is the union of its own grants and those of every group it belongs to, and the
+   * Admin role reaches every base path without a grant at all.
+   */
   basePathCount: number;
   createdAt: string;
 }
@@ -80,6 +84,27 @@ export const userStatusLabel: Record<UserStatus, string> = {
   invited: 'Invited',
   disabled: 'Disabled',
 };
+
+/**
+ * What this account can reach, in one line. The row only knows the *direct* grants, so it must not
+ * claim more than that: an admin sees everything whatever the count says, and a user with no direct
+ * grant may still reach base paths through a group the row cannot see from here.
+ */
+export function accessLabel(user: IAdminUser, adminRole: string): string {
+  if (user.roles.includes(adminRole)) {
+    return 'Admin — sees every base path';
+  }
+
+  if (user.basePathCount === 0) {
+    return 'No base path granted directly — it sees only what its groups grant';
+  }
+
+  if (user.basePathCount === 1) {
+    return 'Granted 1 base path directly, plus whatever its groups grant';
+  }
+
+  return `Granted ${user.basePathCount} base paths directly, plus whatever its groups grant`;
+}
 
 /** Adds or removes one role, keeping the array a new one so a signal sees the change. */
 export function toggleRole(roles: readonly string[], role: string, on: boolean): string[] {

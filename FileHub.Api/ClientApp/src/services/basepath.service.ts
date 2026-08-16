@@ -12,8 +12,10 @@ const url = '/api/admin/base-path';
  * paths are the options in the per-user grant editor as well as the rows of their own section,
  * so two screens read the same collection.
  *
- * Both grant routes replace the whole set — an id left out is a revocation — and both change a
- * `userCount`, so saving one re-reads the list rather than guessing at the new number.
+ * The grant tables are two: users and groups, and a base path is visible to the union of them plus
+ * every admin. All four routes replace the whole set — an id left out is a revocation, and the API
+ * deletes the share links that revocation orphans — and all four change a count on the row, so
+ * saving one re-reads the list rather than guessing at the new number.
  */
 @Injectable({ providedIn: 'root' })
 export class BasePathService {
@@ -54,6 +56,17 @@ export class BasePathService {
   public setUsers(id: string, userIds: string[]): Observable<IBasePath[]> {
     return this.http
       .put<void>(`${url}/${id}/users`, { userIds })
+      .pipe(switchMap(() => this.load()));
+  }
+
+  /** The ids of the groups that may see one base path — the second route to the same directory. */
+  public getGroups(id: string): Observable<string[]> {
+    return this.http.get<string[]>(`${url}/${id}/groups`);
+  }
+
+  public setGroups(id: string, groupIds: string[]): Observable<IBasePath[]> {
+    return this.http
+      .put<void>(`${url}/${id}/groups`, { groupIds })
       .pipe(switchMap(() => this.load()));
   }
 

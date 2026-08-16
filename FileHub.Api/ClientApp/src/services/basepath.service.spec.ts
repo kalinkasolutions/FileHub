@@ -12,6 +12,7 @@ function basePath(overrides: Partial<IBasePath> = {}): IBasePath {
     name: 'Media',
     createdAt: '2026-01-01T00:00:00Z',
     userCount: 0,
+    groupCount: 0,
     ...overrides,
   };
 }
@@ -78,6 +79,25 @@ describe('BasePathService', () => {
 
     http.expectOne('/api/admin/base-path').flush([basePath({ userCount: 2 })]);
     expect(service.basePaths()[0].userCount).toBe(2);
+  });
+
+  it('re-reads the list after a group grant, because that is what moves groupCount', () => {
+    service.load().subscribe();
+    http.expectOne('/api/admin/base-path').flush([basePath()]);
+
+    service.setGroups('1', ['g1']).subscribe();
+    const put = http.expectOne('/api/admin/base-path/1/groups');
+    expect(put.request.method).toBe('PUT');
+    expect(put.request.body).toEqual({ groupIds: ['g1'] });
+    put.flush(null);
+
+    http.expectOne('/api/admin/base-path').flush([basePath({ groupCount: 1 })]);
+    expect(service.basePaths()[0].groupCount).toBe(1);
+  });
+
+  it('reads the granted groups as a bare id array', () => {
+    service.getGroups('1').subscribe((ids) => expect(ids).toEqual(['g1']));
+    http.expectOne('/api/admin/base-path/1/groups').flush(['g1']);
   });
 
   it('edits the same grant table from the user side', () => {

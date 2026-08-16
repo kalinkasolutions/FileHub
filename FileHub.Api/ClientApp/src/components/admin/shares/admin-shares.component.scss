@@ -6,15 +6,22 @@
   @include admin-section;
 }
 
+.panel {
+  @include admin-panel;
+}
+
+.wide {
+  @include admin-panel-wide;
+}
+
 .row {
   @include admin-row;
   align-items: flex-start;
-  padding-top: $default-padding + 2;
 
   .name {
     @include flex(row);
     align-items: center;
-    gap: $default-padding;
+    gap: $small-padding;
   }
 
   // The file/folder glyph sits inside the name line, so it is sized to the text beside it.
@@ -23,4 +30,15 @@
     color: $icon-quiet;
     cursor: default;
   }
+}
+
+.chip {
+  @include admin-chip;
+}
+
+.chips {
+  @include flex(row);
+  gap: $small-padding;
+  flex-wrap: wrap;
+  margin: $small-padding 0;
 }

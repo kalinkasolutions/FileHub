@@ -1,53 +1,79 @@
 @use 'variables' as *;
 @use 'mixins' as *;
 
-// The four admin sections are the same shape — an uppercase label, a line of explanation, a form
-// and a list of rows — so the shape lives here rather than four times over. It is a local partial
-// and not a global mixin: nothing outside the admin area is built this way.
+// The admin sections are all the same shape — a handful of independent things on one screen: a
+// form, a listing, a block of settings — and the app's one way of drawing a thing is the panel. So
+// a section is a `panel-grid` of panels, which lays them side by side on a desktop and stacks them
+// on a phone without either of them having to say so. It is a local partial and not a global mixin:
+// nothing outside the admin area is built this way.
 @mixin admin-section {
-  @include flex(column);
-  gap: $default-margin;
+  @include panel-grid;
+  // Panels are as tall as their contents; stretching a form to the height of the listing beside it
+  // would fill the difference with empty accent-bordered nothing.
+  align-items: start;
   padding: $content-padding;
+}
 
-  h2 {
-    @include section-label;
-    margin: 0;
+// One panel of a section. The rule and the fill come from `panel`; what is added here is the
+// vocabulary the sections share inside one — a padded body for prose and forms, an unpadded list
+// for rows.
+@mixin admin-panel {
+  @include panel;
+  // A grid item refuses to go below its content's intrinsic width without this, and a long
+  // filesystem path is exactly the content that would push a track wider than its track size.
+  min-width: 0;
+
+  // Everything that is not a listing: the explanation, the form, the buttons. Rows want to rule
+  // edge to edge, so they stay outside it.
+  .body {
+    @include flex(column);
+    gap: $default-margin;
+    padding: $default-padding;
   }
 
   h3 {
     margin: 0;
     font-size: $font-size-base;
-    font-weight: 600;
+    font-weight: 700;
   }
 
   .hint {
     margin: 0;
-    padding-left: $small-padding;
     color: $text-muted;
     font-size: $font-size-small;
     line-height: 1.5;
   }
 
-  // A hint about something that is wrong or about to be: an ungranted base path, a mail that
-  // did not go out.
+  // A hint about something that is wrong or about to be: an ungranted base path, a group nobody
+  // is in, a mail that did not go out.
   .warn {
     color: $text-danger;
   }
 
-  // The global form rule pads for the auth screens; inside a section the controls line up with
-  // the label above them.
+  // The global form rule pads for the auth screens; inside a panel body the controls line up with
+  // the prose above them, and it must not draw a second panel inside this one.
   form {
-    padding: 0;
+    @include flex(column);
     gap: $default-padding;
+    padding: 0;
+    border: none;
+    background: transparent;
+    box-shadow: none;
   }
 
+  .label {
+    @include section-label;
+  }
+
+  // A listing fills the panel: its rows are ruled, and a padded gutter would break the rule before
+  // it reached the panel's own border.
   .list {
     @include flex(column);
-    gap: $small-margin;
   }
 
   .empty {
-    padding: $default-margin $small-padding;
+    margin: 0;
+    padding: $default-padding;
     color: $text-placeholder;
     font-size: $font-size-small;
   }
@@ -58,21 +84,40 @@
     gap: $default-padding;
     flex-wrap: wrap;
   }
+
+  .buttons {
+    @include flex(row);
+    gap: $default-padding;
+
+    button {
+      flex: 1;
+    }
+  }
 }
 
-// One row of an admin list: the label block on the left, the row's own actions on the right.
+// A listing is read across, so it gets the whole width of the section rather than one track of it.
+// The declaration is inert once `panel-grid` has collapsed to a flex column on a phone, which is
+// why it needs no media query of its own.
+@mixin admin-panel-wide {
+  grid-column: 1 / -1;
+}
+
+// One row of an admin listing: the label block on the left, the row's own actions on the right.
 // Wraps rather than truncates — a base path and an email address are both worth reading whole.
 @mixin admin-row {
   @include tile-row;
   gap: $default-padding;
-  padding: $default-padding $default-padding $default-padding $default-margin;
+  padding: $small-padding;
   flex-wrap: wrap;
 
+  // The floor is what makes the row wrap on a phone: below it, the label block plus a run of
+  // actions no longer fit on one line, so the actions drop to a line of their own instead of
+  // squeezing a filesystem path into a 6-character column.
   .main {
     @include flex(column);
     gap: 2px;
     flex: 1;
-    min-width: 0;
+    min-width: 12em;
   }
 
   .name {
@@ -86,10 +131,16 @@
     overflow-wrap: anywhere;
   }
 
-  // Filesystem paths and share links are read character by character, so they keep the mono face.
+  // A row's own warning — "granted to nobody", "nobody is in it" — reads as a `.meta` first, so it
+  // has to out-rank the dim it would otherwise inherit from it.
+  .meta.warn {
+    color: $text-danger;
+  }
+
+  // A base path is compared character by character rather than read, so it keeps the accent the
+  // rest of the row does not need.
   .path {
     color: $text-secondary;
-    font-family: $font-mono;
     font-size: $font-size-small;
     overflow-wrap: anywhere;
   }
@@ -100,7 +151,7 @@
     gap: $small-padding;
     margin-left: auto;
 
-    // A quiet icon button hovers to `$surface`, which is this row's own fill — over a row it has
+    // A quiet icon button hovers to `$surface`, which is this panel's own fill — over a row it has
     // to take the row's hover tint instead or the hover is invisible.
     .icon-btn.quiet {
       @include hover {
@@ -110,26 +161,71 @@
   }
 }
 
-// The small pill that carries a status or a role name.
+// The editor a row opens underneath itself: renaming a base path, ticking who may see it. It is
+// deliberately *not* a panel — a panel inside a panel reads as a second thing on the screen — so it
+// takes the accent as a rule on its leading edge only, over the darker fill.
+@mixin admin-drawer {
+  @include flex(column);
+  gap: $default-padding;
+  padding: $default-padding;
+  border-left: $border-panel-width solid $primary-green;
+  background: $bg-elevated;
+
+  form {
+    @include flex(column);
+    gap: $default-padding;
+    padding: 0;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .buttons {
+    @include flex(row);
+    gap: $default-padding;
+
+    button {
+      flex: 1;
+    }
+  }
+}
+
+// The small tag that carries a status, a role name or a link's audience. Square and outlined, like
+// everything else: a filled pill would read as a button to press.
 @mixin admin-chip {
   @include flex(row);
   align-items: center;
-  gap: $small-padding;
-  padding: 1px 10px;
+  gap: 4px;
+  padding: 0 $small-padding;
+  border: 1px solid $border-subtle;
   border-radius: $radius-pill;
-  background: $surface-muted;
   color: $text-dim;
   font-size: $font-size-label;
-  letter-spacing: 0.02em;
+  letter-spacing: $letter-spacing-label;
   white-space: nowrap;
 
+  mat-icon {
+    @include icon-size($icon-size-inline);
+    color: inherit;
+    cursor: inherit;
+  }
+
   // "Invited" and "disabled" both mean the account cannot sign in, and both are the admin's to
-  // act on — they are the only states worth a colour.
+  // act on — they are the only account states worth a colour.
   &.invited {
+    border-color: $primary-green;
     color: $primary-green;
   }
 
   &.disabled {
+    border-color: $border-danger;
     color: $text-danger;
+  }
+
+  // A share link that only answers a group. The one thing on these screens that is neither the
+  // accent nor a warning, because it is neither: it is a link that is *less* public than the rest.
+  &.restricted {
+    border-color: $share-purple;
+    color: $share-purple;
   }
 }

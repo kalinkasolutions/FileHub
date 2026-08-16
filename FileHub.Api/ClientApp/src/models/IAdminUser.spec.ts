@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { IAdminUser, sortUsers, toggleRole, userStatus } from '@models/IAdminUser';
+import { IAdminUser, accessLabel, sortUsers, toggleRole, userStatus } from '@models/IAdminUser';
 
 function user(overrides: Partial<IAdminUser> = {}): IAdminUser {
   return {
@@ -51,6 +51,29 @@ describe('toggleRole', () => {
     const roles = ['User'];
     expect(toggleRole(roles, 'User', true)).not.toBe(roles);
     expect(toggleRole(roles, 'Admin', false)).not.toBe(roles);
+  });
+});
+
+describe('accessLabel', () => {
+  it('says an admin sees everything, whatever its grant count is', () => {
+    expect(accessLabel(user({ roles: ['User', 'Admin'], basePathCount: 0 }), 'Admin')).toBe(
+      'Admin — sees every base path',
+    );
+  });
+
+  it('does not claim a user with no direct grant sees nothing — a group may still grant one', () => {
+    expect(accessLabel(user({ basePathCount: 0 }), 'Admin')).toBe(
+      'No base path granted directly — it sees only what its groups grant',
+    );
+  });
+
+  it('counts only the direct grants, because that is all the row knows', () => {
+    expect(accessLabel(user({ basePathCount: 1 }), 'Admin')).toBe(
+      'Granted 1 base path directly, plus whatever its groups grant',
+    );
+    expect(accessLabel(user({ basePathCount: 3 }), 'Admin')).toBe(
+      'Granted 3 base paths directly, plus whatever its groups grant',
+    );
   });
 });
 

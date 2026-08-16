@@ -9,11 +9,10 @@ export interface IBasePath {
   /** Label shown in the UI; the directory name when the admin left it empty. */
   name: string;
   createdAt: string;
-  /**
-   * How many users have been granted it. `0` is a normal state and means *nobody* can see it —
-   * admins included, since the admin role does not imply a grant.
-   */
+  /** How many users have been granted it <em>directly</em>. */
   userCount: number;
+  /** How many groups have been granted it. Every member of one of those reaches it too. */
+  groupCount: number;
 }
 
 /** Body of `POST /api/admin/base-path` and `PUT /api/admin/base-path/{id}`. */
@@ -22,4 +21,29 @@ export interface ISaveBasePath {
   path: string;
   /** Optional; the API falls back to the directory name when it is empty. */
   name: string;
+}
+
+/**
+ * Nobody has been granted it by either route. Not an error — a base path is always created in this
+ * state — but it is not invisible either: the Admin role is an implicit grant of every base path,
+ * so an admin still browses it while nobody else can.
+ */
+export function isUngranted(basePath: IBasePath): boolean {
+  return basePath.userCount === 0 && basePath.groupCount === 0;
+}
+
+/**
+ * Who may see it, in one line. Access is the union of the two grant tables plus the admin role, so
+ * both counts are shown rather than added together — a user granted it directly *and* through a
+ * group would otherwise be counted twice.
+ */
+export function grantLabel(basePath: IBasePath): string {
+  if (isUngranted(basePath)) {
+    return 'Granted to nobody — only admins can see it';
+  }
+
+  const users = basePath.userCount === 1 ? '1 user' : `${basePath.userCount} users`;
+  const groups = basePath.groupCount === 1 ? '1 group' : `${basePath.groupCount} groups`;
+
+  return `Granted to ${users} and ${groups}, plus every admin`;
 }
