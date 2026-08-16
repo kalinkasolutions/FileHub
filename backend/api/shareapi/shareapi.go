@@ -2,6 +2,7 @@ package shareapi
 
 import (
 	"fmt"
+	"html/template"
 	"net/http"
 	"os"
 	"path"
@@ -179,28 +180,52 @@ func (ss *ShareApi) handleShareLink() gin.HandlerFunc {
 			formattedSize = ss.formattedShareSize(share.Path)
 		}
 
-		description := fmt.Sprintf("%s, %s", title, formattedSize)
-		imageURL := fmt.Sprintf("%s/filehub.png", utils.BasePath(ss.config))
-		shareLink := utils.GetShareLink(ss.config, id)
+		page := shareLinkPage{
+			Title:       title,
+			Description: fmt.Sprintf("%s, %s", title, formattedSize),
+			ImageURL:    fmt.Sprintf("%s/filehub.png", utils.BasePath(ss.config)),
+			ShareLink:   utils.GetShareLink(ss.config, id),
+			Id:          id,
+		}
 
 		ctx.Header("Content-Type", "text/html")
-		ctx.String(http.StatusOK, `<!DOCTYPE html>
-			<html>
-			<head>
-				<link rel="icon" type="image/x-icon" href="favicon.ico">
-				<meta property="og:title" content="%s" />
-				<meta property="og:description" content="%s" />
-				<meta property="og:image" content="%s" />
-				<meta property="og:type" content="website" />
-				<meta property="og:url" content="%s" />
-			</head>
-			<body>
-				<a href="/share/%s">share link</a>
-				<script>location.href = "/share/%s"</script>
-			</body>
-			</html>`, title, description, imageURL, shareLink, id, id)
+		ctx.Status(http.StatusOK)
+
+		err = shareLinkTemplate.Execute(ctx.Writer, page)
+
+		if err != nil {
+			ss.logger.Error("failed to render share link page for id: %s\n%v", id, err)
+		}
 	}
 }
+
+type shareLinkPage struct {
+	Title       string
+	Description string
+	ImageURL    string
+	ShareLink   string
+	Id          string
+}
+
+// html/template escapes each value for the context it lands in: attribute values in the
+// head, and a JavaScript string literal in the body. Never build this page with Sprintf --
+// both the share id (a URL parameter) and the title (a filename from disk) are attacker
+// controlled, and og/share is served to the public internet.
+var shareLinkTemplate = template.Must(template.New("sharelink").Parse(`<!DOCTYPE html>
+	<html>
+	<head>
+		<link rel="icon" type="image/x-icon" href="favicon.ico">
+		<meta property="og:title" content="{{.Title}}" />
+		<meta property="og:description" content="{{.Description}}" />
+		<meta property="og:image" content="{{.ImageURL}}" />
+		<meta property="og:type" content="website" />
+		<meta property="og:url" content="{{.ShareLink}}" />
+	</head>
+	<body>
+		<a href="/share/{{.Id}}">share link</a>
+		<script>location.href = "/share/{{.Id}}"</script>
+	</body>
+	</html>`))
 
 func (ss *ShareApi) formattedShareSize(sharePath string) string {
 	size, err := dirSize(sharePath)
