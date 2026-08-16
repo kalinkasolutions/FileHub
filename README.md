@@ -83,11 +83,15 @@ address.
 
 - **Signing in is required for everything except share links.** Unauthenticated API calls get a
   401, not a redirect.
-- **An account sees exactly the base paths an admin granted it.** There is no wildcard, and an
-  admin has no implicit access to anything either.
-- **A share link is the one anonymous surface.** It is an unguessable id, it may carry a download
-  limit, and it stops working when the share or its base path is deleted — or when its creator's
-  access to that base path is revoked.
+- **An account sees exactly the base paths it was granted**, directly or through a group it
+  belongs to. There is no other way in — except the Admin role, which sees every base path.
+- **Groups are named sets of accounts.** Grant a path to a group and every member gets it; a
+  member's access is the union of their own grants and their groups'.
+- **A share link is normally the one anonymous surface.** It is an unguessable id, it may carry a
+  download limit, and it stops working when the share or its base path is deleted — or when its
+  creator loses every route to that base path. A link can instead be aimed at a **group**, in
+  which case it answers only signed-in members of that group and looks like a dead link to
+  everyone else, link previews included.
 - `..` traversal is refused, and so is any path that resolves out of the base path through a
   symlink, however many links deep.
 - **Two-factor is per account**, enabled from the account screen; enrolling and regenerating
