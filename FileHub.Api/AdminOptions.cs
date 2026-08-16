@@ -11,5 +11,11 @@ public sealed class AdminOptions
     public const string SectionName = "Admin";
 
     public string Email { get; set; } = "admin@filehub.local";
-    public string Password { get; set; } = "admin";
+
+    /// <summary>
+    /// Left empty on purpose. An unset password makes <see cref="Seed"/> generate a random one and
+    /// write it to the log once — a shipped default would be a published credential on an
+    /// installation that is reachable from the internet before anyone has signed in.
+    /// </summary>
+    public string Password { get; set; } = string.Empty;
 }

@@ -25,7 +25,9 @@ services:
       # Bootstrap admin, seeded only when the database has no admin account yet. The account is
       # created with MustChangePassword, so the first sign-in has to replace this password.
       - Admin__Email=${ADMIN_EMAIL:-admin@filehub.local}
-      - Admin__Password=${ADMIN_PASSWORD:-ChangeMe123}
+      # Empty on purpose: the app then generates the bootstrap password and logs it once, instead
+      # of every FileHub install sharing one published default.
+      - Admin__Password=${ADMIN_PASSWORD:-}
       # Minimum log level written to the console and the SQLite "Logs" table. One of:
       # Trace, Debug, Information, Warning, Error, Critical. Defaults to Information.
       - Logging__LogLevel__Default=${LOG_LEVEL:-Information}

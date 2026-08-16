@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Dal;
 using Dal.Extensions;
 using Entities.Account;
@@ -82,6 +83,7 @@ public static class Seed
         }
 
         var email = options.Email.Trim();
+        var password = string.IsNullOrWhiteSpace(options.Password) ? GeneratePassword() : options.Password;
         var admin = new FileHubUser
         {
             UserName = "Admin",
@@ -92,7 +94,7 @@ public static class Seed
             MustChangePassword = true
         };
 
-        var created = await userManager.CreateAsync(admin, options.Password);
+        var created = await userManager.CreateAsync(admin, password);
 
         if (!created.Succeeded)
         {
@@ -106,8 +108,30 @@ public static class Seed
             throw new InvalidOperationException($"Could not assign the admin roles: {roled.ToErrorString()}");
         }
 
+        if (string.IsNullOrWhiteSpace(options.Password))
+        {
+            // The only time this password is ever readable. It is written to the log rather than
+            // shipped as a default so that an installation exposed to the internet before its first
+            // sign-in is not protected by a credential everyone already knows.
+            logger.LogWarning(
+                "Created the initial admin account <{Email}> with a generated password: {Password} — " +
+                "sign in with it now; it must be changed at first sign-in and is not logged again.",
+                email, password);
+            return;
+        }
+
         logger.LogWarning(
             "Created the initial admin account <{Email}> with the configured bootstrap password. " +
             "It must be changed at first sign-in.", email);
+    }
+
+    /// <summary>
+    /// A readable random password, well above the configured minimum. The alphabet leaves out the
+    /// characters that are misread when a password is copied off a terminal (0/O, 1/l/I).
+    /// </summary>
+    private static string GeneratePassword()
+    {
+        const string alphabet = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        return RandomNumberGenerator.GetString(alphabet, 20);
     }
 }
