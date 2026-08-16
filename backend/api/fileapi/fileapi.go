@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"os"
 	"path"
@@ -146,17 +147,23 @@ func (fa *FileApi) handleFileOrDirectroyDownload(ctx *gin.Context, path string) 
 }
 
 func (fa *FileApi) downloadFile(ctx *gin.Context, fileStats os.FileInfo, path string) {
-	ctx.Header("Content-Disposition", "attachment; filename=\""+fileStats.Name()+"\"")
+	ctx.Header("Content-Disposition", attachmentHeader(fileStats.Name()))
 	ctx.Header("Content-Type", "application/octet-stream")
 	ctx.Header("Content-Length", fmt.Sprintf("%d", fileStats.Size()))
 	ctx.File(path)
+}
+
+// attachmentHeader quotes the filename properly. Building this header by hand breaks on
+// names containing a double quote, which truncates the name the browser saves.
+func attachmentHeader(fileName string) string {
+	return mime.FormatMediaType("attachment", map[string]string{"filename": fileName})
 }
 
 func (fa *FileApi) downloadDirectoryAsZip(ctx *gin.Context, validatedFilePath string) {
 	ctx.Header("Content-Type", "application/zip")
 	re := regexp.MustCompile(`[^a-zA-Z\d\s\.\-\_\(\)]`)
 	basePath := re.ReplaceAllString(path.Base(validatedFilePath), "")
-	ctx.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", basePath))
+	ctx.Header("Content-Disposition", attachmentHeader(basePath))
 	ctx.Status(http.StatusOK)
 
 	zipWriter := zip.NewWriter(bufio.NewWriter(ctx.Writer))
