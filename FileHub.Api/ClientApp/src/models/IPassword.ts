@@ -13,4 +13,6 @@ export interface IResetPassword {
 export interface IChangePassword {
   currentPassword: string;
   newPassword: string;
+  /** Required: ChangePasswordDto validates that it matches, so the API rejects a body without it. */
+  confirmPassword: string;
 }

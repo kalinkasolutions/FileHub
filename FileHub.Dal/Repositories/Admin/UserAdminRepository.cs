@@ -41,6 +41,17 @@ public sealed class UserAdminRepository : IUserAdminRepository
             .ToList();
     }
 
+    public async Task<Dictionary<Guid, int>> CountBasePathGrantsPerUserAsync()
+    {
+        var counts = await m_context.BasePathAccesses
+            .AsNoTracking()
+            .GroupBy(a => a.UserId)
+            .Select(g => new { UserId = g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        return counts.ToDictionary(c => c.UserId, c => c.Count);
+    }
+
     public Task<int> CountUsersInRoleAsync(string roleName)
     {
         // Identity matches on the normalized name, and so does the index behind this join.

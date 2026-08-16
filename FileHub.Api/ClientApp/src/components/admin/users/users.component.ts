@@ -60,6 +60,8 @@ export class UsersComponent implements OnInit {
    * nobody can sign in to.
    */
   public readonly undeliveredInvite = signal<IAdminUser | null>(null);
+  /** The SMTP error behind it, so the admin is not sent to the email screen to find out why. */
+  public readonly undeliveredInviteReason = signal('');
 
   public readonly editingId = signal<string | null>(null);
   public readonly editUsername = signal('');
@@ -101,6 +103,11 @@ export class UsersComponent implements OnInit {
     return userStatusLabel[userStatus(user)];
   }
 
+  /** Access is per base path and absence of a grant is a denial, so this is worth a line per row. */
+  public basePathsLabel(user: IAdminUser): string {
+    return user.basePathCount === 1 ? 'Sees 1 base path' : `Sees ${user.basePathCount} base paths`;
+  }
+
   public isSelf(user: IAdminUser): boolean {
     return user.id === this.signedInAs();
   }
@@ -129,7 +136,8 @@ export class UsersComponent implements OnInit {
       })
       .pipe(finalize(() => this.busy.set(false)))
       .subscribe({
-        next: (result) => this.invited(result.userId, result.inviteMailSent),
+        next: (result) =>
+          this.invited(result.userId, result.inviteMailSent, result.inviteMailError),
         error: (error: unknown) =>
           this.toastr.error(apiErrorMessage(error, 'Could not invite that account')),
       });
@@ -139,6 +147,7 @@ export class UsersComponent implements OnInit {
     this.userService.resendInvite(user.id).subscribe({
       next: () => {
         this.undeliveredInvite.set(null);
+        this.undeliveredInviteReason.set('');
         this.toastr.success(`Invitation re-sent to ${user.email}`);
       },
       error: (error: unknown) =>
@@ -148,6 +157,7 @@ export class UsersComponent implements OnInit {
 
   public dismissUndelivered(): void {
     this.undeliveredInvite.set(null);
+    this.undeliveredInviteReason.set('');
   }
 
   // ─── Editing ──────────────────────────────────────────────────────────────
@@ -272,7 +282,7 @@ export class UsersComponent implements OnInit {
    * The account exists either way. When the mail did not go out the admin is the only one who can
    * tell the user, so the row is pulled out of the list and kept on screen with the resend action.
    */
-  private invited(userId: string, mailSent: boolean): void {
+  private invited(userId: string, mailSent: boolean, mailError: string): void {
     this.inviteUsername.set('');
     this.inviteEmail.set('');
     this.inviteRoles.set([Roles.User]);
@@ -285,6 +295,7 @@ export class UsersComponent implements OnInit {
           return;
         }
 
+        this.undeliveredInviteReason.set(mailError);
         this.undeliveredInvite.set(users.find((user) => user.id === userId) ?? null);
         this.toastr.warning('The account was created, but the invitation email could not be sent');
       },

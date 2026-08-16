@@ -25,5 +25,11 @@ public sealed class UserDto
     /// <summary>The account is disabled: its lockout runs into the far future.</summary>
     public bool IsLockedOut { get; set; }
 
+    /// <summary>
+    /// How many base paths this account has been granted. Zero means it can see nothing at all:
+    /// access is granted per path and absence of a grant is a denial, admins included.
+    /// </summary>
+    public int BasePathCount { get; set; }
+
     public DateTime CreatedAt { get; set; }
 }

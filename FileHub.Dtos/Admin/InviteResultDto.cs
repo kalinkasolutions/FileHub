@@ -10,4 +10,10 @@ public sealed class InviteResultDto
 {
     public Guid UserId { get; set; }
     public bool InviteMailSent { get; set; }
+
+    /// <summary>
+    /// Why the invitation did not go out, empty when it did. Without it the admin is told only
+    /// that the mail failed and has to go and test the SMTP settings to find out why.
+    /// </summary>
+    public string InviteMailError { get; set; }
 }

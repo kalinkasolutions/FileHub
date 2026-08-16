@@ -41,9 +41,11 @@ public sealed class UserAdminService : IUserAdminService
     public async Task<OperationResult<UserDto[]>> ListUsersAsync()
     {
         var users = await m_userAdminRepository.ListUsersWithRolesAsync();
+        var grantCounts = await m_userAdminRepository.CountBasePathGrantsPerUserAsync();
         var now = DateTimeOffset.UtcNow;
 
-        return OperationResult<UserDto[]>.Success(users.Select(u => ToDto(u, now)).ToArray());
+        return OperationResult<UserDto[]>.Success(
+            users.Select(u => ToDto(u, now, grantCounts.GetValueOrDefault(u.User.Id))).ToArray());
     }
 
     public async Task<OperationResult<InviteResultDto>> InviteUserAsync(InviteUserDto inviteUserDto)
@@ -108,7 +110,8 @@ public sealed class UserAdminService : IUserAdminService
         return OperationResult<InviteResultDto>.Success(new InviteResultDto
         {
             UserId = user.Id,
-            InviteMailSent = mail.IsSuccess
+            InviteMailSent = mail.IsSuccess,
+            InviteMailError = mail.IsSuccess ? string.Empty : mail.ErrorMessage
         });
     }
 
@@ -366,7 +369,7 @@ public sealed class UserAdminService : IUserAdminService
         return OperationResult<string[]>.Success(roles.ToArray());
     }
 
-    private static UserDto ToDto(UserWithRoles userWithRoles, DateTimeOffset now)
+    private static UserDto ToDto(UserWithRoles userWithRoles, DateTimeOffset now, int basePathCount)
     {
         var user = userWithRoles.User;
 
@@ -379,6 +382,7 @@ public sealed class UserAdminService : IUserAdminService
             Roles = userWithRoles.Roles,
             MustChangePassword = user.MustChangePassword,
             IsLockedOut = user.LockoutEnd > now,
+            BasePathCount = basePathCount,
             CreatedAt = user.CreatedAt
         };
     }

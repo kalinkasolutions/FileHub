@@ -11,6 +11,10 @@ public interface IUserAdminRepository
     Task<List<UserWithRoles>> ListUsersWithRolesAsync();
 
     /// <summary>How many accounts hold <paramref name="roleName"/>, locked-out ones included.</summary>
+    /// <summary>How many base paths each user has been granted, keyed by user id. Users with no
+    /// grant are absent, which the caller reads as zero.</summary>
+    Task<Dictionary<Guid, int>> CountBasePathGrantsPerUserAsync();
+
     Task<int> CountUsersInRoleAsync(string roleName);
 
     /// <summary>

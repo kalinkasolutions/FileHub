@@ -90,10 +90,8 @@ export class AccountService {
    * `ConfirmPassword` is required by the DTO and compared server-side. A caller that has already
    * matched the two fields itself may leave it out rather than pass the same string twice.
    */
-  public changePassword(data: IChangePassword & { confirmPassword?: string }): Observable<unknown> {
-    const body = { ...data, confirmPassword: data.confirmPassword ?? data.newPassword };
-
-    return this.http.post<void>('/api/account/password', body).pipe(
+  public changePassword(data: IChangePassword): Observable<unknown> {
+    return this.http.post<void>('/api/account/password', data).pipe(
       switchMap(() => this.authService.refresh()),
       // Only if a block is on screen holding it: the forced-change screen never loads the profile,
       // and re-reading it there would be a request nothing renders.

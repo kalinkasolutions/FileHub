@@ -14,6 +14,8 @@ export interface IAdminUser {
   mustChangePassword: boolean;
   /** The account is disabled: its lockout runs into the far future. */
   isLockedOut: boolean;
+  /** How many base paths it may see. Zero means it can see nothing at all. */
+  basePathCount: number;
   createdAt: string;
 }
 
@@ -35,6 +37,8 @@ export interface IInviteUser {
 export interface IInviteResult {
   userId: string;
   inviteMailSent: boolean;
+  /** Why it did not go out, empty when it did. Usually the SMTP error verbatim. */
+  inviteMailError: string;
 }
 
 /**

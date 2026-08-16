@@ -27,6 +27,9 @@
       {{ pending.email }} could not be sent. The account has no password and cannot sign in until
       someone follows an invitation link.
     </p>
+    @if (undeliveredInviteReason(); as reason) {
+      <p class="reason">{{ reason }}</p>
+    }
     <div class="actions">
       <button type="button" (click)="resendInvite(pending)">Resend invitation</button>
       <button class="secondary" type="button" (click)="dismissUndelivered()">Dismiss</button>
@@ -119,6 +122,11 @@
           </span>
           @if (status(user) === 'invited') {
             <span class="meta">Has not accepted the invitation yet — it cannot sign in.</span>
+          }
+          @if (user.basePathCount === 0) {
+            <span class="meta">No base paths granted — it can see nothing.</span>
+          } @else {
+            <span class="meta">{{ basePathsLabel(user) }}</span>
           }
         </div>
 

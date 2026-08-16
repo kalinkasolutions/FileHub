@@ -61,6 +61,7 @@ export class ChangePasswordComponent {
       .changePassword({
         currentPassword: this.currentPassword(),
         newPassword: this.newPassword(),
+        confirmPassword: this.confirmPassword(),
       })
       .pipe(finalize(() => this.isLoading.set(false)))
       .subscribe({
