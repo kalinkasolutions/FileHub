@@ -77,8 +77,9 @@ never enforced; `InsertShare` hardcodes it to 0.
 
 ### Layering
 
-`main.go` → `config.LoadConfig` → `datalayer.NewDb` → `api.Load()`, which constructs the
-services and hands them to the three route groups:
+`main.go` does nothing but build the logger, config and database and hand them to
+`api.Run`. `api.Run` is the composition root: it constructs every service once and passes
+them to the three route groups, each of which exposes a single `Register(router, deps...)`:
 
 | Route group | File | Service |
 |---|---|---|
@@ -86,8 +87,9 @@ services and hands them to the three route groups:
 | `api/share/*`, `api/admin/share*`, `og/share/*`, `public-api/share/*` | `api/shareapi/` | publicpathservice, shareservice |
 | `api/admin/base-path` | `api/basepath/` | basepathservice, shareservice |
 
-Go interfaces are named `IXxx` with a `NewXxx` constructor. Services take
-`(logger.ILogger, *sql.DB)` and own their table.
+Handlers are plain `func(*gin.Context)` methods registered directly — they do not return
+`gin.HandlerFunc` closures. Go interfaces are named `IXxx` with a `NewXxx` constructor.
+Services take `(logger.ILogger, *sql.DB)` and own their table.
 
 ### datalayer gotchas
 
