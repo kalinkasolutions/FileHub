@@ -1,9 +1,19 @@
 using System.Threading.RateLimiting;
 using Dal;
+using Dal.Repositories.Account;
+using Dal.Repositories.Admin;
+using Dal.Repositories.Email;
+using Dal.Repositories.Identity;
 using Entities.Account;
 using FileHub;
+using FileHub.Authorization;
 using FileHub.BusinessLogic;
 using FileHub.BusinessLogic.Email;
+using FileHub.BusinessLogic.Services.Account;
+using FileHub.BusinessLogic.Services.Admin;
+using FileHub.BusinessLogic.Services.Email;
+using FileHub.BusinessLogic.Services.Identity;
+using FileHub.Endpoints;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
@@ -12,6 +22,11 @@ using Microsoft.EntityFrameworkCore;
 using Serilog;
 using Serilog.Events;
 using Westwind.AspNetCore.LiveReload;
+
+// The SPA build output. A checkout that has not run `npm run build` yet has no wwwroot at all, and
+// the host resolves (and warns about) the web root while the builder is being created — so this has
+// to happen before that, against the same directory the host takes as its content root.
+Directory.CreateDirectory(Path.Combine(Directory.GetCurrentDirectory(), "wwwroot"));
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -56,7 +71,11 @@ builder.Services.AddIdentity<FileHubUser, IdentityRole<Guid>>(options =>
         options.Lockout.MaxFailedAccessAttempts = 10;
     })
     .AddEntityFrameworkStores<FileHubContext>()
-    .AddDefaultTokenProviders();
+    .AddDefaultTokenProviders()
+    // Puts the forced-password-change flag on the cookie principal, so the gate below is a claim
+    // check rather than a database read on every request. A password change rotates the security
+    // stamp and the account endpoints refresh the sign-in, which regenerates the claim.
+    .AddClaimsPrincipalFactory<FileHubClaimsPrincipalFactory>();
 
 // AddIdentity has already registered the cookie schemes and pinned Identity.Application as the
 // default authenticate/challenge scheme, so the app cookie has to be configured here rather than
@@ -116,10 +135,25 @@ builder.Services.Configure<AdminOptions>(builder.Configuration.GetSection(AdminO
 builder.Services.Configure<AppOptions>(builder.Configuration.GetSection(AppOptions.SectionName));
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
 
+builder.Services.AddScoped<IEmailSettingRepository, EmailSettingRepository>();
+builder.Services.AddScoped<IIdentityRepository, IdentityRepository>();
+builder.Services.AddScoped<IAccountRepository, AccountRepository>();
+builder.Services.AddScoped<IUserAdminRepository, UserAdminRepository>();
+
+builder.Services.AddScoped<IEmailSettingsProvider, EmailSettingsProvider>();
+builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IEmailSettingService, EmailSettingService>();
+builder.Services.AddScoped<IIdentityService, IdentityService>();
+builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddScoped<IUserAdminService, UserAdminService>();
+builder.Services.AddScoped<IRoleService, RoleService>();
+
+var webRootPath = Path.Combine(builder.Environment.ContentRootPath, "wwwroot");
+
 if (builder.Environment.IsDevelopment())
 {
     builder.Services.AddLiveReload(config =>
-        config.FolderToMonitor = Path.Combine(builder.Environment.ContentRootPath, "wwwroot"));
+        config.FolderToMonitor = webRootPath);
 }
 
 var app = builder.Build();
@@ -147,9 +181,20 @@ app.UseRouting();
 app.UseRateLimiter();
 
 app.UseAuthentication();
+
+// Reads the forced-password-change claim off the cookie principal, so it has to run after
+// authentication; before authorization, so a gated request never reaches an endpoint's own checks.
+app.UseMiddleware<MustChangePasswordMiddleware>();
+
 app.UseAuthorization();
 
 // ---- endpoints ----
+
+app.MapAuthEndpoint();
+app.MapAccountEndpoint();
+app.MapAdminUserEndpoint();
+app.MapAdminRoleEndpoint();
+app.MapEmailSettingEndpoint();
 
 app.MapFallbackToFile("index.html");
 
