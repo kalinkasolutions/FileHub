@@ -1,14 +1,58 @@
-div {
-    width: 100%;
-    height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-direction: column;
+@use 'variables' as *;
+@use 'mixins' as *;
 
+:host {
+  width: 100%;
+  height: 100%;
+  @include flex(column);
+  align-items: center;
+  justify-content: center;
+  padding: $screen-padding;
 }
 
-img {
-    margin: 1em 0 3em 0;
-    max-width: 300px;
+.card {
+  width: 100%;
+  max-width: $max-form-width;
+  @include flex(column);
+  align-items: stretch;
+  gap: $default-margin;
+  padding: $default-margin;
+  border-radius: $border-radius;
+  background: $surface;
+  text-align: center;
+}
+
+.glyph {
+  align-self: center;
+
+  mat-icon {
+    @include icon-size(44px);
+    color: $text-dim;
+    cursor: default;
+  }
+}
+
+h1 {
+  margin: 0;
+  font-size: $font-size-title;
+  font-weight: 600;
+  letter-spacing: $letter-spacing-title;
+}
+
+.hint {
+  margin: 0;
+  color: $text-muted;
+  font-size: $font-size-small;
+  line-height: 1.5;
+}
+
+.exit {
+  @include button-base;
+  @include button-colors($border-input, $text-secondary, $surface-elevated-hover);
+  color: $text-secondary;
+  text-decoration: none;
+
+  @include hover {
+    color: $text-primary;
+  }
 }

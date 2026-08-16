@@ -1,5 +1,5 @@
-@use 'mixins' as *;
 @use 'variables' as *;
+@use 'mixins' as *;
 
 :host {
   @include app-shell;
@@ -9,19 +9,18 @@
   @include screen-header;
 }
 
-.content {
-  @include account-section;
+// Each block brings its own padding; the divider is what makes them read as a sequence of
+// sections rather than styling reaching in from the screen.
+.blocks {
+  @include flex(column);
+  // Takes what the header leaves and scrolls inside it, rather than growing the whole screen: the
+  // header stays put while a long stack of blocks moves under it.
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: $content-padding;
-}
+  padding: 0 $screen-padding;
 
-// A link that has to sit in a row of buttons wears the secondary fill rather than the underline.
-.button-link {
-  @include button-base;
-  @include button-colors($border-input, $text-secondary, $surface-elevated-hover);
-  text-decoration: none;
-
-  @include hover {
-    color: $text-primary;
+  > *:not(:last-child) {
+    border-bottom: 1px solid $border-subtle;
   }
 }

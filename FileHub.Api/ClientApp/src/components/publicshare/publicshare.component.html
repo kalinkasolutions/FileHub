@@ -1,28 +1,27 @@
-<div class="center-wreapper">
-  <a href="/">
-    <img src="file-hub.svg" />
-  </a>
-  <div class="box">
-    <div class="title">
-      You've received a shared
-      <span *ngIf="share.IsDir" class="highlight-dir">folder</span>
-      <span *ngIf="!share.IsDir" class="highlight-file">file</span>!
+@if (share(); as share) {
+  <section class="card">
+    <span class="glyph">
+      <mat-icon>{{ share.isDir ? 'folder' : 'draft' }}</mat-icon>
+    </span>
+
+    <h1>You've been sent a {{ share.isDir ? 'folder' : 'file' }}</h1>
+
+    <div class="details">
+      <span class="name" [title]="share.name">{{ share.name }}</span>
+      <span class="size">{{ formatSize(share.size) }}</span>
     </div>
-    <div class="flex-col">
-      <div class="row flex-grow">
-        <strong class="flex-grow" title="{{ share.Name }}">{{
-          share.Name
-        }}</strong>
-        <span class="file-size">{{ getFileSize(share.Size) }}</span>
-      </div>
-      <div class="flex-row align-center">
-        <button class="download-btn" (click)="download()">Download</button>
-      </div>
-      <div class="flex-row align-center direct-link-wrapper">
-        <a class="direct-link" [attr.href]="Link" (click)="copyLink($event)"
-          >copy link</a
-        >
-      </div>
-    </div>
-  </div>
-</div>
+
+    <a class="download" [href]="downloadUrl()">
+      <mat-icon>download</mat-icon>
+      Download
+    </a>
+
+    @if (share.isDir) {
+      <p class="hint">The folder arrives as a zip.</p>
+    }
+
+    <button class="link" type="button" (click)="copyLink()">Copy this link</button>
+  </section>
+} @else if (loading()) {
+  <p class="hint">Opening the link…</p>
+}

@@ -1,0 +1,142 @@
+<h2>Two-factor authentication</h2>
+
+@switch (view()) {
+  @case ('setup') {
+    <p class="hint">
+      Scan this with your authenticator app, then enter the six-digit code it shows to finish.
+    </p>
+
+    @if (qrCode()) {
+      <img class="qr" [src]="qrCode()" alt="QR code for your authenticator app" />
+    } @else if (!busy()) {
+      <p class="hint">
+        The QR code couldn't be drawn here — use the link or the key below instead.
+      </p>
+    }
+
+    <a class="app-link" [href]="authenticatorUri()">Open in an authenticator app on this device</a>
+
+    <div class="row">
+      <span class="label">Or type this key</span>
+      <span class="actions">
+        <span class="value key">{{ sharedKey() }}</span>
+        <button
+          class="icon-btn ghost compact"
+          type="button"
+          (click)="copyKey()"
+          title="Copy key"
+          aria-label="Copy key"
+        >
+          <mat-icon>content_copy</mat-icon>
+        </button>
+      </span>
+    </div>
+
+    <form (ngSubmit)="verify()">
+      <div class="form-control">
+        <label for="totpCode">Code from your app</label>
+        <input
+          id="totpCode"
+          type="text"
+          name="totpCode"
+          inputmode="numeric"
+          autocomplete="one-time-code"
+          placeholder="123456"
+          maxlength="7"
+          [ngModel]="code()"
+          (ngModelChange)="code.set($event)"
+        />
+      </div>
+
+      <span class="actions">
+        <button type="submit" [disabled]="busy() || !code().trim()">
+          {{ busy() ? 'Checking…' : 'Turn on' }}
+        </button>
+        <button class="secondary" type="button" (click)="cancelSetup()">Cancel</button>
+      </span>
+    </form>
+  }
+
+  @case ('codes') {
+    <p class="hint">
+      Save these recovery codes somewhere safe. Each one signs you in once if you lose your
+      authenticator — this is the only time they're shown.
+    </p>
+
+    <ul class="codes">
+      @for (recoveryCode of recoveryCodes(); track recoveryCode) {
+        <li>{{ recoveryCode }}</li>
+      }
+    </ul>
+
+    <span class="actions">
+      <button type="button" (click)="copyCodes()">Copy codes</button>
+      <button class="secondary" type="button" (click)="acknowledgeCodes()">I've saved them</button>
+    </span>
+  }
+
+  @default {
+    @if (account(); as account) {
+      @if (account.twoFactorEnabled) {
+        <div class="row">
+          <span class="label">Status</span>
+          <span class="value on">On</span>
+        </div>
+
+        <div class="row">
+          <span class="label">Recovery codes left</span>
+          <span class="value">{{ account.recoveryCodesLeft }}</span>
+        </div>
+
+        @if (lowOnCodes()) {
+          <p class="hint warn">
+            You're running low on recovery codes. Generate a new set while you still can.
+          </p>
+        }
+
+        <p class="hint">
+          Generating a new set replaces the old one: every code you wrote down before stops working.
+        </p>
+
+        <button class="secondary" type="button" [disabled]="busy()" (click)="regenerateCodes()">
+          Generate new recovery codes
+        </button>
+
+        <form (ngSubmit)="disable()">
+          <div class="form-control">
+            <label for="disable2fa">Password, to turn two-factor off</label>
+            <input
+              id="disable2fa"
+              type="password"
+              name="disable2fa"
+              autocomplete="current-password"
+              placeholder="••••••••"
+              [ngModel]="disablePassword()"
+              (ngModelChange)="disablePassword.set($event)"
+            />
+          </div>
+
+          <button class="danger" type="submit" [disabled]="busy() || !disablePassword()">
+            Turn off two-factor
+          </button>
+        </form>
+      } @else {
+        <div class="row">
+          <span class="label">Status</span>
+          <span class="value">Off</span>
+        </div>
+
+        <p class="hint">
+          Add a second step to signing in: a code from an authenticator app on your phone, on top of
+          your password.
+        </p>
+
+        <button type="button" [disabled]="busy()" (click)="startSetup()">
+          Set up authenticator app
+        </button>
+      }
+    } @else {
+      <p class="hint">Loading…</p>
+    }
+  }
+}

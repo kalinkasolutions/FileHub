@@ -1,0 +1,93 @@
+<h2>Your details</h2>
+
+@if (account(); as account) {
+  <div class="rows">
+    @if (editing()) {
+      <form class="row edit-name" (ngSubmit)="saveUsername()">
+        <span class="stacked">
+          <label class="label" for="displayName">Display name</label>
+          <input
+            id="displayName"
+            type="text"
+            name="displayName"
+            autocomplete="nickname"
+            maxlength="256"
+            [ngModel]="username()"
+            (ngModelChange)="username.set($event)"
+          />
+        </span>
+        <span class="actions">
+          <button
+            class="icon-btn compact"
+            type="submit"
+            [disabled]="busy() || !username().trim()"
+            title="Save display name"
+            aria-label="Save display name"
+          >
+            <mat-icon>check</mat-icon>
+          </button>
+          <button
+            class="icon-btn ghost compact"
+            type="button"
+            (click)="cancelEdit()"
+            title="Cancel"
+            aria-label="Cancel"
+          >
+            <mat-icon>close</mat-icon>
+          </button>
+        </span>
+      </form>
+    } @else {
+      <div class="row">
+        <span class="stacked">
+          <span class="label">Display name</span>
+          <span class="value">{{ account.username }}</span>
+        </span>
+        <button
+          class="icon-btn raised"
+          type="button"
+          (click)="startEdit()"
+          title="Change display name"
+          aria-label="Change display name"
+        >
+          <mat-icon>edit</mat-icon>
+        </button>
+      </div>
+    }
+
+    <div class="row">
+      <span class="stacked">
+        <span class="label">Email</span>
+        <span class="value one-line">{{ account.email }}</span>
+      </span>
+      <!-- The confirmation state is a state, so it reads as a chip rather than a sentence. -->
+      @if (account.emailConfirmed) {
+        <span class="chip">
+          <mat-icon>check</mat-icon>
+          Confirmed
+        </span>
+      } @else {
+        <span class="chip warn">Not confirmed</span>
+      }
+    </div>
+
+    <div class="row">
+      <span class="label">Member since</span>
+      <span class="value since">{{ account.memberSince | date: 'mediumDate' }}</span>
+    </div>
+  </div>
+
+  <p class="hint">
+    Your display name is what other people see next to the links you share. The email address is
+    what you sign in with.
+  </p>
+
+  @if (account.mustChangePassword) {
+    <p class="hint warn">
+      This account is still on the password someone else set for it. Choose your own below — until
+      you do, nothing but this screen is reachable.
+    </p>
+  }
+} @else {
+  <p class="hint">Loading your account…</p>
+}

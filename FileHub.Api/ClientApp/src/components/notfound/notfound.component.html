@@ -1,7 +1,14 @@
-<div class="flicker-old-screen">
-  <a href="/">
-    <img src="file-hub.svg" />
-  </a>
-  <span>404 NOT FOUND :/</span>
-  <img src="thebeaver.png" title="{{theBeaverText}}" alt="{{theBeaverText}}" />
-</div>
+<section class="card">
+  <span class="glyph">
+    <mat-icon>link_off</mat-icon>
+  </span>
+
+  <h1>Nothing here</h1>
+
+  <p class="hint">
+    This page doesn't exist — or it was a share link that has expired, been used up, or been taken
+    down. Ask whoever sent it for a new one.
+  </p>
+
+  <a class="exit" [routerLink]="exit()">{{ exitLabel() }}</a>
+</section>

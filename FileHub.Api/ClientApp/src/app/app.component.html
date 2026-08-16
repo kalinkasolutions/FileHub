@@ -3,5 +3,12 @@
     <div class="spinner"></div>
   </div>
 }
-<router-outlet></router-outlet>
-<app-notification></app-notification>
+
+<!-- One outlet, always: toggling between two would tear the routed component down and build it
+     again on every navigation that changed the chrome. -->
+<div class="shell" [class.chromed]="showHeader()">
+  @if (showHeader()) {
+    <app-header [anonymous]="anonymous()" />
+  }
+  <router-outlet></router-outlet>
+</div>
