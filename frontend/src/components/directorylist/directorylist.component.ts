@@ -24,6 +24,7 @@ export class DirectoryList implements OnInit, AfterViewInit, OnDestroy {
   private itemsPerPage = 50;
   private destroy$ = new Subject<void>();
   private searchSubject = new Subject<string>();
+  private observer?: IntersectionObserver;
 
   public displayedEntries: IPublicPath[] = [];
   public searchTerm: string = "";
@@ -66,7 +67,7 @@ export class DirectoryList implements OnInit, AfterViewInit, OnDestroy {
   }
 
   public ngAfterViewInit(): void {
-    const observer = new IntersectionObserver((entries) => {
+    this.observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
           this.loadMoreItems();
@@ -74,10 +75,11 @@ export class DirectoryList implements OnInit, AfterViewInit, OnDestroy {
       });
     }, { rootMargin: '300px' });
 
-    observer.observe(this.sentinel.nativeElement);
+    this.observer.observe(this.sentinel.nativeElement);
   }
 
   public ngOnDestroy(): void {
+    this.observer?.disconnect();
     this.destroy$.next();
     this.destroy$.complete();
   }
