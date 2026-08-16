@@ -18,14 +18,17 @@ public static class PublicShareEndpoint
 {
     public static void MapPublicShareEndpoint(this IEndpointRouteBuilder builder)
     {
-        var group = builder.MapGroup("public-api/share").AllowAnonymous();
+        // Rate limited because they are anonymous: nothing else stands between a leaked link and
+        // however many zip rebuilds an attacker cares to ask for. The policy lives in Program.cs
+        // and needs app.UseRateLimiter() in the pipeline — the metadata alone does nothing.
+        var group = builder.MapGroup("public-api/share").AllowAnonymous().RequireRateLimiting("public");
 
         group.MapGet("{id:guid}", GetAsync);
         group.MapGet("{id:guid}/download", DownloadAsync);
 
         // Not under public-api: this one is a page, not an API call, and it is the URL a share link
         // actually points at so that a chat client unfurling it finds Open Graph tags.
-        builder.MapGet("og/share/{id:guid}", OpenGraphAsync).AllowAnonymous();
+        builder.MapGet("og/share/{id:guid}", OpenGraphAsync).AllowAnonymous().RequireRateLimiting("public");
     }
 
     private static async Task<IResult> GetAsync(Guid id, IShareService service)
