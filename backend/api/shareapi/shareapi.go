@@ -17,175 +17,158 @@ import (
 )
 
 type ShareApi struct {
-	router            *gin.Engine
 	logger            logger.ILogger
 	publicPathService publicpathservice.IPublicPathService
 	shareService      shareservice.IShareService
 	config            config.Config
 }
 
-func NewShareApi(logger logger.ILogger, router *gin.Engine, config config.Config, publicPathService publicpathservice.IPublicPathService, shareService shareservice.IShareService) *ShareApi {
-	return &ShareApi{
-		router:            router,
+func Register(router *gin.Engine, logger logger.ILogger, config config.Config, publicPathService publicpathservice.IPublicPathService, shareService shareservice.IShareService) {
+	ss := &ShareApi{
 		logger:            logger,
 		publicPathService: publicPathService,
 		shareService:      shareService,
 		config:            config,
 	}
+
+	router.GET("api/admin/shares", ss.getShares)
+	router.DELETE("api/admin/share", ss.deleteShare)
+
+	router.POST("api/share/create", ss.share)
+
+	router.GET("public-api/share/validate/:id", ss.validate)
+	router.GET("og/share/:id", ss.handleShareLink)
 }
 
-func (ss *ShareApi) Load() {
-	ss.router.GET("api/admin/shares", ss.getShares())
-	ss.router.DELETE("api/admin/share", ss.deleteShare())
+func (ss *ShareApi) getShares(ctx *gin.Context) {
+	shares, err := ss.shareService.GetShares()
 
-	ss.router.POST("api/share/create", ss.share())
-
-	ss.router.GET(("public-api/share/validate/:id"), ss.validate())
-	ss.router.GET(("og/share/:id"), ss.handleShareLink())
-}
-
-func (ss *ShareApi) getShares() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		shares, err := ss.shareService.GetShares()
-
-		if err != nil {
-			ctx.JSON(http.StatusBadRequest, "Failed to get shares")
-			return
-		}
-
-		if shares == nil {
-			shares = []shareservice.Share{}
-		}
-
-		var result []gin.H
-		for _, share := range shares {
-			result = append(result, gin.H{
-				"Id":               share.Id,
-				"Path":             share.Path,
-				"DownloadCount":    share.DownloadCount,
-				"MaxDownloadCount": share.MaxDownloadCount,
-				"Link":             utils.GetShareLink(ss.config, share.Id),
-			})
-		}
-
-		ctx.JSON(http.StatusOK, result)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, "Failed to get shares")
+		return
 	}
-}
 
-func (ss *ShareApi) deleteShare() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		var share shareservice.Share
+	result := []gin.H{}
 
-		if err := ctx.BindJSON(&share); err != nil {
-			ctx.JSON(http.StatusBadRequest, "Bad Request")
-			return
-		}
-
-		deletePath, err := ss.shareService.DeleteShare(share)
-
-		if err != nil {
-			ctx.JSON(http.StatusBadRequest, "Failed to delete share")
-			return
-		}
-
-		ctx.JSON(200, deletePath)
-	}
-}
-
-func (ss *ShareApi) share() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-
-		var path publicpathservice.Path
-		if err := ctx.BindJSON(&path); err != nil {
-			ctx.JSON(http.StatusBadRequest, "bad request")
-			return
-		}
-
-		validatedPath, success := utils.TryGetValidatedPath(ctx, ss.publicPathService, path.Id, path.Path)
-
-		if !success {
-			return
-		}
-
-		_, err := os.Stat(validatedPath)
-
-		if err != nil {
-			ss.logger.Error("refusing to share missing path: %s, %v", validatedPath, err)
-			ctx.JSON(http.StatusNotFound, "file path was not found")
-			return
-		}
-
-		share, err := ss.shareService.InsertShare(shareservice.Share{
-			Path: validatedPath,
+	for _, share := range shares {
+		result = append(result, gin.H{
+			"Id":               share.Id,
+			"Path":             share.Path,
+			"DownloadCount":    share.DownloadCount,
+			"MaxDownloadCount": share.MaxDownloadCount,
+			"Link":             utils.GetShareLink(ss.config, share.Id),
 		})
-
-		if err != nil {
-			ctx.JSON(http.StatusBadRequest, "failed to create share")
-			return
-		}
-
-		ctx.JSON(http.StatusCreated, gin.H{"Link": utils.GetShareLink(ss.config, share.Id)})
 	}
+
+	ctx.JSON(http.StatusOK, result)
 }
 
-func (ss *ShareApi) validate() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		id := ctx.Param("id")
+func (ss *ShareApi) deleteShare(ctx *gin.Context) {
+	var share shareservice.Share
 
-		share, err := ss.shareService.GetShareById(id)
-		if err != nil {
-			ctx.Redirect(http.StatusFound, utils.RedirectUri(ss.config))
-			return
-		}
-
-		info, err := os.Stat(share.Path)
-		if err != nil {
-			ss.logger.Error("failed to get stats for path: %s, %v", share.Path, err)
-			ctx.Redirect(http.StatusFound, utils.RedirectUri(ss.config))
-			return
-		}
-
-		size, err := dirSize(share.Path)
-
-		if err != nil {
-			ss.logger.Error("failed to walk path: %s, %v", share.Path, err)
-			ctx.Redirect(http.StatusFound, utils.RedirectUri(ss.config))
-			return
-		}
-
-		ctx.JSON(http.StatusOK, gin.H{"Id": share.Id, "Size": size, "Name": filepath.Base(share.Path), "IsDir": info.IsDir()})
+	if err := ctx.BindJSON(&share); err != nil {
+		ctx.JSON(http.StatusBadRequest, "Bad Request")
+		return
 	}
+
+	deletePath, err := ss.shareService.DeleteShare(share)
+
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, "Failed to delete share")
+		return
+	}
+
+	ctx.JSON(http.StatusOK, deletePath)
 }
 
-func (ss *ShareApi) handleShareLink() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		id := ctx.Param("id")
-		var title = "not available"
-		var formattedSize = ""
+func (ss *ShareApi) share(ctx *gin.Context) {
+	var requestedPath publicpathservice.Path
 
-		share, err := ss.shareService.GetShareById(id)
+	if err := ctx.BindJSON(&requestedPath); err != nil {
+		ctx.JSON(http.StatusBadRequest, "bad request")
+		return
+	}
 
-		if err == nil {
-			title = path.Base(share.Path)
-			formattedSize = ss.formattedShareSize(share.Path)
-		}
+	validatedPath, success := utils.TryGetValidatedPath(ctx, ss.publicPathService, requestedPath.Id, requestedPath.Path)
 
-		page := shareLinkPage{
-			Title:       title,
-			Description: fmt.Sprintf("%s, %s", title, formattedSize),
-			ImageURL:    fmt.Sprintf("%s/filehub.png", utils.BasePath(ss.config)),
-			ShareLink:   utils.GetShareLink(ss.config, id),
-			Id:          id,
-		}
+	if !success {
+		return
+	}
 
-		ctx.Header("Content-Type", "text/html")
-		ctx.Status(http.StatusOK)
+	_, err := os.Stat(validatedPath)
 
-		err = shareLinkTemplate.Execute(ctx.Writer, page)
+	if err != nil {
+		ss.logger.Error("refusing to share missing path: %s, %v", validatedPath, err)
+		ctx.JSON(http.StatusNotFound, "file path was not found")
+		return
+	}
 
-		if err != nil {
-			ss.logger.Error("failed to render share link page for id: %s\n%v", id, err)
-		}
+	share, err := ss.shareService.InsertShare(shareservice.Share{Path: validatedPath})
+
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, "failed to create share")
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, gin.H{"Link": utils.GetShareLink(ss.config, share.Id)})
+}
+
+func (ss *ShareApi) validate(ctx *gin.Context) {
+	id := ctx.Param("id")
+
+	share, err := ss.shareService.GetShareById(id)
+
+	if err != nil {
+		ctx.Redirect(http.StatusFound, utils.RedirectUri(ss.config))
+		return
+	}
+
+	info, err := os.Stat(share.Path)
+
+	if err != nil {
+		ss.logger.Error("failed to get stats for path: %s, %v", share.Path, err)
+		ctx.Redirect(http.StatusFound, utils.RedirectUri(ss.config))
+		return
+	}
+
+	size, err := dirSize(share.Path)
+
+	if err != nil {
+		ss.logger.Error("failed to walk path: %s, %v", share.Path, err)
+		ctx.Redirect(http.StatusFound, utils.RedirectUri(ss.config))
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"Id": share.Id, "Size": size, "Name": filepath.Base(share.Path), "IsDir": info.IsDir()})
+}
+
+func (ss *ShareApi) handleShareLink(ctx *gin.Context) {
+	id := ctx.Param("id")
+	title := "not available"
+	formattedSize := ""
+
+	share, err := ss.shareService.GetShareById(id)
+
+	if err == nil {
+		title = path.Base(share.Path)
+		formattedSize = ss.formattedShareSize(share.Path)
+	}
+
+	page := shareLinkPage{
+		Title:       title,
+		Description: fmt.Sprintf("%s, %s", title, formattedSize),
+		ImageURL:    fmt.Sprintf("%s/filehub.png", utils.BasePath(ss.config)),
+		ShareLink:   utils.GetShareLink(ss.config, id),
+		Id:          id,
+	}
+
+	ctx.Header("Content-Type", "text/html")
+	ctx.Status(http.StatusOK)
+
+	err = shareLinkTemplate.Execute(ctx.Writer, page)
+
+	if err != nil {
+		ss.logger.Error("failed to render share link page for id: %s\n%v", id, err)
 	}
 }
 

@@ -12,18 +12,17 @@ import (
 )
 
 func main() {
-	logger := logger.NewLogger(consolelogsink.NewConsoleSink())
-	logger.Info("starting FileHub")
-
-	var configPath string
-	flag.StringVar(&configPath, "configPath", "/app/conf.json", "path to the config")
+	configPath := flag.String("configPath", "/app/conf.json", "path to the config")
 	flag.Parse()
 
-	config := config.LoadConfig(configPath, logger)
-	db := datalayer.NewDb(logger, config)
+	log := logger.NewLogger(consolelogsink.NewConsoleSink())
+	log.Info("starting FileHub")
 
-	logger.AddSink(dblogsink.NewDbSink(db))
+	conf := config.LoadConfig(*configPath, log)
+	db := datalayer.NewDb(log, conf)
 
-	api := api.NewApi(config, logger, db)
-	api.Load()
+	// Only now that the database exists can log lines be written to it.
+	log.AddSink(dblogsink.NewDbSink(db))
+
+	api.Run(conf, log, db)
 }

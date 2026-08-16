@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"net/http"
 	"os"
+	"path"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -18,62 +19,82 @@ import (
 	"github.com/kalinkasolutions/FileHub/backend/services/shareservice"
 )
 
-type Api struct {
-	router *gin.Engine
-	config config.Config
-	logger logger.ILogger
-	db     *sql.DB
-}
+// frontendDir holds the built Angular app. It is relative to the working directory,
+// so the binary has to be started from the directory that contains it.
+const frontendDir = "./frontend"
 
-func NewApi(config config.Config, logger logger.ILogger, db *sql.DB) *Api {
-	return &Api{
-		config: config,
-		logger: logger,
-		db:     db,
+// Run builds the services, registers the routes and serves until the process stops.
+func Run(conf config.Config, log logger.ILogger, db *sql.DB) {
+	router := newRouter(conf, log)
+
+	publicPathService := publicpathservice.NewPublicPathService(log, db)
+	basePathService := basepathservice.NewBasePathService(log, db)
+	shareService := shareservice.NewShareservice(log, db)
+
+	fileapi.Register(router, log, conf, publicPathService, shareService)
+	shareapi.Register(router, log, conf, publicPathService, shareService)
+	basepath.Register(router, basePathService, shareService)
+
+	if !conf.Debug {
+		serveFrontend(router)
+	}
+
+	log.Info("Starting API on port: %s", conf.Port)
+
+	err := router.Run(":" + conf.Port)
+
+	if err != nil {
+		log.Fatal("Server stopped:\n%v", err)
 	}
 }
 
-func (a *Api) Load() {
-	if !a.config.Debug {
+func newRouter(conf config.Config, log logger.ILogger) *gin.Engine {
+	if !conf.Debug {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	a.router = gin.New()
-	a.router.Use(gin.Logger())
-	a.router.Use(gin.Recovery())
+	router := gin.New()
+	router.Use(gin.Logger())
+	router.Use(gin.Recovery())
 
-	if a.config.Debug {
-		a.router.Use(middleware.AllowAllCORS())
+	if conf.Debug {
+		router.Use(middleware.AllowAllCORS())
 	}
 
-	a.router.SetTrustedProxies(a.config.TrustedProxies)
+	err := router.SetTrustedProxies(conf.TrustedProxies)
 
-	publicPathService := publicpathservice.NewPublicPathService(a.logger, a.db)
-	shareService := shareservice.NewShareservice(a.logger, a.db)
-
-	fileapi.NewFileApi(a.logger, a.router, a.config, publicPathService, shareService).Load()
-	basepath.NewBasePathApi(a.router, basepathservice.NewBasePathService(a.logger, a.db), shareService).Load()
-	shareapi.NewShareApi(a.logger, a.router, a.config, publicPathService, shareService).Load()
-
-	if !a.config.Debug {
-		a.router.Static("/static", "./frontend")
-		a.router.NoRoute(func(c *gin.Context) {
-			path := c.Request.URL.Path
-
-			if strings.HasPrefix(path, "/api") || strings.HasPrefix(path, "/public-api") {
-				c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
-				return
-			}
-
-			filePath := "./frontend" + path
-			if info, err := os.Stat(filePath); err == nil && !info.IsDir() {
-				c.File(filePath)
-			} else {
-				c.File("./frontend/index.html")
-			}
-		})
+	if err != nil {
+		log.Fatal("Invalid TrustedProxies in config:\n%v", err)
 	}
 
-	a.logger.Info("Starting API on port: %s", a.config.Port)
-	a.router.Run(":" + a.config.Port)
+	return router
+}
+
+// serveFrontend serves the built Angular app for anything the API did not claim:
+// real files as themselves, every other path as index.html so client side routing works.
+func serveFrontend(router *gin.Engine) {
+	router.NoRoute(func(ctx *gin.Context) {
+		requestPath := ctx.Request.URL.Path
+
+		if isApiPath(requestPath) {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			return
+		}
+
+		// Absolutise before cleaning so a leading ".." is dropped rather than climbing
+		// out of frontendDir.
+		filePath := frontendDir + path.Clean("/"+requestPath)
+		info, err := os.Stat(filePath)
+
+		if err != nil || info.IsDir() {
+			ctx.File(frontendDir + "/index.html")
+			return
+		}
+
+		ctx.File(filePath)
+	})
+}
+
+func isApiPath(requestPath string) bool {
+	return strings.HasPrefix(requestPath, "/api") || strings.HasPrefix(requestPath, "/public-api")
 }
