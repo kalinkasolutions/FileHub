@@ -2,126 +2,353 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-FileHub is a read-only cloud for browsing and sharing files from mounted disks: a Go/Gin +
-SQLite backend that also serves a built Angular SPA, shipped as a single Docker image.
+FileHub is a read-only cloud for browsing and sharing files from mounted disks: an ASP.NET Core
+(.NET 10) minimal-API backend that also serves an Angular 21 SPA out of `FileHub.Api/wwwroot`,
+over SQLite, shipped as a single Docker image. `MapFallbackToFile("index.html")` hands every
+non-API path to the client router.
 
 ## Commands
 
-Backend (`backend/`) — **requires CGO**, `mattn/go-sqlite3` needs a C compiler:
+Backend, from the repository root:
 
 ```bash
-go build -o main .          # build
-go vet ./...
-go test ./...
-go test ./services/publicpathservice/ -run TestEscapePath -v   # single test
+dotnet build FileHub.slnx
+dotnet test FileHub.IntegrationTests
+dotnet test FileHub.IntegrationTests --filter PathSandboxTests    # one class
 ```
 
-Frontend (`frontend/`):
+EF Core migrations (SQLite provider). The design-time tools live in `FileHub.Api` but the
+`DbContext` is in `FileHub.Dal`, so both projects have to be named:
 
 ```bash
-npm start                   # ng serve on :4200
-npm run build
-npm test                    # karma/jasmine is configured but no *.spec.ts exist yet
+dotnet ef migrations add <Name> --project FileHub.Dal --startup-project FileHub.Api
 ```
 
-Whole stack: `docker compose up` (see `Dockerfile`, `docker-compose.yml`).
+Migrations are applied at startup by `Seed.InitializeAsync`; there is no manual `database update`
+step, and a migration that is added but never applied locally will be applied by the next `dotnet
+run` against whatever database the connection string points at.
 
-### Running the backend locally
+Frontend, from `FileHub.Api/ClientApp`:
 
-`./main -configPath ./conf.json` — the flag defaults to `/app/conf.json` (the container path),
-so it must be passed during development. **Run from `backend/`**: the migration directory
-(`./migrations/`) and the SPA directory (`./frontend`) are both resolved relative to the
-working directory, not to the binary.
+```bash
+npm install
+npm start          # ng serve — for a quick look at a component, not for talking to the API
+npm run build      # outputs to ../wwwroot, which is what the API serves
+npm run watch      # rebuild into wwwroot on change; this is the dev loop
+npm test           # vitest via @angular/build:unit-test
+```
 
-`backend/conf.json` is the dev config (`Debug: true`); the repo-root `conf.json` is the
-deployment one. `Debug: true` swaps two behaviours in `api.go`: it enables permissive CORS
-and it disables SPA static serving (so `ng serve` handles the frontend instead).
+### The dev loop
+
+`npm run watch` in one terminal, `dotnet run` (from `FileHub.Api`) in another. The API watches
+`wwwroot` with `Westwind.AspNetCore.LiveReload`, so a rebuild reloads the browser. **There is no
+dev-server proxy and no `environment.apiUrl`** — every request the SPA makes is relative and
+same-origin, which is the only reason the session works in development at all: served from
+`ng serve` on another port, every API call is cross-origin, and no CORS policy is configured to
+let a credentialed one through. If you reach for `ng serve` to work on a screen that talks to the
+API, you will find this out the slow way.
+
+`Development` also points the connection string and the key ring at `FileHub.Api/data/`, so a
+local run never touches `/var/srv`.
 
 ## Architecture
 
-### Access model — there is no authentication in the application
+### Layering and namespaces
 
-Nothing in Go checks a credential. Access control is entirely nginx's job, and
-`nginx.example.conf` is the reference. It splits the routes in two:
+Projects reference each other in a strict line: `Api → BusinessLogic → Dal → Entities`, with
+`Dtos` and `Shared` used across layers.
 
-- **Public** — `public-api/*`, `og/share/*`, `/share`, `/404`, static assets. Reachable from
-  the internet. These are the share-link routes.
-- **Restricted** — everything else, including all of `api/*`. `api/admin/*` (base-path CRUD,
-  share list/delete) and `api/files/*` (browse, download) are in here.
+**The namespaces do not match the project names**: `FileHub.Dal` → `Dal`, `FileHub.Entities` →
+`Entities`, `FileHub.Dtos` → `Dtos`, `FileHub.Shared` → `Shared`. `FileHub.Api` uses `FileHub`
+(its `RootNamespace`) and `FileHub.BusinessLogic` uses `FileHub.BusinessLogic`.
 
-When adding a route, decide which half it belongs to and check the nginx location regex
-covers it. A new admin endpoint that accidentally matches the public pattern is fully
-unauthenticated remote access to the host filesystem.
+**One file, one thing.** Every class, interface, enum or record lives in its own file named after
+it — an interface never shares a file with its implementation.
 
-### Path sandboxing
+A folder named after a type shadows that type inside it (CS0118), which is why the service folders
+are `Services/Files`, `Services/Shares`, `Services/BasePaths` and the entity folders are
+`Entities/Paths`, `Entities/Shares` — `Services/Share` would make every `Share` parameter in the
+folder fail to compile.
 
-Every filesystem path reaching an API handler must be resolved through
-`publicpathservice.GetValidFilePath` / `GetNavigationPaths`, normally via the
-`api/utils.TryGetValidatedPath*` helpers. Those look up a base path by id from the `Paths`
-table and join the caller-supplied navigation onto it with `cleanPath`, which absolutises
-before `path.Clean` so `..` cannot escape.
+### Request flow and the OperationResult pattern
 
-Known gap: `cleanPath` does not resolve symlinks, so a symlink inside a shared directory
-still escapes the base path. Do not add new code that builds a path from user input by
-string concatenation.
+Business and data operations return `OperationResult<T>` (`FileHub.Shared/OperationResult.cs`)
+rather than throwing:
 
-### Shares store resolved absolute paths
+`Endpoint (Api/Endpoints) → I<X>Service (BusinessLogic) → I<X>Repository (Dal) → EF / Identity`
 
-`Shares.Path` is the fully-resolved path, not a (base path id, relative path) pair. That
-means a share outlives its base path unless something deletes it explicitly — the base-path
-delete handler calls `shareService.DeleteSharesUnderPath` for exactly this reason. Any new
-code that removes or repoints a base path has to do the same.
+- Services build results with `OperationResult<T>.Success/Validation/BadRequest/Forbidden/NotFound/BadGateway/Error`.
+- Endpoints convert with `.ToHttpResult()` (`Api/Extensions/OperationResultExtension.cs`), which
+  maps each `ResultCode` to a status code — `Validation` becomes a 400 `ValidationProblemDetails`
+  carrying the field-keyed errors.
+- `OperationResult<Empty>` is a success with no payload; `MapError<TNew>()` re-types a failure.
 
-`Shares.MaxDownloadCount` exists in the schema, the struct, and the frontend model but is
-never enforced; `InsertShare` hardcodes it to 0.
+Layer responsibilities are strict and worth keeping that way: **endpoints are thin** (bind, call
+the service, `.ToHttpResult()`), **services hold all the logic** — authorization, business rules,
+entity↔DTO mapping — and **repositories are dumb data access**: EF queries plus
+`SaveChangesAsync`, no `OperationResult`, no auth checks, no validation.
 
-### Layering
+Validation is DTO-declared but service-invoked: DataAnnotations live on the DTOs and
+`DtoValidator.Validate(dto)` runs at the top of each service method. This keeps one error channel
+and makes validation testable without HTTP — an endpoint that binds a DTO and never reaches a
+service that validates it is silently unvalidated.
 
-`main.go` does nothing but build the logger, config and database and hand them to
-`api.Run`. `api.Run` is the composition root: it constructs every service once and passes
-them to the three route groups, each of which exposes a single `Register(router, deps...)`:
+Endpoints are extension methods on `IEndpointRouteBuilder` (`MapAuthEndpoint`, `MapFileEndpoint`, …)
+wired up in `Program.cs`. **Each endpoint file declares its own group and its own authorization**;
+it is not inherited, so a new file that forgets `.RequireAuthorization()` is anonymous. The
+`app.Map*Endpoint()` block in `Program.cs` is the index of the whole surface.
 
-| Route group | File | Service |
-|---|---|---|
-| `api/files/*`, `public-api/files/*` | `api/fileapi/` | publicpathservice, shareservice |
-| `api/share/*`, `api/admin/share*`, `og/share/*`, `public-api/share/*` | `api/shareapi/` | publicpathservice, shareservice |
-| `api/admin/base-path` | `api/basepath/` | basepathservice, shareservice |
+### Access model — the application authenticates now
 
-Handlers are plain `func(*gin.Context)` methods registered directly — they do not return
-`gin.HandlerFunc` closures. Go interfaces are named `IXxx` with a `NewXxx` constructor.
-Services take `(logger.ILogger, *sql.DB)` and own their table.
+This is the largest departure from the Go build, where nginx was the entire access-control system.
+Sign-in and roles are the gate; `nginx.example.conf` is now one location whose only jobs are TLS
+and forwarding the request untouched.
 
-### datalayer gotchas
+- **There is no registration.** An admin creates an account (`POST api/admin/users`), which sends
+  an invitation mail carrying Identity's **email-confirmation token**. `POST api/auth/accept-invite`
+  redeems it: it confirms the address and sets the first password in one call, so an admin never
+  learns a user's password. Both halves have to keep using the *email-confirmation* token — a reset
+  token will not redeem here.
+- **Roles are `Admin` and `User`** (`Shared/Roles.cs`), seeded at startup. They are fixed: there is
+  no role creation, and `api/admin/roles` only lists them with their counts.
+- **The seeded admin.** On a database with no admin at all, `Seed` creates one from `Admin__Email`
+  and `Admin__Password`. An unset password is generated and **logged once, on the run that creates
+  the account** — deliberately, because a shipped default would be a published credential on an
+  installation that is reachable before anyone has signed in. The check is "is there any admin",
+  not "is there this admin", so a renamed or replaced admin does not get a second one seeded behind
+  it; that would be a back door, not a repair.
+- **`SignIn.RequireConfirmedEmail` is on**, so an unconfirmed address means the invitation was
+  never accepted. The admin screen's "invited" state, and `UserAdminService`'s definition of an
+  *active* admin, both depend on it.
+- **Lockout is on** and the anonymous `login` / `forgot-password` routes carry
+  `.RequireRateLimiting("auth")` (fixed window per client address, registered in `Program.cs`).
+  Identity's lockout is per account; the limiter is what makes a spray across accounts cost
+  something. `app.UseRateLimiter()` has to stay in the pipeline — the metadata on its own does
+  nothing, and removing the middleware makes those two endpoints fail rather than run unlimited.
 
-- `GetItems[T]` binds columns to struct fields **positionally by declaration order** via
-  reflection. The `SELECT` column list must match the struct field order exactly; a mismatch
-  mis-binds silently instead of erroring. Prefer explicit column lists over `SELECT *`.
-- Migrations are `migrations/<10-digit-unix-timestamp>_Name.sql`, applied in filename sort
-  order. The runner records only the newest applied name and skips anything sorting at or
-  below it, so a new migration must sort *after* every existing one — backdating a timestamp
-  means it never runs. Files are split naively on `;`, so statements cannot contain a
-  semicolon (no trigger bodies).
+**The only anonymous routes are `public-api/*` and `og/share/*`** — the share links and their Open
+Graph previews. Everything else answers 401 (not a 302: `ConfigureApplicationCookie` replaces the
+redirect, because every authenticated call comes from the SPA's `fetch` and needs a status code it
+can act on).
 
-### Logging
+#### The forced first password change
 
-`logger.Logger` fans out to sinks. `consolelogsink` writes ANSI-coloured lines to stdout;
-`dblogsink` INSERTs every line into the `Logs` table and is attached in `main.go` only after
-the DB exists, which is why startup config logging never lands in the database. The `Logs`
-table has no retention.
+An account whose password was set by someone else carries `FileHubUser.MustChangePassword`.
 
-Logger methods are `(message string, args ...any)` and `Sprintf` internally, but they are not
-recognised as printf wrappers by `go vet` — verb/argument mismatches are not caught by
-tooling. Several existing calls have them.
+`FileHubClaimsPrincipalFactory` puts that flag on the sign-in cookie as the `must_change_password`
+claim, so the gate costs no database read per request. It needs no invalidation of its own:
+changing a password rotates the security stamp, the account endpoints refresh the sign-in, and the
+cookie — claim included — is rebuilt from the flag as it then stands.
+
+`MustChangePasswordMiddleware` answers 403 with `type: must-change-password` for everything except
+a flat allow-list: `POST api/account/password`, `GET api/account`, `GET api/auth/status`,
+`POST api/auth/logout`, anything under `public-api`/`og`, and anything that is not `/api` at all
+(the SPA's own files). **It sits between `UseAuthentication` and `UseAuthorization`**: earlier and
+it sees an anonymous principal and never fires; later and a gated request has already reached the
+endpoint's own checks.
+
+The SPA mirrors it with `passwordChangeGuard` on every signed-in route *except* `/change-password`.
+The guard is convenience; the middleware is the control.
+
+### Per-user base-path grants
+
+A `BasePath` is a directory on the host FileHub may read. `BasePathAccess` is a grant of one base
+path to one user, and **absence of a grant row is a denial — for admins too.** There is no wildcard
+and no implicit access; a fresh admin sees nothing until they grant themselves something.
+
+Every listing, navigation, download and share creation starts from
+`IBasePathRepository.GetForUserAsync(id, userId)`, which returns null when there is no grant and
+which callers answer as "not found". This is the invariant most likely to be broken by a
+well-meaning change: a repository call that fetches a base path by id alone, used on a request
+path, silently hands every user every disk.
+
+Both grant directions are the same table, edited from either end
+(`api/admin/base-path/{id}/users` and `api/admin/users/{id}/base-paths`), and both PUTs **replace**
+rather than merge. Both also drop ids that no longer exist — the foreign key would otherwise take
+the whole grant change down with it when the admin screen holds a stale row.
+
+### The path sandbox
+
+`PathSandbox.TryResolve` (`BusinessLogic/Authorization`) is the only place a caller-supplied path
+becomes a path on disk. Nothing builds one by concatenation.
+
+- **A climb out fails; it is not clamped.** The Go build's `path.Join(base, clean("/.."))` quietly
+  returned the base path — a request for the wrong file answered with a different file. Here it is
+  a 404.
+- A rooted or drive-qualified relative path is rejected outright rather than trimmed, because
+  `Path.Combine("/srv/media", "/etc")` is `/etc`.
+- **Every segment below the root has its link target resolved**, not just the last one:
+  `base/link/passwd` escapes exactly as well as `base/link`, and the containment check cannot see
+  either. `returnFinalTarget` follows a chain of links in one step.
+- **The root is resolved too.** `/data → /mnt/disk1` is the ordinary way a mount is exposed; with
+  an unresolved root, a link *inside* the base path pointing at a file in the same base path
+  resolves to the mount's real path and reads as an escape. Resolving the root is safe in a way
+  that resolving a caller's path is not — the root is what an admin typed, not what a request
+  asked for.
+- The accepted path is the link, not its target: opening it is what follows the link, and
+  rewriting it would change what the caller stores.
+
+The zip walk skips reparse points for the same reason (`AttributesToSkip`) — it has no sandbox of
+its own, so following a link there would be the escape hatch the sandbox closed.
+
+### Shares are (base path, relative path)
+
+`Share` stores `BasePathId` + `RelativePath`, not a resolved absolute path. That is what buys:
+
+- A share cannot outlive its base path — the FK cascades, so deleting a base path revokes every
+  link into it. The Go build had to hunt them down with a `LIKE` prefix match and manual escaping,
+  and any code path that forgot to left working links into a directory nobody could browse.
+- A share cannot point outside its base path, because it is **re-resolved through the sandbox on
+  every hit** rather than trusting a path stored months ago.
+- Deleting the user who made a link revokes it, by the same cascade.
+
+`MaxDownloadCount` of `0` means unlimited (`Share.DownloadLimitReached` on the entity), and it is
+enforced on both public routes.
+
+**Size is measured once, on the authenticated create route, and stored.** The public routes must
+never walk a tree: they are unauthenticated, so a `Directory.EnumerateFileSystemEntries` there is
+free IO amplification for anyone holding a link.
+
+`ShareDto.Link` is empty out of the service — the endpoint stamps it with `ShareLinks`, which is
+the only place `App:BaseUrl` turns into a URL.
+
+The Open Graph page (`og/share/{id}`) is served to the public internet and interpolates both the
+share id from the URL and a filename from disk, so it escapes per context (`HtmlEncoder` /
+`JavaScriptEncoder`). Never assemble that page with string interpolation of raw values.
+
+### Downloads
+
+`Api/Downloads/FileDownload.cs` is the one way bytes leave the app, shared by the authenticated
+and the public route. Both hand it a path the sandbox already validated; it does no authorization.
+
+- A file goes out through `Results.File(..., enableRangeProcessing: true)` so a paused download
+  resumes and video seeking works, with the filename encoded by `ContentDispositionHeaderValue`
+  (quoted ASCII plus RFC 2231 `filename*` — a quote or an accent truncates the saved name if the
+  header is assembled by hand).
+- A directory is streamed as a zip built on the fly, entries stored uncompressed
+  (`CompressionLevel.NoCompression`, matching the Go build's `zip.Store`) because the payload is
+  usually already-compressed media.
+- **`MinDataRate = null` for the request.** This is the counterpart of the Go server deliberately
+  having no `WriteTimeout`: Kestrel's default 240 bytes/s floor aborts a slow client — or a slow
+  disk — in the middle of a large file. Removing that line reintroduces a bug that only shows up
+  in production, on the biggest files.
+- The status line is on the wire before the first byte of an archive, so a mid-stream failure can
+  only be signalled by leaving the archive unfinished. Log it; do not try to write an error body.
+
+### Email
+
+SMTP settings live in a single `EmailSettings` **row**, seeded from the `Email` configuration
+section the first time it is read, and editable by an admin afterwards. Config is the seed, the
+row is the truth — an install configured purely by environment keeps working without anyone
+opening the admin screen.
+
+The password is encrypted with Data Protection (`FileHub.EmailSettings.Password` purpose), is
+never returned by the API (`HasPassword` says only whether one is stored), and an empty password on
+update means "keep the stored one" — so editing a host does not silently blank a secret.
+
+Templates are HTML files under `Api/EmailTemplates` with `@Placeholder` tokens, copied next to the
+binary by the csproj and loaded from `AppContext.BaseDirectory`. Adding one means adding the
+`Content Include` glob keeps matching it — a template that is not copied fails at send time, not at
+build time.
+
+**Bootstrap order matters and is deliberate:** the seeded admin signs in with the generated
+password → is forced to change it → configures SMTP → invites people. The first login can never be
+a mail link, because the mail settings live behind the admin area that account exists to open.
+
+### Data Protection
+
+The key ring is persisted to `DataProtection__KeyPath` (`/var/srv/keys`, on the mounted volume),
+and the application name is pinned. Losing it invalidates every auth cookie **and** makes the
+stored SMTP password unreadable (the provider logs that and treats it as empty rather than
+failing the admin screen). Keeping the key ring inside the container's default location is what
+would make every redeploy sign everybody out.
+
+### Persistence
+
+- ASP.NET Core Identity with **`Guid` keys**; `FileHubContext : IdentityDbContext<FileHubUser,
+  IdentityRole<Guid>, Guid>`.
+- **An account is identified by its email address.** `UserName` is a display name only —
+  `AllowedUserNameCharacters` is cleared so it can hold spaces and accents. Sign-in resolves with
+  `FindByEmailAsync`; never `FindByNameAsync`.
+- Entities implementing `IBaseEntity` get `CreatedAt`/`LastUpdatedAt` set in
+  `SaveChanges[Async]` — do not set them by hand.
+- Serilog writes to the console and to a `Logs` table in the same SQLite file, through its own
+  ADO.NET connection, so persisting a log line cannot feed back through EF into the logging
+  pipeline. The table has no retention.
+
+### Testing
+
+`FileHub.IntegrationTests` (xUnit) drives the **services**, not the routes: the real service →
+repository → EF/Identity stack over a per-test SQLite **in-memory** database (`TestHostBase` takes
+a delegate that registers the slice under test). SQLite rather than the EF in-memory provider,
+because the unique indexes and the `ON DELETE CASCADE` behaviour that share revocation and user
+deletion rely on only exist in a real database. `FakeEmailService` captures tokens so an
+invitation or reset is replayed through the real redemption path, and `TotpCode` computes a real
+authenticator code so two-factor can actually be switched on.
+
+The fixtures expose `NewRequest()` (`ChangeTracker.Clear()`) to stand in for the per-request
+scope; without it a test asserting on a counter EF has already tracked passes vacuously.
+
+**What this level cannot see**, and what therefore needs an HTTP-level test if it is ever to be
+covered: `MustChangePasswordMiddleware`, the claims factory and cookie refresh, the role
+authorization on the route groups (`ShareService.DeleteAsync` takes `callerIsAdmin` as a
+*parameter* — nothing below the endpoint proves the caller is one), `FileDownload`'s zip and
+headers, `ShareLinks`, the rate limiter, and `Seed` itself.
 
 ### Frontend
 
-Angular 19, standalone components, RxJS only (no state library), SCSS, no UI framework.
-Path aliases `@components/*`, `@services/*`, `@models/*`, `@env/*` map into `src/`.
+Angular 21, standalone components, **signals** (`signal`/`computed`) and **zoneless** — state
+written from an rxjs callback needs `markForCheck()` or nothing renders. Angular Material + CDK,
+`ngx-toastr`, SCSS, Prettier. Mobile-first: design for small screens, then layer on `min-width`
+media queries. **Never use the `style` attribute in a template** — always a class.
 
-Navigation state lives in `PathService`, which mirrors the breadcrumb array into
-`history.pushState` and listens for `popstate`. Actual directory requests are keyed on
-`(Id, NextSegment)`; `ItemId` is a server-generated UUID regenerated on every listing, so it
-is only valid for identity comparisons *within* a single in-memory path array — never persist
-it or compare it across requests.
+The design system is `src/_variables.scss` and `src/_mixins.scss`: CoreList's structure (the token
+names, the type/space/radius scales, the `flex`/`hover`/`icon-size`/`button-base`/`control-input`/
+`screen-header`/`account-section` mixins, the global `button` and `.icon-btn` families in
+`styles.scss`, the element-qualified Material overlay selectors) wearing **FileHub's colours** —
+the terminal green `#2fc812` and the warm near-black its panels were filled with, which the whole
+grey ramp is mixed from. Import with `@use 'variables' as *;` / `@use 'mixins' as *;` and prefer
+the tokens to hardcoded values. Material's panel selectors have to stay element-qualified
+(`div.mat-mdc-menu-panel`, …) because Material injects its own structural CSS at runtime, after
+this stylesheet, and wins an equal-specificity tie.
 
-Commit messages follow conventional commits (`feat:`, `fix:`).
+Routes (`src/app/app.routes.ts`): `login` and `''` (the browser) are eager — one of the two is the
+first thing every visit needs. The screens reached from a mail link (`accept-invite`,
+`reset-password`, `confirm-email-change`, plus `change-password` and `account`) are `loadComponent`
+routes and stay out of the initial bundle. `share/:id` and `404` carry **no guards** — the share
+landing is the one screen a stranger sees, and it must look the same to a signed-in visitor.
+`data.chrome` (`none` / `anonymous` / default) is what a route asks of the app shell.
+
+Three guards: `authGuard` (session, else `/login`), `adminGuard` (the `Admin` role; sends a
+signed-in non-admin back to `/` rather than to a sign-in screen that would read as a bug), and
+`passwordChangeGuard` (described above).
+
+**The wire is camelCase** — ASP.NET's default JSON policy — and ids are `Guid` strings. A listing
+entry's `size` is a byte count for a file and an **entry count** for a directory; `itemId` is a
+fresh GUID per listing, valid only for identity comparisons inside one response, never to be
+persisted or compared across requests. `nextSegment` carries **no leading separator**: the sandbox
+rejects a rooted relative path, so prefixing one turns a working path into a 404.
+
+Mail links land on the query parameters those screens read, and the backend builds exactly those:
+`accept-invite?userId&token`, `reset-password?email&token`, `confirm-email-change?userId&email&token`.
+
+API failures are turned into a message with `apiErrorMessage(error, fallback)`, which reads
+ProblemDetails `detail` and ValidationProblemDetails `errors` before falling back. A 401 clears the
+cached auth state and routes to `/login`; a 403 passes through, because it is a real answer.
+
+### Configuration
+
+`appsettings.json` plus environment variables (`__` for nesting), no config file of our own:
+`ConnectionStrings__FileHub`, `DataProtection__KeyPath`, `App__BaseUrl`, `Admin__Email`,
+`Admin__Password`, `Email__*`, `Logging__LogLevel__Default`. `.env.example` documents them and
+`docker-compose.yml` wires them.
+
+**`App:BaseUrl` is the one origin.** Share links and the links in invitation, reset and
+email-change mails are all built from it, so a wrong value produces links that resolve nowhere
+while everything else keeps working — which is why it has no useful default.
+
+TLS terminates at the reverse proxy, so `UseForwardedHeaders` reads `X-Forwarded-For` and
+`X-Forwarded-Proto`. Without the latter the app thinks every request is plain http and issues auth
+cookies without the `Secure` flag.
+
+Commit messages follow conventional commits (`feat:`, `fix:`, `docs:`, `chore:`).
