@@ -123,9 +123,6 @@ func (fa *FileApi) download() gin.HandlerFunc {
 		validatedFilePath, success := utils.TryGetValidatedPathFromParam(ctx, fa.publicPathService)
 
 		if !success {
-			ctx.JSON(http.StatusInternalServerError, gin.H{
-				"error": "failed to download",
-			})
 			return
 		}
 
