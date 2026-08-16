@@ -101,6 +101,16 @@ public sealed class EmailService : IEmailService
         Dictionary<string, string> templateData
     )
     {
+        // Parsed before anything else is done, and with TryParse rather than Parse: [EmailAddress]
+        // on the DTOs accepts addresses MimeKit refuses ("bad user@example.com"), and a
+        // ParseException here used to escape as a 500 — including out of the anonymous
+        // forgot-password route, whose whole contract is that it always succeeds.
+        if (!MailboxAddress.TryParse(recipient, out var to))
+        {
+            m_logger.LogWarning("Cannot send \"{Subject}\": {Recipient} is not a usable address", subject, recipient);
+            return OperationResult<Empty>.BadRequest($"\"{recipient}\" is not an address email can be sent to.");
+        }
+
         var settings = await m_settingsProvider.GetAsync();
         if (!settings.IsConfigured)
         {
@@ -110,6 +120,21 @@ public sealed class EmailService : IEmailService
             return OperationResult<Empty>.BadGateway(
                 "Email is not configured: no SMTP host is set. Set one under the admin email settings.");
         }
+
+        // The sender comes from the settings row, which an admin types into the admin screen — so it
+        // is no more trustworthy than the recipient, and it is checked the same way, before any work
+        // is done on a message that could never be addressed.
+        if (!MailboxAddress.TryParse(settings.FromAddress, out var from))
+        {
+            m_logger.LogError(
+                "Cannot send \"{Subject}\": the configured sender address \"{FromAddress}\" is not usable",
+                subject, settings.FromAddress);
+
+            return OperationResult<Empty>.BadGateway(
+                "Email is misconfigured: the sender address is not a valid email address.");
+        }
+
+        from.Name = string.IsNullOrWhiteSpace(settings.FromName) ? settings.FromAddress : settings.FromName;
 
         // The logo is served from the app's own origin (the SPA ships it in public/), so every
         // template gets it for free rather than each caller remembering to pass it.
@@ -122,10 +147,8 @@ public sealed class EmailService : IEmailService
         }
 
         using var email = new MimeMessage();
-        email.From.Add(new MailboxAddress(
-            string.IsNullOrWhiteSpace(settings.FromName) ? settings.FromAddress : settings.FromName,
-            settings.FromAddress));
-        email.To.Add(MailboxAddress.Parse(recipient));
+        email.From.Add(from);
+        email.To.Add(to);
         email.Subject = subject;
         email.Body = new TextPart("html") { Text = body };
 

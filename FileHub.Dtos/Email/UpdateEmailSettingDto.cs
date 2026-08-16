@@ -16,8 +16,11 @@ public sealed class UpdateEmailSettingDto
 
     /// <summary>
     /// Left empty to keep the stored password — the admin screen cannot read it back, so requiring
-    /// it here would mean retyping the secret to change the host.
+    /// it here would mean retyping the secret to change a sender name. It is <em>not</em> kept when
+    /// the save changes where the password would be sent (host, port or transport) or removes the
+    /// username: the response then comes back with <c>PasswordCleared</c> set.
     /// </summary>
+    [MaxLength(255)]
     public string Password { get; set; }
 
     [Required]

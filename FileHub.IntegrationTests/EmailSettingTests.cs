@@ -1,6 +1,8 @@
 using Dtos.Email;
+using FileHub.BusinessLogic.Email;
 using MailKit.Security;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Shared;
 
 namespace FileHub.IntegrationTests;
@@ -67,11 +69,13 @@ public sealed class EmailSettingTests : EmailSettingsTestBase
     {
         var result = await Settings.GetAsync();
 
-        // The stored secret is replaceable, never readable — the DTO has no field for it at all.
+        // The stored secret is replaceable, never readable — the DTO carries only the two booleans
+        // that say whether one is there and whether the last save dropped it.
         Assert.DoesNotContain(
             typeof(EmailSettingDto).GetProperties(),
             p => p.Name.Contains("Password", StringComparison.OrdinalIgnoreCase)
-                 && p.Name != nameof(EmailSettingDto.HasPassword));
+                 && p.Name != nameof(EmailSettingDto.HasPassword)
+                 && p.Name != nameof(EmailSettingDto.PasswordCleared));
         Assert.True(result.Value.HasPassword);
     }
 
@@ -152,6 +156,126 @@ public sealed class EmailSettingTests : EmailSettingsTestBase
 
         var stored = await Context.EmailSettings.AsNoTracking().SingleAsync();
         Assert.DoesNotContain("a-new-secret", stored.ProtectedPassword, StringComparison.Ordinal);
+    }
+
+    // ---- the stored password does not follow the settings somewhere else ----
+
+    [Fact]
+    public async Task Repointing_the_host_with_an_empty_password_clears_the_stored_one()
+    {
+        await Settings.GetAsync();
+
+        var dto = Valid(host: "listener.example.net");
+        dto.Password = string.Empty;
+        var result = await Settings.UpdateAsync(dto);
+
+        // "Keep the stored one" must not survive a change of where the secret is sent: pointing the
+        // host at a listener and reading the password off it is the whole attack.
+        Assert.Equal(string.Empty, (await Provider.GetAsync()).Password);
+        Assert.False(result.Value.HasPassword);
+        Assert.True(result.Value.PasswordCleared);
+    }
+
+    [Fact]
+    public async Task Changing_the_port_with_an_empty_password_clears_the_stored_one()
+    {
+        await Settings.GetAsync();
+
+        var dto = Valid(port: 2525);
+        dto.Password = string.Empty;
+        var result = await Settings.UpdateAsync(dto);
+
+        Assert.Equal(string.Empty, (await Provider.GetAsync()).Password);
+        Assert.True(result.Value.PasswordCleared);
+    }
+
+    [Fact]
+    public async Task Downgrading_the_transport_with_an_empty_password_clears_the_stored_one()
+    {
+        await Settings.GetAsync();
+
+        var dto = Valid(transport: nameof(SecureSocketOptions.None));
+        dto.Password = string.Empty;
+        var result = await Settings.UpdateAsync(dto);
+
+        // "None" is an accepted transport, so the same host over cleartext would otherwise hand the
+        // stored password to anyone on the path.
+        Assert.Equal(string.Empty, (await Provider.GetAsync()).Password);
+        Assert.True(result.Value.PasswordCleared);
+    }
+
+    [Fact]
+    public async Task Removing_the_username_clears_the_stored_password()
+    {
+        await Settings.GetAsync();
+
+        var dto = Valid();
+        dto.Username = string.Empty;
+        dto.Password = string.Empty;
+        var result = await Settings.UpdateAsync(dto);
+
+        // Without a username nothing authenticates, so the screen would be showing a stored password
+        // that is never used — and a later username would quietly put it back on the wire.
+        Assert.False(result.Value.HasPassword);
+        Assert.True(result.Value.PasswordCleared);
+    }
+
+    [Fact]
+    public async Task Repointing_the_host_and_supplying_the_password_stores_the_new_one()
+    {
+        await Settings.GetAsync();
+
+        var dto = Valid(host: "mail.example.org");
+        dto.Password = "a-new-secret";
+        var result = await Settings.UpdateAsync(dto);
+
+        // Moving a server is an ordinary thing to do; it just means saying the password again.
+        Assert.Equal("a-new-secret", (await Provider.GetAsync()).Password);
+        Assert.False(result.Value.PasswordCleared);
+    }
+
+    [Fact]
+    public async Task Editing_only_the_sender_name_keeps_the_stored_password()
+    {
+        await Settings.GetAsync();
+
+        var dto = Valid();
+        dto.FromName = "FileHub Mailer";
+        dto.Password = string.Empty;
+        var result = await Settings.UpdateAsync(dto);
+
+        Assert.Equal(ConfiguredPassword, (await Provider.GetAsync()).Password);
+        Assert.False(result.Value.PasswordCleared);
+    }
+
+    [Fact]
+    public async Task Updating_with_a_password_longer_than_the_column_is_a_validation_error()
+    {
+        var dto = Valid();
+        dto.Password = new string('x', 256);
+
+        var result = await Settings.UpdateAsync(dto);
+
+        Assert.Equal(ResultCode.Validation, result.ResultCode);
+        Assert.Contains(nameof(UpdateEmailSettingDto.Password), result.ValidationErrors.Keys);
+    }
+
+    [Fact]
+    public async Task Two_first_reads_at_once_still_seed_a_single_row()
+    {
+        using var scopeA = NewScope();
+        using var scopeB = NewScope();
+        var providerA = scopeA.ServiceProvider.GetRequiredService<IEmailSettingsProvider>();
+        var providerB = scopeB.ServiceProvider.GetRequiredService<IEmailSettingsProvider>();
+
+        await Task.WhenAll(
+            Task.Run(() => providerA.GetOrCreateAsync()),
+            Task.Run(() => providerB.GetOrCreateAsync()));
+
+        // Nothing stops a second row at the database level, and a second row is settings an admin
+        // edits that nothing reads — the repository hands back the oldest.
+        Context.ChangeTracker.Clear();
+        Assert.Single(await Context.EmailSettings.ToListAsync());
     }
 
     [Fact]

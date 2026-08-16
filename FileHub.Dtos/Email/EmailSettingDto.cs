@@ -17,4 +17,11 @@ public sealed class EmailSettingDto
 
     /// <summary>Whether a password is stored, so the form can say "unchanged" instead of "empty".</summary>
     public bool HasPassword { get; set; }
+
+    /// <summary>
+    /// Set by an update that dropped the stored password because the save moved it — a different
+    /// host, port or transport, or a username removed. The screen has to be able to say so: the
+    /// admin left the field empty meaning "keep it", and it was not kept.
+    /// </summary>
+    public bool PasswordCleared { get; set; }
 }

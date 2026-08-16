@@ -16,6 +16,15 @@ public sealed class EmailSettingsProvider : IEmailSettingsProvider
     /// </summary>
     private const string PasswordPurpose = "FileHub.EmailSettings.Password";
 
+    /// <summary>
+    /// Serialises the seeding insert. Reading the row and creating it when it is missing is two
+    /// steps, and there is no unique constraint to catch two requests doing both at once — the first
+    /// two calls on a fresh install (the admin screen loading while an invitation is being sent)
+    /// would insert two rows, and half the settings an admin then edits would be the row nobody
+    /// reads. Process-wide, which is enough for one container over one SQLite file.
+    /// </summary>
+    private static readonly SemaphoreSlim s_seedLock = new(1, 1);
+
     private readonly IEmailSettingRepository m_repository;
     private readonly EmailOptions m_options;
     private readonly IDataProtector m_protector;
@@ -36,6 +45,28 @@ public sealed class EmailSettingsProvider : IEmailSettingsProvider
 
     public async Task<EmailSetting> GetOrCreateAsync()
     {
+        var setting = await m_repository.GetAsync();
+        if (setting is not null)
+        {
+            return setting;
+        }
+
+        await s_seedLock.WaitAsync();
+
+        try
+        {
+            return await CreateAsync();
+        }
+        finally
+        {
+            s_seedLock.Release();
+        }
+    }
+
+    private async Task<EmailSetting> CreateAsync()
+    {
+        // Read again inside the lock: whoever held it may have been seeding the row this call was
+        // about to insert a second copy of.
         var setting = await m_repository.GetAsync();
         if (setting is not null)
         {
