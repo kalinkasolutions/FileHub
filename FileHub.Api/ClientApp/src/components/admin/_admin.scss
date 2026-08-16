@@ -192,40 +192,7 @@
 
 // The small tag that carries a status, a role name or a link's audience. Square and outlined, like
 // everything else: a filled pill would read as a button to press.
+// FileHub's tag, under the name these screens already use.
 @mixin admin-chip {
-  @include flex(row);
-  align-items: center;
-  gap: 4px;
-  padding: 0 $small-padding;
-  border: 1px solid $border-subtle;
-  border-radius: $radius-pill;
-  color: $text-dim;
-  font-size: $font-size-label;
-  letter-spacing: $letter-spacing-label;
-  white-space: nowrap;
-
-  mat-icon {
-    @include icon-size($icon-size-inline);
-    color: inherit;
-    cursor: inherit;
-  }
-
-  // "Invited" and "disabled" both mean the account cannot sign in, and both are the admin's to
-  // act on — they are the only account states worth a colour.
-  &.invited {
-    border-color: $primary-green;
-    color: $primary-green;
-  }
-
-  &.disabled {
-    border-color: $border-danger;
-    color: $text-danger;
-  }
-
-  // A share link that only answers a group. The one thing on these screens that is neither the
-  // accent nor a warning, because it is neither: it is a link that is *less* public than the rest.
-  &.restricted {
-    border-color: $share-purple;
-    color: $share-purple;
-  }
+  @include chip;
 }

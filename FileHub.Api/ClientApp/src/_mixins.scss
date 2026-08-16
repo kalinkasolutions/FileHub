@@ -43,12 +43,14 @@
   }
 }
 
-// A grid of panels that becomes a single column on a phone. The track is a fixed width rather
-// than a fraction: a listing is a column of file names, and a half-empty 900px panel reads worse
-// than two 450px ones.
-@mixin panel-grid {
+// A grid of panels that becomes a single column on a phone. `$max` is the widest a track may get:
+// `1fr` lets the panels share the whole width, which is what a listing wants, while passing
+// `$max-form-width` keeps a row of forms at a readable width instead of stretching them. A track
+// capped in px is also what stops `grid-column: 1 / -1` from spanning the full shell, so a screen
+// with one wide listing wants the default.
+@mixin panel-grid($max: 1fr) {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax($panel-min-width, $max-form-width));
+  grid-template-columns: repeat(auto-fit, minmax($panel-min-width, $max));
   gap: $default-margin;
   justify-content: start;
 
@@ -617,5 +619,46 @@
       font-size: 11px;
       line-height: 1.3;
     }
+  }
+}
+
+// A small bordered tag: an account's state, a role, a link's audience. Square like everything
+// else, and outlined rather than filled — a screenful of filled tags competes with the one thing
+// on the screen that is meant to be pressed. The variants are the only states worth a colour.
+@mixin chip {
+  @include flex(row);
+  align-items: center;
+  gap: 4px;
+  padding: 0 $small-padding;
+  border: 1px solid $border-subtle;
+  border-radius: $radius-pill;
+  color: $text-dim;
+  font-size: $font-size-label;
+  letter-spacing: $letter-spacing-label;
+  white-space: nowrap;
+
+  mat-icon {
+    @include icon-size($icon-size-inline);
+    color: inherit;
+    cursor: inherit;
+  }
+
+  // The account cannot sign in — either it never accepted its invitation, or an admin disabled
+  // it. Both are the admin's to act on.
+  &.invited {
+    border-color: $primary-green;
+    color: $primary-green;
+  }
+
+  &.disabled {
+    border-color: $border-danger;
+    color: $text-danger;
+  }
+
+  // A share link that only answers a group: neither the accent nor a warning, because it is
+  // neither — it is a link that is *less* public than the rest.
+  &.restricted {
+    border-color: $share-purple;
+    color: $share-purple;
   }
 }
