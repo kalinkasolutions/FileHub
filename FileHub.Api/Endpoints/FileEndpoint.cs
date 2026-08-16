@@ -3,13 +3,15 @@ using FileHub.BusinessLogic.Services.Files;
 using FileHub.Downloads;
 using FileHub.Extensions;
 using Dtos.Files;
+using Shared;
 
 namespace FileHub.Endpoints;
 
 /// <summary>
-/// Browsing and downloading. Everything here is authenticated and scoped to the caller's granted
-/// base paths — in the Go build this half of the API was kept off the internet by an nginx location
-/// instead, and there was no per-user scope at all.
+/// Browsing and downloading. Everything here is authenticated and scoped to the base paths the
+/// caller can reach: their own grants, the grants of their groups, and — for an admin — all of
+/// them. The role is read off the principal here and passed down as an argument, so no layer below
+/// has to guess where the access came from.
 /// </summary>
 public static class FileEndpoint
 {
@@ -24,12 +26,12 @@ public static class FileEndpoint
 
     private static async Task<IResult> GetBasePathsAsync(ClaimsPrincipal user, IFileService service)
     {
-        return (await service.GetBasePathsAsync(user.GetUserId())).ToHttpResult();
+        return (await service.GetBasePathsAsync(user.GetUserId(), user.IsInRole(Roles.Admin))).ToHttpResult();
     }
 
     private static async Task<IResult> NavigateAsync(NavigateDto dto, ClaimsPrincipal user, IFileService service)
     {
-        return (await service.NavigateAsync(user.GetUserId(), dto)).ToHttpResult();
+        return (await service.NavigateAsync(user.GetUserId(), user.IsInRole(Roles.Admin), dto)).ToHttpResult();
     }
 
     private static async Task<IResult> DownloadAsync(
@@ -40,7 +42,8 @@ public static class FileEndpoint
         HttpContext context,
         ILoggerFactory loggerFactory)
     {
-        var result = await service.ResolveDownloadAsync(user.GetUserId(), basePathId, relativePath ?? string.Empty);
+        var result = await service.ResolveDownloadAsync(
+            user.GetUserId(), user.IsInRole(Roles.Admin), basePathId, relativePath ?? string.Empty);
 
         if (result.HasError)
         {

@@ -1,4 +1,5 @@
 using Entities.Account;
+using Entities.Groups;
 using Entities.Paths;
 
 namespace Entities.Shares;
@@ -29,6 +30,19 @@ public sealed class Share : IBaseEntity
 
     /// <summary>Total bytes, measured once when the share is created (see <c>ShareService</c>).</summary>
     public long Size { get; set; }
+
+    /// <summary>
+    /// Who the link is for. Null is the default and means anonymous-by-URL: anyone holding the URL
+    /// gets the file. Set, the link only answers a signed-in member of that group (or an admin).
+    /// <para>
+    /// The foreign key cascades on purpose: deleting the group deletes the links aimed at it. If it
+    /// only nulled the column, deleting a group would silently turn every link it gated into an
+    /// anonymous one — a privilege escalation nobody performed. That must not depend on a service
+    /// remembering to clean up.
+    /// </para>
+    /// </summary>
+    public Guid? AudienceGroupId { get; set; }
+    public Group AudienceGroup { get; set; }
 
     public Guid CreatedById { get; set; }
     public FileHubUser CreatedBy { get; set; }

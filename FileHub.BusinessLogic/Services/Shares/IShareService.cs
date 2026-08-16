@@ -4,17 +4,23 @@ using Shared;
 namespace FileHub.BusinessLogic.Services.Shares;
 
 /// <summary>
-/// Public download links. Creating and listing one is an authenticated, grant-checked operation;
-/// redeeming one is not, which is why <see cref="ResolvePublicAsync"/> does as little work as it
-/// possibly can.
+/// Download links. Creating and listing one is an authenticated, access-checked operation;
+/// redeeming one usually is not, which is why <see cref="ResolvePublicAsync"/> does as little work
+/// as it possibly can.
+/// <para>
+/// A link either has no audience — anonymous by URL, the default — or is aimed at a group, in which
+/// case only a signed-in member of it (or an admin) may redeem it. The public routes therefore take
+/// the caller as a nullable id: null is the anonymous case, and it is the cheap one.
+/// </para>
 /// </summary>
 public interface IShareService
 {
     /// <summary>
-    /// Creates a link to a path the caller has been granted. The target's total size is measured
-    /// here, once, and cached on the row.
+    /// Creates a link to a path the caller can reach. The target's total size is measured here,
+    /// once, and cached on the row. An audience group the caller does not belong to is a 400 —
+    /// unless they are an admin, who may aim a link at any group.
     /// </summary>
-    Task<OperationResult<ShareDto>> CreateAsync(Guid userId, CreateShareDto dto);
+    Task<OperationResult<ShareDto>> CreateAsync(Guid userId, bool callerIsAdmin, CreateShareDto dto);
 
     Task<OperationResult<List<ShareDto>>> ListForUserAsync(Guid userId);
 
@@ -25,17 +31,18 @@ public interface IShareService
     Task<OperationResult<Empty>> DeleteAsync(Guid callerId, bool callerIsAdmin, Guid shareId);
 
     /// <summary>
-    /// Resolves a link for an anonymous caller. Unknown id, exhausted download limit and a target
-    /// that is no longer on disk all answer the same failure, so the response says nothing about
-    /// which links exist. Re-resolves through the sandbox every time, and never walks the tree.
+    /// Resolves a link for a public caller, who may or may not be signed in. Unknown id, exhausted
+    /// download limit, a target that is no longer on disk and an audience the caller is not in all
+    /// answer the same failure, so the response says nothing about which links exist or who they
+    /// are for. Re-resolves through the sandbox every time, and never walks the tree.
     /// </summary>
-    Task<OperationResult<ResolvedShare>> ResolvePublicAsync(Guid shareId);
+    Task<OperationResult<ResolvedShare>> ResolvePublicAsync(Guid shareId, Guid? callerId, bool callerIsAdmin);
 
     /// <summary>
-    /// Claims one redemption of a link against its <c>MaxDownloadCount</c>. This is where the limit
-    /// is enforced: the increment is conditional in the database, so a failure means the link is
-    /// unknown or already spent and the caller must not be given the file. Answers the same
-    /// <c>NotFound</c> as every other public failure.
+    /// Claims one redemption of a link against its <c>MaxDownloadCount</c> and its audience. This is
+    /// where both are enforced: the increment is conditional in the database, so a failure means the
+    /// link is unknown, already spent, or not for this caller, and they must not be given the file.
+    /// Answers the same <c>NotFound</c> as every other public failure.
     /// </summary>
-    Task<OperationResult<Empty>> RegisterDownloadAsync(Guid shareId);
+    Task<OperationResult<Empty>> RegisterDownloadAsync(Guid shareId, Guid? callerId, bool callerIsAdmin);
 }

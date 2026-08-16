@@ -1,6 +1,8 @@
 using Dal.Repositories.BasePaths;
+using Dal.Repositories.Groups;
 using Dal.Repositories.Shares;
 using Dtos.Shares;
+using Entities.Groups;
 using Entities.Shares;
 using FileHub.BusinessLogic.Authorization;
 using FileHub.BusinessLogic.Validation;
@@ -14,19 +16,22 @@ public sealed class ShareService : IShareService
     private readonly ILogger<ShareService> m_logger;
     private readonly IShareRepository m_shareRepository;
     private readonly IBasePathRepository m_basePathRepository;
+    private readonly IGroupRepository m_groupRepository;
 
     public ShareService(
         ILogger<ShareService> logger,
         IShareRepository shareRepository,
-        IBasePathRepository basePathRepository
+        IBasePathRepository basePathRepository,
+        IGroupRepository groupRepository
     )
     {
         m_logger = logger;
         m_shareRepository = shareRepository;
         m_basePathRepository = basePathRepository;
+        m_groupRepository = groupRepository;
     }
 
-    public async Task<OperationResult<ShareDto>> CreateAsync(Guid userId, CreateShareDto dto)
+    public async Task<OperationResult<ShareDto>> CreateAsync(Guid userId, bool callerIsAdmin, CreateShareDto dto)
     {
         var validation = DtoValidator.Validate(dto);
         if (validation.HasError)
@@ -34,7 +39,31 @@ public sealed class ShareService : IShareService
             return validation.MapError<ShareDto>();
         }
 
-        var basePath = await m_basePathRepository.GetForUserAsync(dto.BasePathId, userId);
+        // Who the link is for. Null is the default and means anonymous by URL. A caller may only
+        // aim a link at a group they belong to; an admin may aim one at any. A group that does not
+        // exist is refused with the same message as one the caller is not in, so the error cannot
+        // be used to find out which groups there are.
+        Group? audienceGroup = null;
+
+        if (dto.AudienceGroupId is not null)
+        {
+            audienceGroup = await m_groupRepository.GetAsync(dto.AudienceGroupId.Value);
+
+            if (audienceGroup is null)
+            {
+                return OperationResult<ShareDto>.BadRequest(AudienceRefused);
+            }
+
+            if (!callerIsAdmin && !await m_groupRepository.IsMemberAsync(audienceGroup.Id, userId))
+            {
+                m_logger.LogWarning(
+                    "User {UserId} tried to aim a link at group {GroupId} without belonging to it",
+                    userId, audienceGroup.Id);
+                return OperationResult<ShareDto>.BadRequest(AudienceRefused);
+            }
+        }
+
+        var basePath = await m_basePathRepository.GetForUserAsync(dto.BasePathId, userId, callerIsAdmin);
         if (basePath is null)
         {
             m_logger.LogWarning(
@@ -71,6 +100,7 @@ public sealed class ShareService : IShareService
             RelativePath = PathSandbox.ToRelative(basePath.Path, fullPath),
             MaxDownloadCount = dto.MaxDownloadCount,
             Size = size,
+            AudienceGroupId = audienceGroup?.Id,
             CreatedById = userId
         };
 
@@ -80,13 +110,14 @@ public sealed class ShareService : IShareService
         m_logger.LogInformation(
             "User {UserId} shared {Path} as {ShareId} ({Size} bytes)", userId, fullPath, share.Id, size);
 
-        return OperationResult<ShareDto>.Success(MapShare(share, basePath.Name, isDirectory));
+        return OperationResult<ShareDto>.Success(
+            MapShare(share, basePath.Name, isDirectory, audienceGroup?.Name));
     }
 
     public async Task<OperationResult<List<ShareDto>>> ListForUserAsync(Guid userId)
     {
         var shares = await m_shareRepository.GetByCreatorAsync(userId);
-        var dtos = shares.Select(s => MapShare(s, s.BasePath.Name, IsDirectory(s))).ToList();
+        var dtos = shares.Select(s => MapShare(s, s.BasePath.Name, IsDirectory(s), s.AudienceGroup?.Name)).ToList();
         return OperationResult<List<ShareDto>>.Success(dtos);
     }
 
@@ -117,12 +148,23 @@ public sealed class ShareService : IShareService
         return OperationResult<Empty>.Success();
     }
 
-    public async Task<OperationResult<ResolvedShare>> ResolvePublicAsync(Guid shareId)
+    public async Task<OperationResult<ResolvedShare>> ResolvePublicAsync(
+        Guid shareId, Guid? callerId, bool callerIsAdmin)
     {
         var share = await m_shareRepository.GetAsync(shareId);
 
         if (share is null)
         {
+            return OperationResult<ResolvedShare>.NotFound(PublicFailure);
+        }
+
+        if (!await IsInAudienceAsync(share, callerId, callerIsAdmin))
+        {
+            // The same answer an unknown id gets: "this link is not for you" and "no such link"
+            // must be indistinguishable, or the response tells a stranger which links exist and
+            // who they are for. The Open Graph page falls back to its generic body for the same
+            // reason — the chat client unfurling a link is never signed in.
+            m_logger.LogInformation("Share {ShareId} was not resolved: the caller is not in its audience", shareId);
             return OperationResult<ResolvedShare>.NotFound(PublicFailure);
         }
 
@@ -159,12 +201,13 @@ public sealed class ShareService : IShareService
         return OperationResult<ResolvedShare>.Success(resolved);
     }
 
-    public async Task<OperationResult<Empty>> RegisterDownloadAsync(Guid shareId)
+    public async Task<OperationResult<Empty>> RegisterDownloadAsync(
+        Guid shareId, Guid? callerId, bool callerIsAdmin)
     {
         // The limit is enforced here, not by the check in ResolvePublicAsync — that one only keeps
         // an exhausted link from rendering a landing page. A conditional UPDATE is what makes the
         // limit hold when several anonymous callers arrive at once, all having read the same count.
-        if (!await m_shareRepository.TryRegisterDownloadAsync(shareId))
+        if (!await m_shareRepository.TryRegisterDownloadAsync(shareId, callerId, callerIsAdmin))
         {
             m_logger.LogInformation("Share {ShareId} was not downloaded: unknown or at its limit", shareId);
             return OperationResult<Empty>.NotFound(PublicFailure);
@@ -224,7 +267,8 @@ public sealed class ShareService : IShareService
     private static string TargetName(Share share, string basePathName) =>
         share.RelativePath.Length == 0 ? basePathName : Path.GetFileName(share.RelativePath);
 
-    private static ShareDto MapShare(Share share, string basePathName, bool isDirectory) => new()
+    private static ShareDto MapShare(
+        Share share, string basePathName, bool isDirectory, string? audienceGroupName) => new()
     {
         Id = share.Id,
         Name = TargetName(share, basePathName),
@@ -235,6 +279,8 @@ public sealed class ShareService : IShareService
         DownloadCount = share.DownloadCount,
         MaxDownloadCount = share.MaxDownloadCount,
         CreatedAt = share.CreatedAt,
+        AudienceGroupId = share.AudienceGroupId,
+        AudienceGroupName = audienceGroupName,
         Link = string.Empty
     };
 
@@ -252,10 +298,41 @@ public sealed class ShareService : IShareService
         CreatedAt = share.CreatedAt,
         CreatedById = share.CreatedById,
         CreatedBy = share.CreatedBy?.Email ?? string.Empty,
+        AudienceGroupId = share.AudienceGroupId,
+        AudienceGroupName = share.AudienceGroup?.Name,
         Link = string.Empty
     };
 
+    /// <summary>
+    /// Whether this caller may redeem the link. A link with no audience — today's anonymous-by-URL
+    /// one, and still the default — costs no query at all, which is what keeps the anonymous routes
+    /// as cheap as they were.
+    /// </summary>
+    private async Task<bool> IsInAudienceAsync(Share share, Guid? callerId, bool callerIsAdmin)
+    {
+        if (share.AudienceGroupId is null)
+        {
+            return true;
+        }
+
+        if (callerIsAdmin)
+        {
+            return true;
+        }
+
+        if (callerId is null)
+        {
+            return false;
+        }
+
+        return await m_groupRepository.IsMemberAsync(share.AudienceGroupId.Value, callerId.Value);
+    }
+
     /// <summary>One message for every way a public link can fail, so the response cannot be used to
-    /// tell an unknown id from an exhausted one.</summary>
+    /// tell an unknown id from an exhausted one, or from one aimed at somebody else.</summary>
     private const string PublicFailure = "Share not found";
+
+    /// <summary>One message for both ways aiming a link at a group can be refused, so it cannot be
+    /// used to tell a group that does not exist from one the caller is not in.</summary>
+    private const string AudienceRefused = "You can only share with a group you belong to";
 }

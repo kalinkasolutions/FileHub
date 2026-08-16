@@ -1,9 +1,12 @@
 using Dal.Repositories.BasePaths;
+using Dal.Repositories.Groups;
 using Dal.Repositories.Shares;
 using Dtos.BasePaths;
+using Dtos.Groups;
 using Dtos.Shares;
 using FileHub.BusinessLogic.Services.BasePaths;
 using FileHub.BusinessLogic.Services.Files;
+using FileHub.BusinessLogic.Services.Groups;
 using FileHub.BusinessLogic.Services.Shares;
 using Microsoft.Extensions.DependencyInjection;
 using Shared;
@@ -21,6 +24,7 @@ public abstract class SharesTestBase : TestHostBase
     protected TempTree Tree { get; } = new();
     protected IShareService Shares => Services.GetRequiredService<IShareService>();
     protected IBasePathService BasePaths => Services.GetRequiredService<IBasePathService>();
+    protected IGroupService Groups => Services.GetRequiredService<IGroupService>();
     protected IFileService Files => Services.GetRequiredService<IFileService>();
 
     protected SharesTestBase() : base(Configure)
@@ -30,8 +34,10 @@ public abstract class SharesTestBase : TestHostBase
     private static void Configure(IServiceCollection services)
     {
         services.AddScoped<IBasePathRepository, BasePathRepository>();
+        services.AddScoped<IGroupRepository, GroupRepository>();
         services.AddScoped<IShareRepository, ShareRepository>();
         services.AddScoped<IBasePathService, BasePathService>();
+        services.AddScoped<IGroupService, GroupService>();
         services.AddScoped<IFileService, FileService>();
         services.AddScoped<IShareService, ShareService>();
     }
@@ -49,14 +55,39 @@ public abstract class SharesTestBase : TestHostBase
         Assert.True(result.IsSuccess, result.ErrorMessage);
     }
 
-    /// <summary>Creates a link and asserts it was created, so a test can get straight to the link.</summary>
-    protected async Task<ShareDto> ShareAsync(Guid userId, Guid basePathId, string relativePath, int maxDownloads = 0)
+    /// <summary>Creates a group with the given members, through the service an admin would use.</summary>
+    protected async Task<GroupDto> CreateGroupAsync(string name, params Guid[] memberIds)
     {
-        var result = await Shares.CreateAsync(userId, new CreateShareDto
+        var created = await Groups.CreateAsync(new SaveGroupDto { Name = name });
+        Assert.True(created.IsSuccess, created.ErrorMessage);
+
+        if (memberIds.Length > 0)
+        {
+            var members = await Groups.SetMembersAsync(
+                created.Value.Id, new SetGroupMembersDto { UserIds = [.. memberIds] });
+            Assert.True(members.IsSuccess, members.ErrorMessage);
+        }
+
+        return created.Value;
+    }
+
+    /// <summary>Replaces the groups granted a base path — an id left out is a revocation.</summary>
+    protected async Task GrantToGroupsAsync(Guid basePathId, params Guid[] groupIds)
+    {
+        var result = await BasePaths.SetGroupsAsync(basePathId, new SetBasePathGroupsDto { GroupIds = [.. groupIds] });
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+    }
+
+    /// <summary>Creates a link and asserts it was created, so a test can get straight to the link.</summary>
+    protected async Task<ShareDto> ShareAsync(
+        Guid userId, Guid basePathId, string relativePath, int maxDownloads = 0, Guid? audienceGroupId = null)
+    {
+        var result = await Shares.CreateAsync(userId, callerIsAdmin: false, new CreateShareDto
         {
             BasePathId = basePathId,
             RelativePath = relativePath,
-            MaxDownloadCount = maxDownloads
+            MaxDownloadCount = maxDownloads,
+            AudienceGroupId = audienceGroupId
         });
 
         Assert.True(result.IsSuccess, result.ErrorMessage);

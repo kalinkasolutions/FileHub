@@ -1,4 +1,5 @@
 using Dal.Repositories.BasePaths;
+using Dal.Repositories.Groups;
 using Dal.Repositories.Shares;
 using Dtos.BasePaths;
 using Entities.Paths;
@@ -12,16 +13,19 @@ public sealed class BasePathService : IBasePathService
 {
     private readonly ILogger<BasePathService> m_logger;
     private readonly IBasePathRepository m_basePathRepository;
+    private readonly IGroupRepository m_groupRepository;
     private readonly IShareRepository m_shareRepository;
 
     public BasePathService(
         ILogger<BasePathService> logger,
         IBasePathRepository basePathRepository,
+        IGroupRepository groupRepository,
         IShareRepository shareRepository
     )
     {
         m_logger = logger;
         m_basePathRepository = basePathRepository;
+        m_groupRepository = groupRepository;
         m_shareRepository = shareRepository;
     }
 
@@ -151,9 +155,13 @@ public sealed class BasePathService : IBasePathService
         // lookup to catch it later — so the creator loses navigation while their public link keeps
         // serving the file to anyone holding the URL.
         //
+        // Only the direct grants are changing here, so the group grants are read as they stand and
+        // passed along: a user who keeps the base path through a group keeps their links.
+        //
         // Done before the grant change is saved, so a failure here leaves the links revoked and
         // the grant intact rather than the other way round.
-        var revoked = await m_shareRepository.DeleteForRevokedUsersAsync(basePathId, userIds);
+        var groupIds = await m_basePathRepository.GetGroupIdsAsync(basePathId);
+        var revoked = await m_shareRepository.DeleteSharesLosingBasePathAccessAsync(basePathId, userIds, groupIds);
 
         await m_basePathRepository.ReplaceAccessForBasePathAsync(basePathId, userIds);
         await m_basePathRepository.SaveChangesAsync();
@@ -161,6 +169,49 @@ public sealed class BasePathService : IBasePathService
         m_logger.LogInformation(
             "Base path {BasePathId} is now granted to {UserCount} user(s); {ShareCount} link(s) revoked with it",
             basePathId, userIds.Count, revoked);
+        return OperationResult<Empty>.Success();
+    }
+
+    public async Task<OperationResult<List<Guid>>> GetGroupsAsync(Guid basePathId)
+    {
+        var basePath = await m_basePathRepository.GetAsync(basePathId);
+        if (basePath is null)
+        {
+            return OperationResult<List<Guid>>.NotFound("Base path not found");
+        }
+
+        return OperationResult<List<Guid>>.Success(await m_basePathRepository.GetGroupIdsAsync(basePathId));
+    }
+
+    public async Task<OperationResult<Empty>> SetGroupsAsync(Guid basePathId, SetBasePathGroupsDto dto)
+    {
+        var validation = DtoValidator.Validate(dto);
+        if (validation.HasError)
+        {
+            return validation.MapError<Empty>();
+        }
+
+        var basePath = await m_basePathRepository.GetAsync(basePathId);
+        if (basePath is null)
+        {
+            return OperationResult<Empty>.NotFound("Base path not found");
+        }
+
+        // A stale group id would fail on the foreign key at save time — same treatment as a stale
+        // user id in SetUsersAsync.
+        var groupIds = await m_groupRepository.FilterExistingIdsAsync(dto.GroupIds ?? []);
+
+        // Only the group grants are changing, so the direct grants are read as they stand: a user
+        // who holds the base path in their own right keeps their links.
+        var userIds = await m_basePathRepository.GetUserIdsAsync(basePathId);
+        var revoked = await m_shareRepository.DeleteSharesLosingBasePathAccessAsync(basePathId, userIds, groupIds);
+
+        await m_basePathRepository.ReplaceGroupAccessForBasePathAsync(basePathId, groupIds);
+        await m_basePathRepository.SaveChangesAsync();
+
+        m_logger.LogInformation(
+            "Base path {BasePathId} is now granted to {GroupCount} group(s); {ShareCount} link(s) revoked with it",
+            basePathId, groupIds.Count, revoked);
         return OperationResult<Empty>.Success();
     }
 
@@ -185,8 +236,9 @@ public sealed class BasePathService : IBasePathService
         var basePathIds = requested.Where(known.Contains).ToList();
 
         // Same revocation as SetUsersAsync, from the other end of the same table — both screens
-        // edit the same grants, so both have to take the links with them.
-        var revoked = await m_shareRepository.DeleteForRevokedBasePathsAsync(userId, basePathIds);
+        // edit the same grants, so both have to take the links with them. A base path the user
+        // still reaches through a group, or through the Admin role, is not a revocation.
+        var revoked = await m_shareRepository.DeleteSharesOfUserLosingAccessAsync(userId, basePathIds);
 
         await m_basePathRepository.ReplaceAccessForUserAsync(userId, basePathIds);
         await m_basePathRepository.SaveChangesAsync();
@@ -255,6 +307,7 @@ public sealed class BasePathService : IBasePathService
         Path = basePath.Path,
         Name = basePath.Name,
         CreatedAt = basePath.CreatedAt,
-        UserCount = basePath.Access.Count
+        UserCount = basePath.Access.Count,
+        GroupCount = basePath.GroupAccess.Count
     };
 }

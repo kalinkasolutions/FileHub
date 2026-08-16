@@ -15,6 +15,9 @@ public sealed class BasePathDto
 
     public DateTime CreatedAt { get; set; }
 
-    /// <summary>How many users have been granted this base path.</summary>
+    /// <summary>How many users have been granted this base path directly.</summary>
     public int UserCount { get; set; }
+
+    /// <summary>How many groups have been granted this base path. Their members reach it too.</summary>
+    public int GroupCount { get; set; }
 }

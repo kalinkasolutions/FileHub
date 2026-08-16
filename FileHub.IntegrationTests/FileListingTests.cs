@@ -16,7 +16,7 @@ public sealed class FileListingTests : FilesTestBase
         var basePath = await CreateBasePathAsync(Tree.Root, "Movies");
         await GrantAsync(basePath.Id, alice.Id);
 
-        var result = await Files.GetBasePathsAsync(alice.Id);
+        var result = await Files.GetBasePathsAsync(alice.Id, callerIsAdmin: false);
 
         var entry = Assert.Single(result.Value);
         Assert.Equal(basePath.Id, entry.Id);
@@ -36,7 +36,7 @@ public sealed class FileListingTests : FilesTestBase
         var basePath = await CreateBasePathAsync(Tree.Root);
         await GrantAsync(basePath.Id, alice.Id);
 
-        var result = await Files.GetBasePathsAsync(alice.Id);
+        var result = await Files.GetBasePathsAsync(alice.Id, callerIsAdmin: false);
 
         Assert.Equal(3, Assert.Single(result.Value).Size);
     }
@@ -52,7 +52,7 @@ public sealed class FileListingTests : FilesTestBase
         await GrantAsync(present.Id, alice.Id);
         Directory.Delete(missing);
 
-        var result = await Files.GetBasePathsAsync(alice.Id);
+        var result = await Files.GetBasePathsAsync(alice.Id, callerIsAdmin: false);
 
         Assert.Equal("Kept", Assert.Single(result.Value).Name);
     }
@@ -66,7 +66,7 @@ public sealed class FileListingTests : FilesTestBase
         var basePath = await CreateBasePathAsync(Tree.Root, "Movies");
         await GrantAsync(basePath.Id, alice.Id);
 
-        var result = await Files.NavigateAsync(alice.Id, new NavigateDto { BasePathId = basePath.Id, Path = string.Empty });
+        var result = await Files.NavigateAsync(alice.Id, callerIsAdmin: false, new NavigateDto { BasePathId = basePath.Id, Path = string.Empty });
 
         Assert.True(result.IsSuccess);
         Assert.Equal("Movies", result.Value.NavigationName);
@@ -81,7 +81,7 @@ public sealed class FileListingTests : FilesTestBase
         var basePath = await CreateBasePathAsync(Tree.Root);
         await GrantAsync(basePath.Id, alice.Id);
 
-        var result = await Files.NavigateAsync(alice.Id, new NavigateDto { BasePathId = basePath.Id, Path = string.Empty });
+        var result = await Files.NavigateAsync(alice.Id, callerIsAdmin: false, new NavigateDto { BasePathId = basePath.Id, Path = string.Empty });
 
         var entry = Assert.Single(result.Value.Entries);
         Assert.False(entry.IsDir);
@@ -97,7 +97,7 @@ public sealed class FileListingTests : FilesTestBase
         var basePath = await CreateBasePathAsync(Tree.Root);
         await GrantAsync(basePath.Id, alice.Id);
 
-        var result = await Files.NavigateAsync(alice.Id, new NavigateDto { BasePathId = basePath.Id, Path = string.Empty });
+        var result = await Files.NavigateAsync(alice.Id, callerIsAdmin: false, new NavigateDto { BasePathId = basePath.Id, Path = string.Empty });
 
         var entry = Assert.Single(result.Value.Entries);
         Assert.True(entry.IsDir);
@@ -112,7 +112,7 @@ public sealed class FileListingTests : FilesTestBase
         var basePath = await CreateBasePathAsync(Tree.Root);
         await GrantAsync(basePath.Id, alice.Id);
 
-        var result = await Files.NavigateAsync(alice.Id, new NavigateDto { BasePathId = basePath.Id, Path = string.Empty });
+        var result = await Files.NavigateAsync(alice.Id, callerIsAdmin: false, new NavigateDto { BasePathId = basePath.Id, Path = string.Empty });
 
         Assert.False(Assert.Single(result.Value.Entries).IsBasePath);
     }
@@ -125,7 +125,7 @@ public sealed class FileListingTests : FilesTestBase
         var basePath = await CreateBasePathAsync(Tree.Root);
         await GrantAsync(basePath.Id, alice.Id);
 
-        var result = await Files.NavigateAsync(alice.Id, new NavigateDto { BasePathId = basePath.Id, Path = "sub" });
+        var result = await Files.NavigateAsync(alice.Id, callerIsAdmin: false, new NavigateDto { BasePathId = basePath.Id, Path = "sub" });
 
         var entry = Assert.Single(result.Value.Entries);
         Assert.Equal(Path.Combine("sub", "deeper"), entry.NextSegment);
@@ -139,10 +139,10 @@ public sealed class FileListingTests : FilesTestBase
         Tree.File("sub/deeper/a.txt");
         var basePath = await CreateBasePathAsync(Tree.Root);
         await GrantAsync(basePath.Id, alice.Id);
-        var root = await Files.NavigateAsync(alice.Id, new NavigateDto { BasePathId = basePath.Id, Path = string.Empty });
+        var root = await Files.NavigateAsync(alice.Id, callerIsAdmin: false, new NavigateDto { BasePathId = basePath.Id, Path = string.Empty });
 
         var next = Assert.Single(root.Value.Entries).NextSegment;
-        var result = await Files.NavigateAsync(alice.Id, new NavigateDto { BasePathId = basePath.Id, Path = next });
+        var result = await Files.NavigateAsync(alice.Id, callerIsAdmin: false, new NavigateDto { BasePathId = basePath.Id, Path = next });
 
         Assert.True(result.IsSuccess);
         Assert.Equal("sub", result.Value.NavigationName);
@@ -156,7 +156,7 @@ public sealed class FileListingTests : FilesTestBase
         var basePath = await CreateBasePathAsync(Tree.Root, "Movies");
         await GrantAsync(basePath.Id, alice.Id);
 
-        var result = await Files.NavigateAsync(alice.Id, new NavigateDto { BasePathId = basePath.Id, Path = "sub" });
+        var result = await Files.NavigateAsync(alice.Id, callerIsAdmin: false, new NavigateDto { BasePathId = basePath.Id, Path = "sub" });
 
         Assert.Equal("sub", result.Value.NavigationName);
         Assert.Equal("a.txt", Assert.Single(result.Value.Entries).Name);
@@ -173,7 +173,7 @@ public sealed class FileListingTests : FilesTestBase
         var basePath = await CreateBasePathAsync(Tree.Root);
         await GrantAsync(basePath.Id, alice.Id);
 
-        var result = await Files.NavigateAsync(alice.Id, new NavigateDto { BasePathId = basePath.Id, Path = string.Empty });
+        var result = await Files.NavigateAsync(alice.Id, callerIsAdmin: false, new NavigateDto { BasePathId = basePath.Id, Path = string.Empty });
 
         Assert.Equal(["Alpha", "zulu", "Apple.txt", "zebra.txt"], result.Value.Entries.Select(e => e.Name));
     }
@@ -187,8 +187,8 @@ public sealed class FileListingTests : FilesTestBase
         await GrantAsync(basePath.Id, alice.Id);
         var dto = new NavigateDto { BasePathId = basePath.Id, Path = string.Empty };
 
-        var first = await Files.NavigateAsync(alice.Id, dto);
-        var second = await Files.NavigateAsync(alice.Id, dto);
+        var first = await Files.NavigateAsync(alice.Id, callerIsAdmin: false, dto);
+        var second = await Files.NavigateAsync(alice.Id, callerIsAdmin: false, dto);
 
         // It is an in-listing identity only; persisting or comparing it across requests is what the
         // client must not do, and a stable id would invite exactly that.
@@ -209,7 +209,7 @@ public sealed class FileListingTests : FilesTestBase
         var basePath = await CreateBasePathAsync(Tree.Root);
         await GrantAsync(basePath.Id, alice.Id);
 
-        var result = await Files.NavigateAsync(alice.Id, new NavigateDto { BasePathId = basePath.Id, Path = string.Empty });
+        var result = await Files.NavigateAsync(alice.Id, callerIsAdmin: false, new NavigateDto { BasePathId = basePath.Id, Path = string.Empty });
 
         // Filtered in the listing rather than 404ing on the download, so the browser never shows a
         // row that cannot be opened.
@@ -232,7 +232,7 @@ public sealed class FileListingTests : FilesTestBase
         var basePath = await CreateBasePathAsync(Tree.Root);
         await GrantAsync(basePath.Id, alice.Id);
 
-        var result = await Files.NavigateAsync(alice.Id, new NavigateDto { BasePathId = basePath.Id, Path = string.Empty });
+        var result = await Files.NavigateAsync(alice.Id, callerIsAdmin: false, new NavigateDto { BasePathId = basePath.Id, Path = string.Empty });
 
         Assert.True(result.IsSuccess);
         Assert.Equal("visible.txt", Assert.Single(result.Value.Entries).Name);
@@ -246,8 +246,8 @@ public sealed class FileListingTests : FilesTestBase
         var basePath = await CreateBasePathAsync(Tree.Root);
         await GrantAsync(basePath.Id, alice.Id);
 
-        var listed = await Files.NavigateAsync(alice.Id, new NavigateDto { BasePathId = basePath.Id, Path = string.Empty });
-        var roots = await Files.GetBasePathsAsync(alice.Id);
+        var listed = await Files.NavigateAsync(alice.Id, callerIsAdmin: false, new NavigateDto { BasePathId = basePath.Id, Path = string.Empty });
+        var roots = await Files.GetBasePathsAsync(alice.Id, callerIsAdmin: false);
 
         // The browser is a file manager for the host, not a shell: hiding entries here would make
         // the entry count on the base path disagree with what the listing shows.
@@ -268,7 +268,7 @@ public sealed class FileListingTests : FilesTestBase
         var basePath = await CreateBasePathAsync(Tree.Root);
         await GrantAsync(basePath.Id, alice.Id);
 
-        var result = await Files.NavigateAsync(alice.Id, new NavigateDto { BasePathId = basePath.Id, Path = path });
+        var result = await Files.NavigateAsync(alice.Id, callerIsAdmin: false, new NavigateDto { BasePathId = basePath.Id, Path = path });
 
         Assert.Equal(ResultCode.NotFound, result.ResultCode);
         Assert.Equal("Path not found", result.ErrorMessage);
@@ -281,7 +281,7 @@ public sealed class FileListingTests : FilesTestBase
         var basePath = await CreateBasePathAsync(Tree.Root);
         await GrantAsync(basePath.Id, alice.Id);
 
-        var result = await Files.NavigateAsync(alice.Id, new NavigateDto { BasePathId = basePath.Id, Path = "nowhere" });
+        var result = await Files.NavigateAsync(alice.Id, callerIsAdmin: false, new NavigateDto { BasePathId = basePath.Id, Path = "nowhere" });
 
         Assert.Equal(ResultCode.NotFound, result.ResultCode);
     }
@@ -294,7 +294,7 @@ public sealed class FileListingTests : FilesTestBase
         var basePath = await CreateBasePathAsync(Tree.Root);
         await GrantAsync(basePath.Id, alice.Id);
 
-        var result = await Files.NavigateAsync(alice.Id, new NavigateDto { BasePathId = basePath.Id, Path = "a.txt" });
+        var result = await Files.NavigateAsync(alice.Id, callerIsAdmin: false, new NavigateDto { BasePathId = basePath.Id, Path = "a.txt" });
 
         Assert.Equal(ResultCode.NotFound, result.ResultCode);
     }
@@ -306,8 +306,7 @@ public sealed class FileListingTests : FilesTestBase
         var basePath = await CreateBasePathAsync(Tree.Root);
         await GrantAsync(basePath.Id, alice.Id);
 
-        var result = await Files.NavigateAsync(
-            alice.Id, new NavigateDto { BasePathId = basePath.Id, Path = new string('x', 4097) });
+        var result = await Files.NavigateAsync(alice.Id, callerIsAdmin: false, new NavigateDto { BasePathId = basePath.Id, Path = new string('x', 4097) });
 
         Assert.Equal(ResultCode.Validation, result.ResultCode);
         Assert.Contains(nameof(NavigateDto.Path), result.ValidationErrors.Keys);
@@ -321,7 +320,7 @@ public sealed class FileListingTests : FilesTestBase
         var basePath = await CreateBasePathAsync(Tree.Root);
         await GrantAsync(basePath.Id, alice.Id);
 
-        var result = await Files.ResolveDownloadAsync(alice.Id, basePath.Id, "sub/a.txt");
+        var result = await Files.ResolveDownloadAsync(alice.Id, callerIsAdmin: false, basePath.Id, "sub/a.txt");
 
         Assert.True(result.IsSuccess);
         Assert.Equal(file, result.Value.FullPath);
@@ -337,7 +336,7 @@ public sealed class FileListingTests : FilesTestBase
         var basePath = await CreateBasePathAsync(Tree.Root, "Movies");
         await GrantAsync(basePath.Id, alice.Id);
 
-        var result = await Files.ResolveDownloadAsync(alice.Id, basePath.Id, string.Empty);
+        var result = await Files.ResolveDownloadAsync(alice.Id, callerIsAdmin: false, basePath.Id, string.Empty);
 
         Assert.True(result.IsSuccess);
         Assert.Equal("Movies", result.Value.Name);
@@ -352,7 +351,7 @@ public sealed class FileListingTests : FilesTestBase
         var basePath = await CreateBasePathAsync(Tree.Root);
         await GrantAsync(basePath.Id, alice.Id);
 
-        var result = await Files.ResolveDownloadAsync(alice.Id, basePath.Id, "../outside/secret.txt");
+        var result = await Files.ResolveDownloadAsync(alice.Id, callerIsAdmin: false, basePath.Id, "../outside/secret.txt");
 
         Assert.Equal(ResultCode.NotFound, result.ResultCode);
         Assert.Equal("Path not found", result.ErrorMessage);
@@ -371,7 +370,7 @@ public sealed class FileListingTests : FilesTestBase
         var basePath = await CreateBasePathAsync(Tree.Root);
         await GrantAsync(basePath.Id, alice.Id);
 
-        var result = await Files.ResolveDownloadAsync(alice.Id, basePath.Id, "leak.txt");
+        var result = await Files.ResolveDownloadAsync(alice.Id, callerIsAdmin: false, basePath.Id, "leak.txt");
 
         Assert.Equal(ResultCode.NotFound, result.ResultCode);
     }
@@ -383,7 +382,7 @@ public sealed class FileListingTests : FilesTestBase
         var basePath = await CreateBasePathAsync(Tree.Root);
         await GrantAsync(basePath.Id, alice.Id);
 
-        var result = await Files.ResolveDownloadAsync(alice.Id, basePath.Id, "gone.txt");
+        var result = await Files.ResolveDownloadAsync(alice.Id, callerIsAdmin: false, basePath.Id, "gone.txt");
 
         Assert.Equal(ResultCode.NotFound, result.ResultCode);
     }
@@ -406,8 +405,8 @@ public sealed class FileListingTests : FilesTestBase
         var basePath = await CreateBasePathAsync(Path.Combine(Tree.Root, "mountpoint"), "Data");
         await GrantAsync(basePath.Id, alice.Id);
 
-        var listed = await Files.NavigateAsync(alice.Id, new NavigateDto { BasePathId = basePath.Id, Path = string.Empty });
-        var download = await Files.ResolveDownloadAsync(alice.Id, basePath.Id, "a.txt");
+        var listed = await Files.NavigateAsync(alice.Id, callerIsAdmin: false, new NavigateDto { BasePathId = basePath.Id, Path = string.Empty });
+        var download = await Files.ResolveDownloadAsync(alice.Id, callerIsAdmin: false, basePath.Id, "a.txt");
 
         Assert.Equal("a.txt", Assert.Single(listed.Value.Entries).Name);
         Assert.True(download.IsSuccess);
@@ -421,7 +420,7 @@ public sealed class FileListingTests : FilesTestBase
         var basePath = await CreateBasePathAsync(Tree.Root);
         await GrantAsync(basePath.Id, alice.Id);
 
-        var result = await Files.ResolveDownloadAsync(alice.Id, basePath.Id, "sub");
+        var result = await Files.ResolveDownloadAsync(alice.Id, callerIsAdmin: false, basePath.Id, "sub");
 
         Assert.True(result.IsSuccess);
         Assert.True(result.Value.IsDirectory);

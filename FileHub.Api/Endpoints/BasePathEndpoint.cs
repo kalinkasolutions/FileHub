@@ -28,6 +28,11 @@ public static class BasePathEndpoint
         group.MapGet("{id:guid}/users", GetUsersAsync);
         group.MapPut("{id:guid}/users", SetUsersAsync);
 
+        // The group half of the same grant, edited from the base-path end. The group end of it is
+        // api/admin/groups/{id}/base-paths, in GroupEndpoint.
+        group.MapGet("{id:guid}/groups", GetGroupsAsync);
+        group.MapPut("{id:guid}/groups", SetGroupsAsync);
+
         var users = builder.MapGroup("api/admin/users")
             .RequireAuthorization(policy => policy.RequireRole(Roles.Admin));
 
@@ -63,6 +68,16 @@ public static class BasePathEndpoint
     private static async Task<IResult> SetUsersAsync(Guid id, SetBasePathAccessDto dto, IBasePathService service)
     {
         return (await service.SetUsersAsync(id, dto)).ToHttpResult();
+    }
+
+    private static async Task<IResult> GetGroupsAsync(Guid id, IBasePathService service)
+    {
+        return (await service.GetGroupsAsync(id)).ToHttpResult();
+    }
+
+    private static async Task<IResult> SetGroupsAsync(Guid id, SetBasePathGroupsDto dto, IBasePathService service)
+    {
+        return (await service.SetGroupsAsync(id, dto)).ToHttpResult();
     }
 
     private static async Task<IResult> GetUserBasePathsAsync(Guid userId, IBasePathService service)
