@@ -161,7 +161,15 @@ public sealed class ShareService : IShareService
 
     public async Task<OperationResult<Empty>> RegisterDownloadAsync(Guid shareId)
     {
-        await m_shareRepository.IncrementDownloadCountAsync(shareId);
+        // The limit is enforced here, not by the check in ResolvePublicAsync — that one only keeps
+        // an exhausted link from rendering a landing page. A conditional UPDATE is what makes the
+        // limit hold when several anonymous callers arrive at once, all having read the same count.
+        if (!await m_shareRepository.TryRegisterDownloadAsync(shareId))
+        {
+            m_logger.LogInformation("Share {ShareId} was not downloaded: unknown or at its limit", shareId);
+            return OperationResult<Empty>.NotFound(PublicFailure);
+        }
+
         return OperationResult<Empty>.Success();
     }
 

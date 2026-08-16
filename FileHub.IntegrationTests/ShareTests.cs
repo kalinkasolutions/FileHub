@@ -324,11 +324,70 @@ public sealed class ShareTests : SharesTestBase
     }
 
     [Fact]
-    public async Task Registering_a_download_of_an_unknown_link_does_nothing()
+    public async Task Registering_a_download_of_an_unknown_link_fails()
     {
         var result = await Shares.RegisterDownloadAsync(Guid.NewGuid());
 
-        Assert.True(result.IsSuccess);
+        // The same failure every other public miss answers, so the response says nothing about
+        // which links exist — and the download route turns it into the app's 404 page.
+        Assert.Equal(ResultCode.NotFound, result.ResultCode);
+        Assert.Equal("Share not found", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Only_one_of_several_callers_past_the_limit_check_gets_the_last_download()
+    {
+        var alice = await CreateUserAsync("alice@example.com");
+        Tree.File("a.txt");
+        var basePath = await CreateBasePathAsync(Tree.Root);
+        await GrantAsync(basePath.Id, alice.Id);
+        var share = await ShareAsync(alice.Id, basePath.Id, "a.txt", maxDownloads: 1);
+
+        // Eight anonymous callers all resolve the link before any of them registers a download —
+        // the interleaving concurrent requests actually produce, and the one the old
+        // read-then-write lost: a link capped at one download served all eight and ended at
+        // DownloadCount = 8.
+        for (var i = 0; i < 8; i++)
+        {
+            NewRequest();
+            Assert.True((await Shares.ResolvePublicAsync(share.Id)).IsSuccess);
+        }
+
+        var granted = 0;
+
+        for (var i = 0; i < 8; i++)
+        {
+            NewRequest();
+            if ((await Shares.RegisterDownloadAsync(share.Id)).IsSuccess)
+            {
+                granted++;
+            }
+        }
+
+        Assert.Equal(1, granted);
+
+        NewRequest();
+        Assert.Equal(1, (await Context.Shares.SingleAsync()).DownloadCount);
+    }
+
+    [Fact]
+    public async Task A_link_with_no_limit_registers_every_download()
+    {
+        var alice = await CreateUserAsync("alice@example.com");
+        Tree.File("a.txt");
+        var basePath = await CreateBasePathAsync(Tree.Root);
+        await GrantAsync(basePath.Id, alice.Id);
+        var share = await ShareAsync(alice.Id, basePath.Id, "a.txt", maxDownloads: 0);
+
+        // 0 is unlimited, so the conditional increment must not turn it into "already reached".
+        for (var i = 0; i < 8; i++)
+        {
+            NewRequest();
+            Assert.True((await Shares.RegisterDownloadAsync(share.Id)).IsSuccess);
+        }
+
+        NewRequest();
+        Assert.Equal(8, (await Context.Shares.SingleAsync()).DownloadCount);
     }
 
     // ---- listing and revoking ----
@@ -438,7 +497,7 @@ public sealed class ShareTests : SharesTestBase
     }
 
     [Fact]
-    public async Task A_link_keeps_working_after_its_creators_grant_is_revoked()
+    public async Task Revoking_a_grant_takes_the_links_the_user_made_under_it()
     {
         var alice = await CreateUserAsync("alice@example.com");
         Tree.File("a.txt");
@@ -446,11 +505,64 @@ public sealed class ShareTests : SharesTestBase
         await GrantAsync(basePath.Id, alice.Id);
         var share = await ShareAsync(alice.Id, basePath.Id, "a.txt");
 
+        // Alice's grant is withdrawn — the base path is now granted to nobody.
         await GrantAsync(basePath.Id);
         NewRequest();
 
-        // Redeeming a link is anonymous by design: it is checked against the link, not against
-        // whoever made it. Taking a link down means deleting it, or its base path.
+        // Redeeming a link is anonymous by design and looks up no user, so nothing downstream can
+        // notice the revocation. It has to happen here: otherwise the admin sees a user who has
+        // lost the base path while that user's public link keeps serving the file to the internet.
+        AssertPublicFailure(await Shares.ResolvePublicAsync(share.Id));
+    }
+
+    [Fact]
+    public async Task Revoking_a_grant_leaves_the_links_of_users_who_still_hold_it()
+    {
+        var alice = await CreateUserAsync("alice@example.com");
+        var bob = await CreateUserAsync("bob@example.com");
+        Tree.File("a.txt");
+        Tree.File("b.txt");
+        var basePath = await CreateBasePathAsync(Tree.Root);
+        await GrantAsync(basePath.Id, alice.Id, bob.Id);
+        await ShareAsync(alice.Id, basePath.Id, "a.txt");
+        var bobsShare = await ShareAsync(bob.Id, basePath.Id, "b.txt");
+
+        await GrantAsync(basePath.Id, bob.Id);
+
+        NewRequest();
+        Assert.Equal(bobsShare.Id, (await Context.Shares.SingleAsync()).Id);
+    }
+
+    [Fact]
+    public async Task Revoking_a_base_path_from_the_user_screen_takes_the_links_too()
+    {
+        var alice = await CreateUserAsync("alice@example.com");
+        Tree.File("a.txt");
+        var basePath = await CreateBasePathAsync(Tree.Root);
+        await GrantAsync(basePath.Id, alice.Id);
+        var share = await ShareAsync(alice.Id, basePath.Id, "a.txt");
+
+        // The same grant table edited from the other end (api/admin/users/{id}/base-paths). Both
+        // screens revoke, so both have to revoke the links.
+        var result = await BasePaths.SetUserBasePathsAsync(alice.Id, new SetUserBasePathsDto { BasePathIds = [] });
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+
+        NewRequest();
+        AssertPublicFailure(await Shares.ResolvePublicAsync(share.Id));
+    }
+
+    [Fact]
+    public async Task Keeping_a_grant_from_the_user_screen_leaves_the_links_alone()
+    {
+        var alice = await CreateUserAsync("alice@example.com");
+        Tree.File("a.txt");
+        var basePath = await CreateBasePathAsync(Tree.Root);
+        await GrantAsync(basePath.Id, alice.Id);
+        var share = await ShareAsync(alice.Id, basePath.Id, "a.txt");
+
+        await BasePaths.SetUserBasePathsAsync(alice.Id, new SetUserBasePathsDto { BasePathIds = [basePath.Id] });
+
+        NewRequest();
         Assert.True((await Shares.ResolvePublicAsync(share.Id)).IsSuccess);
     }
 

@@ -31,6 +31,11 @@ public interface IShareService
     /// </summary>
     Task<OperationResult<ResolvedShare>> ResolvePublicAsync(Guid shareId);
 
-    /// <summary>Counts one redemption of a link against its <c>MaxDownloadCount</c>.</summary>
+    /// <summary>
+    /// Claims one redemption of a link against its <c>MaxDownloadCount</c>. This is where the limit
+    /// is enforced: the increment is conditional in the database, so a failure means the link is
+    /// unknown or already spent and the caller must not be given the file. Answers the same
+    /// <c>NotFound</c> as every other public failure.
+    /// </summary>
     Task<OperationResult<Empty>> RegisterDownloadAsync(Guid shareId);
 }

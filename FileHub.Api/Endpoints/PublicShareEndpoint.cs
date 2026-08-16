@@ -75,7 +75,18 @@ public static class PublicShareEndpoint
 
         // Counted before the first byte: a client that disconnects halfway still consumed the link,
         // and counting afterwards would let a limit be evaded by aborting every download.
-        await service.RegisterDownloadAsync(id);
+        //
+        // The count is also what *decides*. The resolve above read the counter and the increment
+        // writes it, and between those two statements any number of concurrent anonymous callers
+        // read the same value — a link capped at one download served eight of them. So the claim
+        // is a single conditional UPDATE and its affected-row count says whether this caller got
+        // the last one.
+        var registered = await service.RegisterDownloadAsync(id);
+
+        if (registered.HasError)
+        {
+            return Results.Redirect(ShareLinks.NotFound(options.Value));
+        }
 
         return FileDownload.Create(
             context, share.FullPath, share.Name, share.IsDirectory,
