@@ -34,7 +34,11 @@ export class PathService {
     public updateData(newVal: IPublicPath) {
         const currentPath = this.pathSubject.value;
 
-        if (currentPath.find(x => x.ItemId === newVal.ItemId)) {
+        // Match on Id + NextSegment, not ItemId: the server generates a fresh ItemId every
+        // time it lists a directory, so the same folder never has the same ItemId twice.
+        const alreadyInPath = currentPath.find(x => x.Id === newVal.Id && x.NextSegment === newVal.NextSegment);
+
+        if (alreadyInPath) {
             return;
         }
 
