@@ -42,8 +42,12 @@ var connectionString = builder.Configuration.GetConnectionString("FileHub")
 // SQLite database. The SQLite sink writes through its own ADO.NET connection, so persisting a log
 // entry does not go through EF and cannot feed back into the logging pipeline. The app-wide
 // minimum level comes from Logging:LogLevel:Default (LOG_LEVEL in docker-compose).
-var logDbPath = new SqliteConnectionStringBuilder(connectionString).DataSource;
-Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(logDbPath))!);
+// Absolute on purpose: the SQLite sink resolves a relative path against the *binary's* directory
+// while EF resolves the connection string against the working directory, so a relative
+// "Data Source=./data/filehub.db" (which is what the Development config uses) would quietly put the
+// Logs table in a second database nobody ever looks at.
+var logDbPath = Path.GetFullPath(new SqliteConnectionStringBuilder(connectionString).DataSource);
+Directory.CreateDirectory(Path.GetDirectoryName(logDbPath)!);
 var minimumLevel = ParseLogLevel(builder.Configuration["Logging:LogLevel:Default"]);
 builder.Host.UseSerilog((context, configuration) => configuration
     .MinimumLevel.Is(minimumLevel)
