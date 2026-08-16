@@ -33,7 +33,7 @@ export class DirectoryList implements OnInit, AfterViewInit, OnDestroy {
       .pipe(debounceTime(300))
       .pipe(takeUntil(this.destroy$))
       .subscribe(value => {
-        this.filteredEntries = this.allEntries.filter(x => x.Name.toLowerCase().startsWith(value.toLowerCase()));
+        this.filteredEntries = this.allEntries.filter(x => x.Name.toLowerCase().includes(value.toLowerCase()));
         this.displayedEntries = [];
         this.loadMoreItems();
       });
