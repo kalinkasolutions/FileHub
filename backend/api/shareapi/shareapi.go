@@ -106,6 +106,14 @@ func (ss *ShareApi) share() gin.HandlerFunc {
 			return
 		}
 
+		_, err := os.Stat(validatedPath)
+
+		if err != nil {
+			ss.logger.Error("refusing to share missing path: %s, %v", validatedPath, err)
+			ctx.JSON(http.StatusNotFound, "file path was not found")
+			return
+		}
+
 		share, err := ss.shareService.InsertShare(shareservice.Share{
 			Path: validatedPath,
 		})
