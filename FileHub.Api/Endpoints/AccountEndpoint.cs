@@ -27,7 +27,9 @@ public static class AccountEndpoint
         group.MapPost("email", RequestEmailChangeAsync);
         group.MapPost("sign-out-everywhere", SignOutEverywhereAsync);
 
-        group.MapGet("2fa/setup", GetTwoFactorSetupAsync);
+        // A POST, unlike the GET it replaces, because handing out the authenticator secret now costs
+        // the account password and that has to travel in a body.
+        group.MapPost("2fa/setup", StartTwoFactorSetupAsync);
         group.MapPost("2fa/enable", EnableTwoFactorAsync);
         group.MapPost("2fa/disable", DisableTwoFactorAsync);
         group.MapPost("2fa/recovery-codes", RegenerateRecoveryCodesAsync);
@@ -79,12 +81,16 @@ public static class AccountEndpoint
         return await result.ToRefreshedHttpResultAsync(signInManager, user);
     }
 
-    private static async Task<IResult> GetTwoFactorSetupAsync(
-        ClaimsPrincipal user, IAccountService accountService, SignInManager<FileHubUser> signInManager)
+    private static async Task<IResult> StartTwoFactorSetupAsync(
+        StartTwoFactorSetupDto dto,
+        ClaimsPrincipal user,
+        IAccountService accountService,
+        SignInManager<FileHubUser> signInManager
+    )
     {
         // Generating the authenticator secret rotates the stamp, so even opening the setup screen has
         // to refresh the cookie — otherwise the user is signed out part-way through setting 2FA up.
-        var result = await accountService.GetTwoFactorSetupAsync(user.GetUserId());
+        var result = await accountService.StartTwoFactorSetupAsync(user.GetUserId(), dto);
         return await result.ToRefreshedHttpResultAsync(signInManager, user);
     }
 
@@ -111,9 +117,13 @@ public static class AccountEndpoint
     }
 
     private static async Task<IResult> RegenerateRecoveryCodesAsync(
-        ClaimsPrincipal user, IAccountService accountService, SignInManager<FileHubUser> signInManager)
+        RegenerateRecoveryCodesDto dto,
+        ClaimsPrincipal user,
+        IAccountService accountService,
+        SignInManager<FileHubUser> signInManager
+    )
     {
-        var result = await accountService.RegenerateRecoveryCodesAsync(user.GetUserId());
+        var result = await accountService.RegenerateRecoveryCodesAsync(user.GetUserId(), dto);
         return await result.ToRefreshedHttpResultAsync(signInManager, user);
     }
 }

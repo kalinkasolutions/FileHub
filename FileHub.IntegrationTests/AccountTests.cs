@@ -110,6 +110,32 @@ public sealed class AccountTests : AccountTestBase
         Assert.Contains(nameof(ChangePasswordDto.NewPassword), result.ValidationErrors.Keys);
     }
 
+    [Fact]
+    public async Task Changing_the_password_to_the_one_already_in_use_is_rejected()
+    {
+        var ada = await CreateAccountAsync();
+
+        var result = await Account.ChangePasswordAsync(ada.Id, Change(Password, Password));
+
+        Assert.Equal(ResultCode.BadRequest, result.ResultCode);
+        Assert.Contains("different", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Changing_the_password_to_the_one_already_in_use_keeps_the_forced_change()
+    {
+        var ada = await CreateAccountAsync();
+        ada.MustChangePassword = true;
+        await UserManager.UpdateAsync(ada);
+
+        await Account.ChangePasswordAsync(ada.Id, Change(Password, Password));
+
+        // This route is the only way past the gate, and Identity is happy to "change" a password to
+        // itself — so without the rule the seeded admin clears the flag and carries on using the
+        // password that was printed in the log.
+        Assert.True((await ReloadAsync(ada.Id)).MustChangePassword);
+    }
+
     // ---- the two-phase email change ----
 
     [Fact]
@@ -279,6 +305,54 @@ public sealed class AccountTests : AccountTestBase
         });
 
         Assert.Equal(ResultCode.BadRequest, result.ResultCode);
+    }
+
+    [Fact]
+    public async Task A_known_and_an_unknown_user_id_give_the_same_answer_when_confirming()
+    {
+        var ada = await CreateAccountAsync();
+        await RequestEmailChangeAsync(ada.Id, "ada@new.example.com");
+
+        var known = await Identity.ConfirmEmailChangeAsync(new ConfirmEmailChangeDto
+        {
+            UserId = ada.Id.ToString(),
+            Email = "ada@new.example.com",
+            Token = "not-a-token"
+        });
+        var unknown = await Identity.ConfirmEmailChangeAsync(new ConfirmEmailChangeDto
+        {
+            UserId = Guid.NewGuid().ToString(),
+            Email = "ada@new.example.com",
+            Token = "not-a-token"
+        });
+
+        // The link is followed while signed out and carries the user id, so Identity's "Invalid token."
+        // coming back only for an id that exists told whoever held the link exactly that.
+        Assert.Equal(unknown.ResultCode, known.ResultCode);
+        Assert.Equal(unknown.ErrorMessage, known.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Confirming_an_email_change_onto_a_taken_address_does_not_name_it()
+    {
+        var ada = await CreateAccountAsync();
+        var mail = await RequestEmailChangeAsync(ada.Id, "grace@example.com");
+
+        // Someone else claims the address between the mail going out and the link being followed.
+        await CreateUserAsync("grace@example.com", Password);
+
+        var result = await Identity.ConfirmEmailChangeAsync(new ConfirmEmailChangeDto
+        {
+            UserId = mail.UserId!.Value.ToString(),
+            Email = "grace@example.com",
+            Token = mail.Token
+        });
+
+        // "Email 'grace@example.com' is already taken." confirmed an address has an account, to an
+        // anonymous caller.
+        Assert.Equal(ResultCode.BadRequest, result.ResultCode);
+        Assert.DoesNotContain("grace@example.com", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("taken", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

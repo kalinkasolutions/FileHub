@@ -116,14 +116,22 @@ export class AccountService {
     return firstValueFrom(this.http.post('/api/account/sign-out-everywhere', {}));
   }
 
-  /** Hands out a fresh authenticator secret. Two-factor stays off until a code verifies. */
-  public twoFactorSetup(): Promise<ITwoFactorSetup> {
-    return firstValueFrom(this.http.get<ITwoFactorSetup>('/api/account/2fa/setup'));
+  /**
+   * Hands out a fresh authenticator secret. Two-factor stays off until a code verifies.
+   *
+   * All four two-factor calls send the account password, not just the one that turns it off: each
+   * changes what it takes to sign in as this account, and a session cookie is a weaker thing to hold
+   * than the password. That is also why this one is a POST rather than a GET.
+   */
+  public twoFactorSetup(currentPassword: string): Promise<ITwoFactorSetup> {
+    return firstValueFrom(
+      this.http.post<ITwoFactorSetup>('/api/account/2fa/setup', { currentPassword }),
+    );
   }
 
-  public async enableTwoFactor(code: string): Promise<string[]> {
+  public async enableTwoFactor(code: string, currentPassword: string): Promise<string[]> {
     const result = await firstValueFrom(
-      this.http.post<IRecoveryCodes>('/api/account/2fa/enable', { code }),
+      this.http.post<IRecoveryCodes>('/api/account/2fa/enable', { code, currentPassword }),
     );
     await this.refresh();
     return result.codes;
@@ -135,9 +143,9 @@ export class AccountService {
   }
 
   /** Replaces the whole set: whatever was written down before this call stops working. */
-  public async regenerateRecoveryCodes(): Promise<string[]> {
+  public async regenerateRecoveryCodes(currentPassword: string): Promise<string[]> {
     const result = await firstValueFrom(
-      this.http.post<IRecoveryCodes>('/api/account/2fa/recovery-codes', {}),
+      this.http.post<IRecoveryCodes>('/api/account/2fa/recovery-codes', { currentPassword }),
     );
     await this.refresh();
     return result.codes;

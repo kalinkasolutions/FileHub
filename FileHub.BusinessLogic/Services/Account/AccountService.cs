@@ -99,6 +99,16 @@ public sealed class AccountService : IAccountService
             return OperationResult<Empty>.BadRequest(IncorrectPassword);
         }
 
+        // Identity is happy to "change" a password to itself, and this route is the only way past the
+        // forced-change gate: without this the seeded admin posts the generated password three times,
+        // clears MustChangePassword and keeps using the credential that was printed in the log.
+        if (string.Equals(dto.NewPassword, dto.CurrentPassword, StringComparison.Ordinal))
+        {
+            m_logger.LogInformation("User {UserId} tried to change their password to the one they already have", userId);
+            return OperationResult<Empty>.BadRequest(
+                "Your new password must be different from your current one.");
+        }
+
         var result = await m_accountRepository.ChangePasswordAsync(user, dto.CurrentPassword, dto.NewPassword);
         if (result.HasError)
         {
@@ -180,12 +190,27 @@ public sealed class AccountService : IAccountService
         return OperationResult<Empty>.Success();
     }
 
-    public async Task<OperationResult<TwoFactorSetupDto>> GetTwoFactorSetupAsync(Guid userId)
+    public async Task<OperationResult<TwoFactorSetupDto>> StartTwoFactorSetupAsync(Guid userId, StartTwoFactorSetupDto dto)
     {
+        var validation = DtoValidator.Validate(dto);
+        if (validation.HasError)
+        {
+            return validation.MapError<TwoFactorSetupDto>();
+        }
+
         var user = await m_accountRepository.FindByIdAsync(userId);
         if (user is null)
         {
             return OperationResult<TwoFactorSetupDto>.NotFound("Account not found");
+        }
+
+        // A session cookie was never enough for this: pairing an authenticator decides who can sign in
+        // from here on, and someone holding a borrowed cookie could pair their own device and keep the
+        // recovery codes that come with it. Turning 2FA off has asked for the password all along.
+        if (!await m_accountRepository.CheckPasswordAsync(user, dto.CurrentPassword))
+        {
+            m_logger.LogInformation("User {UserId} gave the wrong password when starting 2FA setup", userId);
+            return OperationResult<TwoFactorSetupDto>.BadRequest(IncorrectPassword);
         }
 
         if (user.TwoFactorEnabled)
@@ -221,6 +246,14 @@ public sealed class AccountService : IAccountService
         if (user is null)
         {
             return OperationResult<RecoveryCodesDto>.NotFound("Account not found");
+        }
+
+        // The authenticator code proves a device was paired, not that the account holder paired it —
+        // this is the step that hands out the recovery codes, so it asks for the password too.
+        if (!await m_accountRepository.CheckPasswordAsync(user, dto.CurrentPassword))
+        {
+            m_logger.LogInformation("User {UserId} gave the wrong password when enabling 2FA", userId);
+            return OperationResult<RecoveryCodesDto>.BadRequest(IncorrectPassword);
         }
 
         if (user.TwoFactorEnabled)
@@ -293,12 +326,27 @@ public sealed class AccountService : IAccountService
         return OperationResult<Empty>.Success();
     }
 
-    public async Task<OperationResult<RecoveryCodesDto>> RegenerateRecoveryCodesAsync(Guid userId)
+    public async Task<OperationResult<RecoveryCodesDto>> RegenerateRecoveryCodesAsync(
+        Guid userId, RegenerateRecoveryCodesDto dto)
     {
+        var validation = DtoValidator.Validate(dto);
+        if (validation.HasError)
+        {
+            return validation.MapError<RecoveryCodesDto>();
+        }
+
         var user = await m_accountRepository.FindByIdAsync(userId);
         if (user is null)
         {
             return OperationResult<RecoveryCodesDto>.NotFound("Account not found");
+        }
+
+        // Each code is a single-use way past the second factor and they outlive both a password change
+        // and "sign out everywhere", so minting a set is a credential issue like any other.
+        if (!await m_accountRepository.CheckPasswordAsync(user, dto.CurrentPassword))
+        {
+            m_logger.LogInformation("User {UserId} gave the wrong password when regenerating recovery codes", userId);
+            return OperationResult<RecoveryCodesDto>.BadRequest(IncorrectPassword);
         }
 
         if (!user.TwoFactorEnabled)

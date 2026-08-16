@@ -4,7 +4,9 @@ using Dtos.Account;
 using Entities.Account;
 using FileHub.BusinessLogic.Services.Account;
 using FileHub.BusinessLogic.Services.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
+using Shared;
 
 namespace FileHub.IntegrationTests;
 
@@ -26,6 +28,12 @@ public abstract class AccountTestBase : TestHostBase
 
     private static void Configure(IServiceCollection services)
     {
+        // IdentityRepository signs users in, so it needs a real SignInManager — which in turn needs
+        // somewhere to look for an HttpContext. Nothing here reaches the cookie-writing path.
+        services.AddHttpContextAccessor();
+        services.AddAuthentication();
+        services.AddIdentityCore<FileHubUser>().AddSignInManager();
+
         services.AddScoped<IAccountRepository, AccountRepository>();
         services.AddScoped<IIdentityRepository, IdentityRepository>();
         services.AddScoped<IAccountService, AccountService>();
@@ -42,12 +50,20 @@ public abstract class AccountTestBase : TestHostBase
                ?? throw new InvalidOperationException($"User {userId} is gone.");
     }
 
+    /// <summary>Starts the setup with the account password, the way the screen does.</summary>
+    protected Task<OperationResult<TwoFactorSetupDto>> StartTwoFactorSetupAsync(
+        Guid userId, string currentPassword = Password) =>
+        Account.StartTwoFactorSetupAsync(userId, new StartTwoFactorSetupDto { CurrentPassword = currentPassword });
+
     /// <summary>Runs the real setup + verify flow and returns the recovery codes it issued.</summary>
     protected async Task<List<string>> EnableTwoFactorAsync(Guid userId)
     {
-        var setup = await Account.GetTwoFactorSetupAsync(userId);
-        var result = await Account.EnableTwoFactorAsync(
-            userId, new EnableTwoFactorDto { Code = TotpCode.Current(setup.Value.SharedKey) });
+        var setup = await StartTwoFactorSetupAsync(userId);
+        var result = await Account.EnableTwoFactorAsync(userId, new EnableTwoFactorDto
+        {
+            Code = TotpCode.Current(setup.Value.SharedKey),
+            CurrentPassword = Password
+        });
 
         Assert.True(result.IsSuccess, result.ErrorMessage);
         return result.Value.Codes;

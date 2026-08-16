@@ -15,7 +15,7 @@ public sealed class TwoFactorTests : AccountTestBase
     {
         var ada = await CreateAccountAsync();
 
-        var result = await Account.GetTwoFactorSetupAsync(ada.Id);
+        var result = await StartTwoFactorSetupAsync(ada.Id);
 
         Assert.True(result.IsSuccess);
         Assert.NotEmpty(result.Value.SharedKey);
@@ -28,7 +28,7 @@ public sealed class TwoFactorTests : AccountTestBase
     {
         var ada = await CreateAccountAsync();
 
-        await Account.GetTwoFactorSetupAsync(ada.Id);
+        await StartTwoFactorSetupAsync(ada.Id);
 
         Assert.False((await ReloadAsync(ada.Id)).TwoFactorEnabled);
     }
@@ -38,8 +38,8 @@ public sealed class TwoFactorTests : AccountTestBase
     {
         var ada = await CreateAccountAsync();
 
-        var first = await Account.GetTwoFactorSetupAsync(ada.Id);
-        var second = await Account.GetTwoFactorSetupAsync(ada.Id);
+        var first = await StartTwoFactorSetupAsync(ada.Id);
+        var second = await StartTwoFactorSetupAsync(ada.Id);
 
         // Reopening the screen must not invalidate a code the user already scanned.
         Assert.Equal(first.Value.SharedKey, second.Value.SharedKey);
@@ -49,10 +49,10 @@ public sealed class TwoFactorTests : AccountTestBase
     public async Task Enabling_with_a_generated_code_turns_two_factor_on_and_issues_recovery_codes()
     {
         var ada = await CreateAccountAsync();
-        var setup = await Account.GetTwoFactorSetupAsync(ada.Id);
+        var setup = await StartTwoFactorSetupAsync(ada.Id);
 
         var result = await Account.EnableTwoFactorAsync(
-            ada.Id, new EnableTwoFactorDto { Code = TotpCode.Current(setup.Value.SharedKey) });
+            ada.Id, new EnableTwoFactorDto { Code = TotpCode.Current(setup.Value.SharedKey), CurrentPassword = Password });
 
         Assert.True(result.IsSuccess, result.ErrorMessage);
         Assert.Equal(10, result.Value.Codes.Count);
@@ -64,11 +64,11 @@ public sealed class TwoFactorTests : AccountTestBase
     public async Task Enabling_accepts_a_code_typed_with_a_space()
     {
         var ada = await CreateAccountAsync();
-        var setup = await Account.GetTwoFactorSetupAsync(ada.Id);
+        var setup = await StartTwoFactorSetupAsync(ada.Id);
         var code = TotpCode.Current(setup.Value.SharedKey);
 
         var result = await Account.EnableTwoFactorAsync(
-            ada.Id, new EnableTwoFactorDto { Code = $"{code[..3]} {code[3..]}" });
+            ada.Id, new EnableTwoFactorDto { Code = $"{code[..3]} {code[3..]}", CurrentPassword = Password });
 
         Assert.True(result.IsSuccess, result.ErrorMessage);
     }
@@ -77,9 +77,9 @@ public sealed class TwoFactorTests : AccountTestBase
     public async Task Enabling_with_a_wrong_code_leaves_two_factor_off()
     {
         var ada = await CreateAccountAsync();
-        await Account.GetTwoFactorSetupAsync(ada.Id);
+        await StartTwoFactorSetupAsync(ada.Id);
 
-        var result = await Account.EnableTwoFactorAsync(ada.Id, new EnableTwoFactorDto { Code = "000000" });
+        var result = await Account.EnableTwoFactorAsync(ada.Id, new EnableTwoFactorDto { Code = "000000", CurrentPassword = Password });
 
         Assert.Equal(ResultCode.BadRequest, result.ResultCode);
         Assert.False((await ReloadAsync(ada.Id)).TwoFactorEnabled);
@@ -90,7 +90,7 @@ public sealed class TwoFactorTests : AccountTestBase
     {
         var ada = await CreateAccountAsync();
 
-        var result = await Account.EnableTwoFactorAsync(ada.Id, new EnableTwoFactorDto { Code = "123456" });
+        var result = await Account.EnableTwoFactorAsync(ada.Id, new EnableTwoFactorDto { Code = "123456", CurrentPassword = Password });
 
         Assert.Equal(ResultCode.BadRequest, result.ResultCode);
         Assert.False((await ReloadAsync(ada.Id)).TwoFactorEnabled);
@@ -102,7 +102,7 @@ public sealed class TwoFactorTests : AccountTestBase
         var ada = await CreateAccountAsync();
         await EnableTwoFactorAsync(ada.Id);
 
-        var result = await Account.GetTwoFactorSetupAsync(ada.Id);
+        var result = await StartTwoFactorSetupAsync(ada.Id);
 
         Assert.Equal(ResultCode.BadRequest, result.ResultCode);
     }
@@ -125,7 +125,8 @@ public sealed class TwoFactorTests : AccountTestBase
         var ada = await CreateAccountAsync();
         var original = await EnableTwoFactorAsync(ada.Id);
 
-        var result = await Account.RegenerateRecoveryCodesAsync(ada.Id);
+        var result = await Account.RegenerateRecoveryCodesAsync(
+            ada.Id, new RegenerateRecoveryCodesDto { CurrentPassword = Password });
 
         Assert.True(result.IsSuccess);
         Assert.Equal(10, result.Value.Codes.Count);
@@ -137,18 +138,83 @@ public sealed class TwoFactorTests : AccountTestBase
     {
         var ada = await CreateAccountAsync();
 
-        var result = await Account.RegenerateRecoveryCodesAsync(ada.Id);
+        var result = await Account.RegenerateRecoveryCodesAsync(
+            ada.Id, new RegenerateRecoveryCodesDto { CurrentPassword = Password });
 
         Assert.Equal(ResultCode.BadRequest, result.ResultCode);
+    }
+
+    // ---- the password every one of these asks for ----
+
+    [Fact]
+    public async Task Setup_with_the_wrong_password_hands_out_no_secret()
+    {
+        var ada = await CreateAccountAsync();
+
+        var result = await StartTwoFactorSetupAsync(ada.Id, "not-my-password");
+
+        // A borrowed session cookie was enough to pair an authenticator, which decides who can sign in
+        // from then on — turning 2FA off has asked for the password all along.
+        Assert.Equal(ResultCode.BadRequest, result.ResultCode);
+        Assert.Null(await UserManager.GetAuthenticatorKeyAsync(await ReloadAsync(ada.Id)));
+    }
+
+    [Fact]
+    public async Task Enabling_with_the_wrong_password_leaves_two_factor_off()
+    {
+        var ada = await CreateAccountAsync();
+        var setup = await StartTwoFactorSetupAsync(ada.Id);
+
+        var result = await Account.EnableTwoFactorAsync(ada.Id, new EnableTwoFactorDto
+        {
+            Code = TotpCode.Current(setup.Value.SharedKey),
+            CurrentPassword = "not-my-password"
+        });
+
+        // The authenticator code only proves a device was paired, not who paired it.
+        Assert.Equal(ResultCode.BadRequest, result.ResultCode);
+        Assert.False((await ReloadAsync(ada.Id)).TwoFactorEnabled);
+    }
+
+    [Fact]
+    public async Task Regenerating_recovery_codes_with_the_wrong_password_keeps_the_old_set()
+    {
+        var ada = await CreateAccountAsync();
+        var original = await EnableTwoFactorAsync(ada.Id);
+
+        var result = await Account.RegenerateRecoveryCodesAsync(
+            ada.Id, new RegenerateRecoveryCodesDto { CurrentPassword = "not-my-password" });
+
+        // Recovery codes survive a password change and "sign out everywhere", so a set minted by
+        // whoever borrowed the cookie would outlive every way the account holder has of taking the
+        // session back.
+        Assert.Equal(ResultCode.BadRequest, result.ResultCode);
+        Assert.Equal(original.Count, (await Account.GetAsync(ada.Id)).Value.RecoveryCodesLeft);
+    }
+
+    [Fact]
+    public async Task Enabling_without_a_password_is_a_validation_error()
+    {
+        var ada = await CreateAccountAsync();
+        var setup = await StartTwoFactorSetupAsync(ada.Id);
+
+        var result = await Account.EnableTwoFactorAsync(ada.Id, new EnableTwoFactorDto
+        {
+            Code = TotpCode.Current(setup.Value.SharedKey),
+            CurrentPassword = string.Empty
+        });
+
+        Assert.Equal(ResultCode.Validation, result.ResultCode);
+        Assert.Contains(nameof(EnableTwoFactorDto.CurrentPassword), result.ValidationErrors.Keys);
     }
 
     [Fact]
     public async Task Disabling_turns_two_factor_off_and_discards_the_secret()
     {
         var ada = await CreateAccountAsync();
-        var setup = await Account.GetTwoFactorSetupAsync(ada.Id);
+        var setup = await StartTwoFactorSetupAsync(ada.Id);
         var originalKey = setup.Value.SharedKey;
-        await Account.EnableTwoFactorAsync(ada.Id, new EnableTwoFactorDto { Code = TotpCode.Current(originalKey) });
+        await Account.EnableTwoFactorAsync(ada.Id, new EnableTwoFactorDto { Code = TotpCode.Current(originalKey), CurrentPassword = Password });
 
         var result = await Account.DisableTwoFactorAsync(ada.Id, new DisableTwoFactorDto { CurrentPassword = Password });
 
@@ -157,7 +223,7 @@ public sealed class TwoFactorTests : AccountTestBase
 
         // A later setup pairs a fresh secret rather than accepting codes from an app entry the user
         // may have removed months ago.
-        var newSetup = await Account.GetTwoFactorSetupAsync(ada.Id);
+        var newSetup = await StartTwoFactorSetupAsync(ada.Id);
         Assert.NotEqual(originalKey, newSetup.Value.SharedKey);
     }
 

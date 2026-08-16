@@ -37,6 +37,15 @@ export class TwoFactorComponent implements OnInit {
   public readonly code = signal('');
 
   public readonly recoveryCodes = signal<string[]>([]);
+
+  /**
+   * The account password, which every one of these operations asks for — pairing an authenticator
+   * and minting recovery codes are credential changes just as much as turning the second factor off.
+   * {@link setupPassword} is typed once and carried from "start setup" into the code verification, so
+   * one flow is one prompt; each is cleared as soon as its flow ends.
+   */
+  public readonly setupPassword = signal('');
+  public readonly regeneratePassword = signal('');
   public readonly disablePassword = signal('');
 
   /**
@@ -56,9 +65,13 @@ export class TwoFactorComponent implements OnInit {
   }
 
   public async startSetup(): Promise<void> {
+    if (!this.setupPassword()) {
+      return;
+    }
+
     this.busy.set(true);
     try {
-      const setup = await this.accountService.twoFactorSetup();
+      const setup = await this.accountService.twoFactorSetup(this.setupPassword());
       this.sharedKey.set(setup.sharedKey);
       this.authenticatorUri.set(setup.authenticatorUri);
       this.code.set('');
@@ -82,18 +95,22 @@ export class TwoFactorComponent implements OnInit {
   }
 
   public cancelSetup(): void {
+    this.setupPassword.set('');
     this.view.set('status');
   }
 
   public async verify(): Promise<void> {
     const code = this.code().trim();
-    if (!code) {
+    if (!code || !this.setupPassword()) {
       return;
     }
 
     this.busy.set(true);
     try {
-      this.recoveryCodes.set(await this.accountService.enableTwoFactor(code));
+      this.recoveryCodes.set(
+        await this.accountService.enableTwoFactor(code, this.setupPassword()),
+      );
+      this.setupPassword.set('');
       this.view.set('codes');
       this.toastr.success('Two-factor authentication is on');
     } catch (error: unknown) {
@@ -104,9 +121,16 @@ export class TwoFactorComponent implements OnInit {
   }
 
   public async regenerateCodes(): Promise<void> {
+    if (!this.regeneratePassword()) {
+      return;
+    }
+
     this.busy.set(true);
     try {
-      this.recoveryCodes.set(await this.accountService.regenerateRecoveryCodes());
+      this.recoveryCodes.set(
+        await this.accountService.regenerateRecoveryCodes(this.regeneratePassword()),
+      );
+      this.regeneratePassword.set('');
       this.view.set('codes');
       this.toastr.success('New recovery codes generated — the old ones no longer work');
     } catch (error: unknown) {
