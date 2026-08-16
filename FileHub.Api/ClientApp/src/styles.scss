@@ -450,3 +450,60 @@ div.mat-mdc-dialog-surface {
     font-size: 14px;
   }
 }
+
+// ─── Toasts ─────────────────────────────────────────────────────────────────
+// ngx-toastr ships its own look: rounded corners, its own font stack, a filled colour block and a
+// background-image glyph. Left alone it is the one thing on screen that is not FileHub, so it gets
+// the panel treatment like every other floating surface.
+.toast-container {
+  .ngx-toastr {
+    @include panel;
+    padding: $small-padding $default-padding;
+    border-width: 2px;
+    border-radius: 0;
+    background-image: none;
+    color: $text-primary;
+    font-family: $font-main;
+    font-size: $font-size-small;
+    line-height: 1.5;
+
+    @include hover {
+      box-shadow: $shadow-elevated;
+      opacity: 1;
+    }
+  }
+
+  // The level is the border colour — a filled block would compete with the accent slab that is
+  // the thing to press.
+  .toast-success {
+    border-color: $primary-green;
+  }
+
+  .toast-error {
+    border-color: $text-error;
+  }
+
+  .toast-warning {
+    border-color: #d99a2b;
+  }
+
+  .toast-info {
+    border-color: $border-input;
+  }
+
+  .toast-title {
+    font-weight: 700;
+  }
+
+  .toast-close-button {
+    color: $text-muted;
+    font-family: $font-main;
+    font-weight: 400;
+    text-shadow: none;
+    opacity: 1;
+
+    @include hover {
+      color: $text-primary;
+    }
+  }
+}
