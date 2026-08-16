@@ -16,20 +16,22 @@
 
     <a class="app-link" [href]="authenticatorUri()">Open in an authenticator app on this device</a>
 
+    <!-- Label above the key rather than beside it: the key is 32 unbreakable characters, and on a
+         phone there is no line that holds both it and its label. -->
     <div class="row">
-      <span class="label">Or type this key</span>
-      <span class="actions">
+      <span class="stacked">
+        <span class="label">Or type this key</span>
         <span class="value key">{{ sharedKey() }}</span>
-        <button
-          class="icon-btn ghost compact"
-          type="button"
-          (click)="copyKey()"
-          title="Copy key"
-          aria-label="Copy key"
-        >
-          <mat-icon>content_copy</mat-icon>
-        </button>
       </span>
+      <button
+        class="icon-btn quiet"
+        type="button"
+        (click)="copyKey()"
+        title="Copy key"
+        aria-label="Copy key"
+      >
+        <mat-icon>content_copy</mat-icon>
+      </button>
     </div>
 
     <form (ngSubmit)="verify()">

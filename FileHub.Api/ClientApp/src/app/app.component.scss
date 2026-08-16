@@ -11,6 +11,10 @@
   @include flex(column);
   align-items: center;
   justify-content: center;
+  // Only the chromeless shape needs it: those screens are a bare centred block, so without it the
+  // helper copy beside the panel runs into the edge of a phone screen. With chrome the header and
+  // the routed view each bring their own.
+  padding: $screen-padding;
 
   // The outlet renders its component as a *sibling*, so the tag itself is an empty element that
   // would otherwise sit in the flex line and take a share of it.
@@ -21,6 +25,7 @@
 
 .shell.chromed {
   justify-content: flex-start;
+  padding: 0;
 
   > * {
     width: 100%;

@@ -1,10 +1,17 @@
 @use 'variables' as *;
 @use 'mixins' as *;
 
+// The chrome wraps rather than scrolls or clips: on a 360px phone the wordmark and four
+// destinations do not fit on one line, and every answer that keeps them there hides one of them —
+// the sign-out ended up off the right edge. Wrapping drops the nav onto its own line only on the
+// screens that need it, which is what the original header did at the same width.
 :host {
   @include flex(row);
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  align-content: center;
+  row-gap: 0;
+  column-gap: $small-padding;
   flex-shrink: 0;
   width: 100%;
   min-height: $nav-height;
@@ -13,11 +20,13 @@
   background: $bg-primary;
 }
 
+// The wordmark is a wide one — roughly 4:1 drawn, 7:1 including its own margins — so it is sized by
+// width with the height left to follow. A square box would squash it.
 .brand {
   @include flex(row);
   align-items: center;
-  gap: $default-padding;
   flex-shrink: 0;
+  min-height: $tap-target-min;
   color: $text-primary;
   text-decoration: none;
 
@@ -26,30 +35,25 @@
   }
 
   img {
+    display: block;
     width: 130px;
-    max-width: 40vw;
+    max-width: 30vw;
     height: auto;
-  }
-
-  .wordmark {
-    font-size: $font-size-app-title;
-    font-weight: 600;
-    letter-spacing: $letter-spacing-title;
   }
 }
 
-// The section name sits behind a separator so it reads as a path, not as a second title. On a phone
-// there is no room for it beside four actions, and the highlighted nav icon already says where you
-// are — so it, and the wordmark, only appear once there is width for them.
+// Where you are, written the way a path is: `/ directories`. It is the first thing to go when the
+// line is short — the underlined link already says it.
 .section {
   display: none;
   align-items: center;
-  gap: 12px;
+  gap: $small-padding;
   min-width: 0;
   overflow: hidden;
   color: $text-muted;
   font-size: $font-size-base;
   white-space: nowrap;
+  text-transform: lowercase;
 
   &::before {
     content: '/';
@@ -57,32 +61,49 @@
   }
 }
 
-.brand .wordmark {
-  display: none;
-}
-
-.spacer {
-  flex: 1;
-}
-
+// `margin-left: auto` rather than a spacer element, so that on the wrapped line the nav is pushed
+// to the right edge instead of stranded under the wordmark.
 nav {
   @include flex(row);
   align-items: center;
   gap: $small-padding;
   flex-shrink: 0;
+  min-height: $tap-target-min;
+  margin-left: auto;
 }
 
-// The current destination, marked on the icon itself rather than with an underline.
-.icon-btn.active {
-  color: $primary-green;
+// Plain underlined text, green when it is where you are — the original's reading, and the reason
+// the header carries no row of look-alike buttons.
+.nav {
+  @include flex(row);
+  align-items: center;
+  flex-shrink: 0;
+  min-height: $tap-target-min;
+  color: $link-primary;
+  font-size: $font-size-small;
+  white-space: nowrap;
+  text-decoration: underline;
+
+  @include hover {
+    color: $link-hover;
+  }
+
+  &.active {
+    color: $primary-green;
+  }
 }
 
-@media (min-width: 480px) {
-  .brand .wordmark {
-    display: inline;
+@media (min-width: 700px) {
+  :host {
+    column-gap: $default-margin;
+    padding: 0 $header-padding;
   }
 
   .section {
     display: flex;
+  }
+
+  .nav {
+    font-size: $font-size-base;
   }
 }

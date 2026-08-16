@@ -9,18 +9,21 @@
   @include screen-header;
 }
 
-// Each block brings its own padding; the divider is what makes them read as a sequence of
-// sections rather than styling reaching in from the screen.
+// A stack, not a deck: every block is a full-width panel, one under the next, separated by the
+// column's own gap. Flush blocks with a hairline between them put two 5px accent rules back to
+// back and read as a 10px seam; a grid of them would turn the screen into a card wall.
 .blocks {
   @include flex(column);
+  gap: $default-margin;
+  // A stack of forms is still a reading column: left at the shell's full 1200px, a password field
+  // is a metre of ruled line and every `space-between` row has its label and its value at opposite
+  // ends of the screen. The cap is the form width the auth screens use, with room for the
+  // recovery-code grid on top.
+  max-width: $max-form-width * 1.5;
   // Takes what the header leaves and scrolls inside it, rather than growing the whole screen: the
   // header stays put while a long stack of blocks moves under it.
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 0 $screen-padding;
-
-  > *:not(:last-child) {
-    border-bottom: 1px solid $border-subtle;
-  }
+  padding: $screen-padding;
 }

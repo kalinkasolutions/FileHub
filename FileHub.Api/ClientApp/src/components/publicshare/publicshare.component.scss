@@ -8,18 +8,15 @@
   align-items: center;
   justify-content: center;
   padding: $screen-padding;
-  background: $bg-primary;
 }
 
-.card {
+// The link is the one thing on this screen, so it is the one panel on it.
+.panel {
+  @include panel;
   width: 100%;
   max-width: $max-form-width;
-  @include flex(column);
-  align-items: stretch;
   gap: $default-margin;
-  padding: $default-margin;
-  border-radius: $border-radius;
-  background: $surface;
+  padding: $default-padding;
   text-align: center;
 }
 
@@ -29,7 +26,6 @@
 
   mat-icon {
     @include icon-size(44px);
-    color: $primary-green;
     cursor: default;
   }
 }
@@ -48,11 +44,10 @@ h1 {
 }
 
 // The filename is the one thing worth copying out of this page, and it is read character by
-// character — so it keeps the monospace face and can be selected.
+// character — so it can be selected, and it wraps rather than widening the panel.
 .name {
   overflow-wrap: anywhere;
   color: $text-primary;
-  font-family: $font-mono;
   font-size: $font-size-row;
   user-select: text;
 }
@@ -63,10 +58,10 @@ h1 {
 }
 
 // An anchor, not a button: the download is a plain navigation to the API, so it survives a
-// middle-click and shows its target in the status bar.
+// middle-click and shows its target in the status bar. It wears the app's accent slab.
 .download {
   @include button-base;
-  @include button-colors($primary-green, $on-accent, $primary-green-hover);
+  @include button-colors($accent-fill, $on-accent, $accent-fill-hover);
   color: $on-accent;
   text-decoration: none;
 
@@ -83,7 +78,7 @@ h1 {
 
 // Acts on the page rather than navigating, so it is a button wearing a link.
 .link {
-  min-height: 0;
+  min-height: $tap-target-min;
   padding: 0;
   background: transparent;
   color: $link-primary;
