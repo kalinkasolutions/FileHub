@@ -5,17 +5,20 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/kalinkasolutions/FileHub/backend/services/basepathservice"
+	"github.com/kalinkasolutions/FileHub/backend/services/shareservice"
 )
 
 type BasePathApi struct {
 	router          *gin.Engine
 	basePathService basepathservice.IBasePathService
+	shareService    shareservice.IShareService
 }
 
-func NewBasePathApi(router *gin.Engine, basePathService basepathservice.IBasePathService) *BasePathApi {
+func NewBasePathApi(router *gin.Engine, basePathService basepathservice.IBasePathService, shareService shareservice.IShareService) *BasePathApi {
 	return &BasePathApi{
 		router:          router,
 		basePathService: basePathService,
+		shareService:    shareService,
 	}
 }
 
@@ -93,6 +96,13 @@ func (bp *BasePathApi) deleteBasePath() gin.HandlerFunc {
 		}
 
 		deletePath, err := bp.basePathService.DeleteBasePath(path)
+
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, err.Error())
+			return
+		}
+
+		err = bp.shareService.DeleteSharesUnderPath(deletePath.Path)
 
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, err.Error())

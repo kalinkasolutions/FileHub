@@ -90,12 +90,18 @@ func (as *BasePathService) UpdateBasePath(updatePath Path) (Path, error) {
 }
 
 func (as *BasePathService) DeleteBasePath(deletePath Path) (Path, error) {
-	_, err := as.db.Exec("DELETE FROM Paths WHERE Id = ?", deletePath.Id)
+	deletedPath, err := as.getBasePathById(deletePath.Id)
+
+	if err != nil {
+		return Path{}, fmt.Errorf("failed to delete path")
+	}
+
+	_, err = as.db.Exec("DELETE FROM Paths WHERE Id = ?", deletePath.Id)
 
 	if err != nil {
 		as.logger.Error("Failed to delete path with id: %d\n%v", deletePath.Id, err)
 		return Path{}, fmt.Errorf("failed to delete path")
 	}
 
-	return deletePath, nil
+	return deletedPath, nil
 }

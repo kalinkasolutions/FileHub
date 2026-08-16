@@ -52,7 +52,7 @@ func (a *Api) Load() {
 	shareService := shareservice.NewShareservice(a.logger, a.db)
 
 	fileapi.NewFileApi(a.logger, a.router, a.config, publicPathService, shareService).Load()
-	basepath.NewBasePathApi(a.router, basepathservice.NewBasePathService(a.logger, a.db)).Load()
+	basepath.NewBasePathApi(a.router, basepathservice.NewBasePathService(a.logger, a.db), shareService).Load()
 	shareapi.NewShareApi(a.logger, a.router, a.config, publicPathService, shareService).Load()
 
 	if !a.config.Debug {

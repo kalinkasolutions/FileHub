@@ -3,6 +3,7 @@ package shareservice
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -21,6 +22,7 @@ type IShareService interface {
 	GetShareById(id string) (Share, error)
 	UpdateDownloadCount(id string) error
 	DeleteShare(deletePath Share) (Share, error)
+	DeleteSharesUnderPath(basePath string) error
 }
 
 type Share struct {
@@ -83,6 +85,31 @@ func (as *ShareService) UpdateDownloadCount(id string) error {
 	}
 
 	return nil
+}
+
+// DeleteSharesUnderPath revokes every share that points at basePath or at something
+// below it. Shares store a resolved absolute path, so removing a base path alone
+// would leave its share links working.
+func (as *ShareService) DeleteSharesUnderPath(basePath string) error {
+	prefix := likeEscape(basePath) + "/%"
+
+	_, err := as.db.Exec(`DELETE FROM Shares WHERE Path = ? OR Path LIKE ? ESCAPE '\'`, basePath, prefix)
+
+	if err != nil {
+		as.logger.Error("failed to delete shares under path: %s\n%v", basePath, err)
+		return fmt.Errorf("failed to delete shares")
+	}
+
+	return nil
+}
+
+// likeEscape neutralises the LIKE wildcards so a path containing % or _ only
+// matches itself.
+func likeEscape(value string) string {
+	value = strings.ReplaceAll(value, `\`, `\\`)
+	value = strings.ReplaceAll(value, "%", `\%`)
+	value = strings.ReplaceAll(value, "_", `\_`)
+	return value
 }
 
 func (as *ShareService) DeleteShare(deleteShare Share) (Share, error) {
