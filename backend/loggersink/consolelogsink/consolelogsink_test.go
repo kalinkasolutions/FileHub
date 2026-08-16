@@ -23,5 +23,5 @@ func TestConsoelSink(t *testing.T) {
 	out, _ := io.ReadAll(r)
 	os.Stdout = rescueStdout
 
-	assert.Equal(t, string(out), now.Format(time.ANSIC)+"\tINFO\t\tlog\n")
+	assert.Equal(t, string(out), "\033[32m"+now.Format(time.ANSIC)+"\tINFO\t\tlog\033[0m\n")
 }
