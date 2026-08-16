@@ -136,7 +136,11 @@ public sealed class BasePathService : IBasePathService
             return OperationResult<Empty>.NotFound("Base path not found");
         }
 
-        var userIds = dto.UserIds ?? [];
+        // An id that matches no account would fail on the foreign key at save time; drop it here
+        // so a stale id in the admin UI does not take the whole grant list down with it. Same
+        // reasoning, and the same behaviour, as SetUserBasePathsAsync below.
+        var userIds = await m_basePathRepository.FilterExistingUserIdsAsync(dto.UserIds ?? []);
+
         await m_basePathRepository.ReplaceAccessForBasePathAsync(basePathId, userIds);
         await m_basePathRepository.SaveChangesAsync();
 

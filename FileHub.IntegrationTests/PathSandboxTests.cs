@@ -261,6 +261,31 @@ public sealed class PathSandboxTests : IDisposable
     }
 
     [Fact]
+    public void A_symlink_inside_a_base_path_that_is_itself_a_symlink_still_resolves()
+    {
+        if (!TempTree.SymlinksSupported)
+        {
+            return;
+        }
+
+        // The deployment case this protects: the admin registers /data, which is a link to the real
+        // mount. A shortcut inside it resolves to the *mount's* path, so a root left unresolved
+        // would read that as an escape and deny a file the user is plainly allowed to have.
+        var real = m_tree.Dir("real");
+        var target = m_tree.File("real/a.txt", "hello");
+        var linkedRoot = Path.Combine(m_tree.Outside, "linked-root");
+        Directory.CreateSymbolicLink(linkedRoot, real);
+        System.IO.File.CreateSymbolicLink(Path.Combine(real, "shortcut.txt"), target);
+
+        Assert.True(PathSandbox.TryResolve(linkedRoot, "a.txt", out _));
+        // The accepted path is the one to open — the link itself, not its target: reading it is
+        // what follows the link, and rewriting it here would change what the caller stores.
+        Assert.True(PathSandbox.TryResolve(linkedRoot, "shortcut.txt", out var shortcut));
+        Assert.EndsWith("shortcut.txt", shortcut, StringComparison.Ordinal);
+        Assert.Equal("hello", System.IO.File.ReadAllText(shortcut));
+    }
+
+    [Fact]
     public void A_symlink_chain_that_ends_outside_the_base_path_is_refused()
     {
         if (!TempTree.SymlinksSupported)

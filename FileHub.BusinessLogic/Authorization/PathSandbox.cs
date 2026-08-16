@@ -122,8 +122,9 @@ public static class PathSandbox
         var isDirectory = Directory.Exists(path);
 
         // Nothing on disk here, so there is no link to follow either — a download of a file that was
-        // just deleted resolves fine and is reported missing by the caller. (Both Exists checks
-        // follow links, so a dangling one lands here too, and is equally unreadable.)
+        // just deleted resolves fine and is reported missing by the caller. A *dangling* link is not
+        // this case: File.Exists answers true for one on Linux, so it goes through the resolution
+        // below and is refused when it points outside, which is the answer that matters.
         if (!isDirectory && !File.Exists(path))
         {
             return true;
@@ -177,5 +178,60 @@ public static class PathSandbox
     private static string Prefix(string root) =>
         root.EndsWith(Path.DirectorySeparatorChar) ? root : root + Path.DirectorySeparatorChar;
 
-    private static string Normalize(string path) => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+    /// <summary>
+    /// The base path as the filesystem really sees it: absolute, without a trailing separator, and
+    /// with every symlink in it resolved. Resolving the root matters because the containment check
+    /// compares resolved link targets against it — with <c>/data -&gt; /mnt/disk1</c> registered as
+    /// the base path, a link inside it pointing at <c>/data/a.txt</c> resolves to
+    /// <c>/mnt/disk1/a.txt</c>, and against an unresolved root that reads as an escape. Resolving
+    /// the root is safe in a way that resolving a caller's path is not: the root is what an admin
+    /// typed, not what a request asked for.
+    /// </summary>
+    private static string Normalize(string path) =>
+        Path.TrimEndingDirectorySeparator(RealPath(Path.GetFullPath(path)));
+
+    /// <summary>
+    /// Walks <paramref name="path"/> component by component, following any link each one turns out
+    /// to be. .NET only resolves the final component, so a link partway up would otherwise survive.
+    /// A component that cannot be read is left as it is — this is normalisation, not a permission
+    /// check, and the containment check that follows is what refuses anything.
+    /// </summary>
+    private static string RealPath(string path)
+    {
+        var root = Path.GetPathRoot(path) ?? string.Empty;
+        var segments = path[root.Length..]
+            .Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
+
+        var current = root;
+
+        foreach (var segment in segments)
+        {
+            current = Path.Combine(current, segment);
+
+            try
+            {
+                var target = Directory.Exists(current)
+                    ? Directory.ResolveLinkTarget(current, returnFinalTarget: true)
+                    : File.Exists(current)
+                        ? File.ResolveLinkTarget(current, returnFinalTarget: true)
+                        : null;
+
+                if (target is not null)
+                {
+                    current = Path.TrimEndingDirectorySeparator(Path.GetFullPath(target.FullName));
+                }
+            }
+            catch (IOException)
+            {
+                // A cycle or a chain too deep to follow: leave the path as written.
+                return path;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return path;
+            }
+        }
+
+        return current;
+    }
 }

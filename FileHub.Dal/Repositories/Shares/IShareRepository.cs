@@ -23,7 +23,5 @@ public interface IShareRepository
     /// </summary>
     Task IncrementDownloadCountAsync(Guid id);
 
-    Task UpdateSizeAsync(Guid id, long size);
-
     Task SaveChangesAsync();
 }

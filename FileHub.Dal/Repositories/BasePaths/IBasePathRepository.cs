@@ -27,6 +27,12 @@ public interface IBasePathRepository
 
     Task<List<Guid>> GetUserIdsAsync(Guid basePathId);
 
+    /// <summary>
+    /// Of the given ids, the ones that are real accounts. The grant table's foreign key would
+    /// reject the others at save time, taking the whole grant change down with them.
+    /// </summary>
+    Task<List<Guid>> FilterExistingUserIdsAsync(IReadOnlyCollection<Guid> userIds);
+
     Task<List<Guid>> GetBasePathIdsAsync(Guid userId);
 
     /// <summary>Replaces the grants for one base path; ids left out are revoked.</summary>

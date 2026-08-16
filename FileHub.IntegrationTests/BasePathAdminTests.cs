@@ -211,7 +211,7 @@ public sealed class BasePathAdminTests : FilesTestBase
     // this method does not. SetUserBasePathsAsync filters ids that match no row before saving;
     // SetUsersAsync does not, so an unknown user id reaches SQLite and comes back as an unhandled
     // DbUpdateException ("FOREIGN KEY constraint failed") — a 500, with the whole grant change lost.
-    [Fact(Skip = "Exposes a bug in BasePathService.SetUsersAsync — see the comment above.")]
+    [Fact]
     public async Task Setting_the_users_of_a_base_path_drops_an_unknown_user_id()
     {
         var alice = await CreateUserAsync("alice@example.com");

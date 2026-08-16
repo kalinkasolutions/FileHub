@@ -40,10 +40,5 @@ public sealed class ShareRepository : IShareRepository
             .Where(s => s.Id == id)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.DownloadCount, x => x.DownloadCount + 1));
 
-    public Task UpdateSizeAsync(Guid id, long size) =>
-        m_context.Shares
-            .Where(s => s.Id == id)
-            .ExecuteUpdateAsync(s => s.SetProperty(x => x.Size, size));
-
     public Task SaveChangesAsync() => m_context.SaveChangesAsync();
 }

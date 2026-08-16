@@ -46,6 +46,20 @@ public sealed class BasePathRepository : IBasePathRepository
             .Select(a => a.UserId)
             .ToListAsync();
 
+    public async Task<List<Guid>> FilterExistingUserIdsAsync(IReadOnlyCollection<Guid> userIds)
+    {
+        if (userIds.Count == 0)
+        {
+            return [];
+        }
+
+        return await m_context.Users
+            .AsNoTracking()
+            .Where(u => userIds.Contains(u.Id))
+            .Select(u => u.Id)
+            .ToListAsync();
+    }
+
     public Task<List<Guid>> GetBasePathIdsAsync(Guid userId) =>
         m_context.BasePathAccesses
             .Where(a => a.UserId == userId)
