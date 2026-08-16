@@ -3,9 +3,44 @@ services:
     container_name: file-hub
     image: kalinkasolutions/filehub:latest
     ports:
-      - "8080:4122" 
-    volumes:
-      - ./conf.json:/app/conf.json
-      - ./data:/app/data
-      - ./mnt/storage:/srv/storage:ro # mount your drive
+      - "8080:4122"
     restart: always
+    volumes:
+      # SQLite database *and* the Data Protection key ring both live under /var/srv. Both have to
+      # be on this volume: a lost key ring invalidates every auth cookie on the next redeploy.
+      - ./data:/var/srv
+      # Mount the directories FileHub should serve. Read-only on purpose — FileHub never writes to
+      # them, and :ro means a bug cannot turn a browse route into a delete. A base path added in
+      # the admin UI must be a path *inside the container* (e.g. /srv/storage), not a host path.
+      - ./mnt/storage:/srv/storage:ro
+    environment:
+      - ASPNETCORE_URLS=http://+:4122
+      # SQLite file. Keep it under /var/srv so it lands on the volume above.
+      - ConnectionStrings__FileHub=${CONNECTION_STRING:-Data Source=/var/srv/filehub.db}
+      # Where the Data Protection key ring is persisted. Also under /var/srv, same reason.
+      - DataProtection__KeyPath=${DATA_PROTECTION_KEY_PATH:-/var/srv/keys}
+      # Public origin of the app, no trailing slash. Share links and the links in invitation /
+      # password-reset mails are built from this, so it must be what a browser actually reaches.
+      - App__BaseUrl=${APP_BASE_URL:-http://localhost:8080}
+      # Bootstrap admin, seeded only when the database has no admin account yet. The account is
+      # created with MustChangePassword, so the first sign-in has to replace this password.
+      - Admin__Email=${ADMIN_EMAIL:-admin@filehub.local}
+      - Admin__Password=${ADMIN_PASSWORD:-ChangeMe123}
+      # Minimum log level written to the console and the SQLite "Logs" table. One of:
+      # Trace, Debug, Information, Warning, Error, Critical. Defaults to Information.
+      - Logging__LogLevel__Default=${LOG_LEVEL:-Information}
+      # Email / SMTP settings (override the appsettings.json "Email" section). Double underscores
+      # map to config nesting. These are only the seed values for the EmailSettings row — once an
+      # admin edits the settings in the UI, the row wins. Put secrets in a .env file next to this
+      # compose file rather than committing them.
+      - Email__SmtpHost=${EMAIL_SMTP_HOST:-}
+      - Email__Port=${EMAIL_PORT:-587}
+      - Email__Username=${EMAIL_USERNAME:-}
+      - Email__Password=${EMAIL_PASSWORD:-}
+      - Email__FromAddress=${EMAIL_FROM_ADDRESS:-no-reply@filehub.example.com}
+      - Email__FromName=${EMAIL_FROM_NAME:-FileHub}
+      # One of: None, Auto, SslOnConnect, StartTls, StartTlsWhenAvailable
+      - Email__SecureSocketOptions=${EMAIL_SECURE_SOCKET_OPTIONS:-StartTls}
+    # TLS is expected to be terminated by a reverse proxy in front of this container; see
+    # nginx.example.conf. The app reads X-Forwarded-Proto, so the proxy must send it or every
+    # auth cookie is issued as if the request were plain http.
