@@ -6,19 +6,12 @@
   @include admin-section;
 }
 
-// The test send is the point of this screen, so it leads it and is the one block with a fill of
-// its own — the settings form below it is the thing being tested.
-.test {
-  @include flex(column);
-  gap: $default-padding;
-  padding: $default-margin;
-  border-radius: $border-radius;
-  background: $surface;
+.panel {
+  @include admin-panel;
 }
 
 .error {
   margin: 0;
-  padding-left: $small-padding;
   color: $text-error;
   font-size: $font-size-small;
   line-height: 1.5;

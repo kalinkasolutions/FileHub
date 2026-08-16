@@ -9,7 +9,15 @@
   @include screen-header;
 }
 
-// The four sections share one scroll container, the way the shell's own content area does.
+// Under the header, above the content. `tab-bar` rules underneath itself and scrolls sideways, so
+// the five sections stay on one line at 360px instead of wrapping into a second row that would eat
+// the screen the content needs.
+.tabs {
+  @include tab-bar;
+}
+
+// The five sections share one scroll container, so the header and the tabs stay put while a long
+// list scrolls under them.
 .content {
   @include flex(column);
   flex: 1;
@@ -21,20 +29,4 @@
   padding: $content-padding;
   color: $text-placeholder;
   font-size: $font-size-small;
-}
-
-.tabs {
-  @include tab-bar;
-
-  // Four tabs plus their labels do not fit a narrow phone, and the icons carry the meaning on
-  // their own there — the label comes back as soon as there is room for it.
-  .label {
-    display: none;
-  }
-}
-
-@media (min-width: 420px) {
-  .tabs .label {
-    display: inline;
-  }
 }

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { IAdminShare, downloadsLabel, shareLocation } from '@models/IAdminShare';
+import {
+  IAdminShare,
+  audienceLabel,
+  downloadsLabel,
+  isRestricted,
+  shareLocation,
+} from '@models/IAdminShare';
 
 function share(overrides: Partial<IAdminShare> = {}): IAdminShare {
   return {
@@ -15,6 +21,8 @@ function share(overrides: Partial<IAdminShare> = {}): IAdminShare {
     createdAt: '2026-01-01T00:00:00Z',
     createdById: 'u',
     createdBy: 'Ada',
+    audienceGroupId: null,
+    audienceGroupName: '',
     link: 'https://files.example.com/share/s',
     ...overrides,
   };
@@ -27,6 +35,20 @@ describe('shareLocation', () => {
 
   it('is the base path itself when the link points at its root', () => {
     expect(shareLocation(share({ relativePath: '' }))).toBe('Media');
+  });
+});
+
+describe('audienceLabel', () => {
+  it('says a link with no audience answers anyone, because that is the whole risk of it', () => {
+    expect(audienceLabel(share())).toBe('Anyone with the link');
+    expect(isRestricted(share())).toBe(false);
+  });
+
+  it('names the group a restricted link answers', () => {
+    const restricted = share({ audienceGroupId: 'g', audienceGroupName: 'Family' });
+
+    expect(audienceLabel(restricted)).toBe('Only Family');
+    expect(isRestricted(restricted)).toBe(true);
   });
 });
 

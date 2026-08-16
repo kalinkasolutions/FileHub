@@ -17,8 +17,32 @@ export interface IAdminShare {
   createdAt: string;
   createdById: string;
   createdBy: string;
+  /**
+   * Null means the link answers anyone who has it. Set, it only answers a signed-in member of that
+   * group (and admins) — every other caller gets the same refusal an unknown id gets.
+   */
+  audienceGroupId: string | null;
+  /** Name of that group; empty when the link is anonymous. */
+  audienceGroupName: string;
   /** The absolute public URL, stamped on by the API from its configured base address. */
   link: string;
+}
+
+/**
+ * Who the link answers. This is the whole difference between a URL that is readable by the internet
+ * and one that is not, so the list says it on every row rather than only on the restricted ones.
+ */
+export function audienceLabel(share: IAdminShare): string {
+  if (!share.audienceGroupId) {
+    return 'Anyone with the link';
+  }
+
+  return `Only ${share.audienceGroupName}`;
+}
+
+/** A link aimed at a group needs a sign-in, so it is not reachable from the internet by itself. */
+export function isRestricted(share: IAdminShare): boolean {
+  return share.audienceGroupId !== null && share.audienceGroupId !== undefined;
 }
 
 /** Base path plus relative path, the way the row shows where a link actually points. */

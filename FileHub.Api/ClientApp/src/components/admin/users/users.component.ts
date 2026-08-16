@@ -3,7 +3,13 @@ import { FormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
 import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
-import { IAdminUser, toggleRole, userStatus, userStatusLabel } from '@models/IAdminUser';
+import {
+  IAdminUser,
+  accessLabel,
+  toggleRole,
+  userStatus,
+  userStatusLabel,
+} from '@models/IAdminUser';
 import { Roles } from '@models/roles';
 import { AdminUserService } from '@services/admin-user.service';
 import { apiErrorMessage } from '@services/api-error';
@@ -12,7 +18,7 @@ import { BasePathService } from '@services/basepath.service';
 import { RoleService } from '@services/role.service';
 import { ToastrService } from 'ngx-toastr';
 import { finalize } from 'rxjs';
-import { AccessListComponent, IAccessOption } from '../access/access-list.component';
+import { AccessListComponent, IAccessOption, revokedIds } from '../access/access-list.component';
 import { confirm } from '../confirm/confirm-dialog.component';
 
 /**
@@ -40,10 +46,18 @@ export class UsersComponent implements OnInit {
 
   /** Emitted when the admin follows the "set up email" hint — the shell switches section. */
   public readonly showEmail = output<void>();
+  /** Same idea for the pointer at group membership, which is not editable from this screen. */
+  public readonly showGroups = output<void>();
 
   public readonly users = this.userService.users;
   public readonly roles = this.roleService.roles;
   public readonly userRole = Roles.User;
+  public readonly adminRole = Roles.Admin;
+
+  /** Revoking a direct grant deletes the links made under it, so the editor says so before saving. */
+  public readonly accessNote =
+    'Unticking a base path revokes it and deletes the share links this account made under it — ' +
+    'unless a group still grants it, or the account is an admin.';
 
   public readonly signedInAs = computed(() => this.authService.status()?.userId ?? '');
 
@@ -103,9 +117,13 @@ export class UsersComponent implements OnInit {
     return userStatusLabel[userStatus(user)];
   }
 
-  /** Access is per base path and absence of a grant is a denial, so this is worth a line per row. */
-  public basePathsLabel(user: IAdminUser): string {
-    return user.basePathCount === 1 ? 'Sees 1 base path' : `Sees ${user.basePathCount} base paths`;
+  /**
+   * What this account can reach. The row knows only the *direct* grants — access is their union
+   * with every group's, and an admin reaches everything — so the label says which of the three it
+   * is talking about rather than claiming a total it cannot compute.
+   */
+  public access(user: IAdminUser): string {
+    return accessLabel(user, Roles.Admin);
   }
 
   public isSelf(user: IAdminUser): boolean {
@@ -218,8 +236,8 @@ export class UsersComponent implements OnInit {
     confirm(this.dialog, {
       title: `Delete ${user.username}?`,
       message:
-        `The account, its access to every base path and every share link it created are removed. ` +
-        `There is no sign-up, so getting ${user.email} back in means inviting it again.`,
+        `The account, its grants, its group memberships and every share link it created are ` +
+        `removed. There is no sign-up, so getting ${user.email} back in means inviting it again.`,
       confirm: 'Delete account',
     }).subscribe((confirmed) => {
       if (!confirmed) {
@@ -254,12 +272,39 @@ export class UsersComponent implements OnInit {
     this.accessFor.set(null);
   }
 
+  /**
+   * The route replaces the whole list, so a save that drops an id is a revocation — and a
+   * revocation deletes the share links this account made under the base path it lost. That is
+   * worth asking about rather than reporting in a toast afterwards.
+   */
   public saveAccess(basePathIds: string[]): void {
     const user = this.accessFor();
     if (!user) {
       return;
     }
 
+    const lost = revokedIds(this.accessGranted(), basePathIds);
+    if (lost.length === 0) {
+      this.commitAccess(user, basePathIds);
+      return;
+    }
+
+    confirm(this.dialog, {
+      title: `Revoke ${lost.length} base path(s) from ${user.username}?`,
+      message:
+        `${user.username} loses them unless a group still grants them, and every share link it ` +
+        `made under them is deleted. An admin keeps them either way.`,
+      confirm: 'Save and revoke',
+    }).subscribe((confirmed) => {
+      if (!confirmed) {
+        return;
+      }
+
+      this.commitAccess(user, basePathIds);
+    });
+  }
+
+  private commitAccess(user: IAdminUser, basePathIds: string[]): void {
     this.busy.set(true);
     this.basePathService
       .setBasePathsOfUser(user.id, basePathIds)
@@ -269,8 +314,8 @@ export class UsersComponent implements OnInit {
           this.accessFor.set(null);
           this.toastr.success(
             basePathIds.length === 0
-              ? `${user.username} can no longer see anything`
-              : `${user.username} can see ${basePathIds.length} base path(s)`,
+              ? `${user.username} has no base path granted directly`
+              : `${user.username} is granted ${basePathIds.length} base path(s) directly`,
           );
         },
         error: (error: unknown) =>

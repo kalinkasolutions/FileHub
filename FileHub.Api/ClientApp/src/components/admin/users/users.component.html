@@ -1,234 +1,264 @@
-<h2>Roles</h2>
-<p class="hint">
-  Roles are fixed and cannot be created here. <strong>Admin</strong> unlocks this area;
-  <strong>User</strong> is what browsing and sharing need, so every account has it.
-</p>
-<ul class="roles">
-  @for (role of roles(); track role.name) {
-    <li class="role">
-      <span class="name">{{ role.name }}</span>
-      <span class="meta">{{ role.userCount }} account(s)</span>
-    </li>
-  }
-</ul>
+<section class="panel">
+  <span class="title">Roles</span>
 
-<h2>Accounts</h2>
-<p class="hint">
-  There is no sign-up page: inviting an account here is the only way one comes into existence. The
-  invitation is what sets its first password, and it arrives by email — so
-  <button class="link" type="button" (click)="showEmail.emit()">set up email</button>
-  before inviting anyone.
-</p>
-
-@if (undeliveredInvite(); as pending) {
-  <div class="undelivered">
-    <p>
-      <strong>{{ pending.username }}</strong> was created, but the invitation to
-      {{ pending.email }} could not be sent. The account has no password and cannot sign in until
-      someone follows an invitation link.
-    </p>
-    @if (undeliveredInviteReason(); as reason) {
-      <p class="reason">{{ reason }}</p>
-    }
-    <div class="actions">
-      <button type="button" (click)="resendInvite(pending)">Resend invitation</button>
-      <button class="secondary" type="button" (click)="dismissUndelivered()">Dismiss</button>
-    </div>
-  </div>
-}
-
-<button class="secondary" type="button" (click)="toggleInvite()">
-  <mat-icon>{{ inviteOpen() ? 'close' : 'person_add' }}</mat-icon>
-  {{ inviteOpen() ? 'Cancel invitation' : 'Invite an account' }}
-</button>
-
-@if (inviteOpen()) {
-  <form class="panel" (ngSubmit)="invite()" #inviteForm="ngForm">
-    <div class="form-control">
-      <label for="invite-username">Name</label>
-      <input
-        id="invite-username"
-        type="text"
-        name="inviteUsername"
-        [(ngModel)]="inviteUsername"
-        placeholder="How they are shown in FileHub"
-        autocomplete="off"
-        required
-      />
-    </div>
-
-    <div class="form-control">
-      <label for="invite-email">Email</label>
-      <input
-        id="invite-email"
-        type="email"
-        name="inviteEmail"
-        [(ngModel)]="inviteEmail"
-        placeholder="them@example.com"
-        autocomplete="off"
-        required
-      />
-      <span class="hint">This is what they sign in with, and where the invitation goes.</span>
-    </div>
-
-    <span class="label">Roles</span>
-    @for (role of roles(); track role.name) {
-      <label class="check">
-        <input
-          type="checkbox"
-          [checked]="hasInviteRole(role.name) || role.name === userRole"
-          [disabled]="role.name === userRole"
-          (change)="toggleInviteRole(role.name, $any($event.target).checked)"
-        />
-        <span class="text">
-          <span>{{ role.name }}</span>
-          @if (role.name === userRole) {
-            <span class="hint">Always granted — an account without it can see nothing.</span>
-          }
-        </span>
-      </label>
-    }
-
+  <div class="body">
     <p class="hint">
-      A new account sees nothing until it is granted a base path. Do that from its
-      <strong>Base paths</strong> action once it appears in the list.
+      Roles are fixed and cannot be created here. <strong>Admin</strong> unlocks this area and is an
+      implicit grant of <em>every</em> base path; <strong>User</strong> is what browsing and sharing
+      need, so every account has it.
+    </p>
+    <ul class="roles">
+      @for (role of roles(); track role.name) {
+        <li class="role">
+          <span class="name">{{ role.name }}</span>
+          <span class="meta">{{ role.userCount }} account(s)</span>
+        </li>
+      }
+    </ul>
+  </div>
+</section>
+
+<section class="panel">
+  <span class="title">Invite an account</span>
+
+  <div class="body">
+    <p class="hint">
+      There is no sign-up page: inviting an account here is the only way one comes into existence.
+      The invitation is what sets its first password, and it arrives by email — so
+      <button class="link" type="button" (click)="showEmail.emit()">set up email</button>
+      before inviting anyone.
     </p>
 
-    <button type="submit" [disabled]="inviteForm.invalid || busy()">Send invitation</button>
-  </form>
-}
+    <button class="secondary" type="button" (click)="toggleInvite()">
+      <mat-icon>{{ inviteOpen() ? 'close' : 'person_add' }}</mat-icon>
+      {{ inviteOpen() ? 'Cancel invitation' : 'Invite an account' }}
+    </button>
 
-@if (users().length === 0) {
-  <p class="empty">No accounts yet.</p>
-}
-
-<ul class="list">
-  @for (user of users(); track user.id) {
-    <li class="entry">
-      <div class="row">
-        <div class="main">
-          <span class="name">
-            {{ user.username }}
-            @if (isSelf(user)) {
-              <span class="you">you</span>
-            }
-          </span>
-          <span class="meta">{{ user.email }}</span>
-          <span class="chips">
-            <span class="chip" [class]="status(user)">{{ statusLabel(user) }}</span>
-            @for (role of user.roles; track role) {
-              <span class="chip">{{ role }}</span>
-            }
-          </span>
-          @if (status(user) === 'invited') {
-            <span class="meta">Has not accepted the invitation yet — it cannot sign in.</span>
-          }
-          @if (user.basePathCount === 0) {
-            <span class="meta">No base paths granted — it can see nothing.</span>
-          } @else {
-            <span class="meta">{{ basePathsLabel(user) }}</span>
-          }
+    @if (inviteOpen()) {
+      <form (ngSubmit)="invite()" #inviteForm="ngForm">
+        <div class="form-control">
+          <label for="invite-username">Name</label>
+          <input
+            id="invite-username"
+            type="text"
+            name="inviteUsername"
+            [(ngModel)]="inviteUsername"
+            placeholder="How they are shown in FileHub"
+            autocomplete="off"
+            required
+          />
         </div>
 
-        <div class="row-actions">
-          <button
-            class="icon-btn quiet"
-            type="button"
-            title="Actions"
-            aria-label="Actions"
-            [matMenuTriggerFor]="menu"
-          >
-            <mat-icon>more_vert</mat-icon>
-          </button>
-
-          <mat-menu #menu="matMenu">
-            <button mat-menu-item type="button" (click)="startEdit(user)">
-              <mat-icon>edit</mat-icon>
-              <span>Edit name and roles</span>
-            </button>
-            <button mat-menu-item type="button" (click)="openAccess(user)">
-              <mat-icon>folder_open</mat-icon>
-              <span>Base paths</span>
-            </button>
-            @if (!user.emailConfirmed) {
-              <button mat-menu-item type="button" (click)="resendInvite(user)">
-                <mat-icon>outgoing_mail</mat-icon>
-                <span>Resend invitation</span>
-              </button>
-            }
-            @if (user.isLockedOut) {
-              <button mat-menu-item type="button" (click)="setLockout(user, false)">
-                <mat-icon>lock_open</mat-icon>
-                <span>Enable account</span>
-              </button>
-            } @else {
-              <button mat-menu-item type="button" (click)="setLockout(user, true)">
-                <mat-icon>lock</mat-icon>
-                <span>Disable account</span>
-              </button>
-            }
-            <div class="menu-divider"></div>
-            <button mat-menu-item class="danger" type="button" (click)="remove(user)">
-              <mat-icon>delete</mat-icon>
-              <span>Delete account</span>
-            </button>
-          </mat-menu>
+        <div class="form-control">
+          <label for="invite-email">Email</label>
+          <input
+            id="invite-email"
+            type="email"
+            name="inviteEmail"
+            [(ngModel)]="inviteEmail"
+            placeholder="them@example.com"
+            autocomplete="off"
+            required
+          />
+          <span class="hint">This is what they sign in with, and where the invitation goes.</span>
         </div>
-      </div>
 
-      @if (editingId() === user.id) {
-        <form class="panel" (ngSubmit)="saveEdit(user)" #editForm="ngForm">
-          <div class="form-control">
-            <label for="edit-username">Name</label>
+        <span class="label">Roles</span>
+        @for (role of roles(); track role.name) {
+          <label class="check">
             <input
-              id="edit-username"
-              type="text"
-              name="editUsername"
-              [(ngModel)]="editUsername"
-              autocomplete="off"
-              required
+              type="checkbox"
+              [checked]="hasInviteRole(role.name) || role.name === userRole"
+              [disabled]="role.name === userRole"
+              (change)="toggleInviteRole(role.name, $any($event.target).checked)"
             />
-          </div>
-
-          <div class="form-control">
-            <label for="edit-email">Email</label>
-            <input id="edit-email" type="email" [value]="user.email" disabled />
-            <span class="hint">
-              An address is changed by its own account, from the account screen, where the new one
-              is confirmed before it takes effect.
+            <span class="text">
+              <span>{{ role.name }}</span>
+              @if (role.name === userRole) {
+                <span class="hint">Always granted — an account without it can see nothing.</span>
+              }
+              @if (role.name === adminRole) {
+                <span class="hint">Sees every base path without being granted one.</span>
+              }
             </span>
-          </div>
+          </label>
+        }
 
-          <span class="label">Roles</span>
-          @for (role of roles(); track role.name) {
-            <label class="check">
-              <input
-                type="checkbox"
-                [checked]="hasEditRole(role.name)"
-                (change)="toggleEditRole(role.name, $any($event.target).checked)"
-              />
-              <span class="text">{{ role.name }}</span>
-            </label>
-          }
+        <p class="hint">
+          A new account that is not an admin sees nothing until it is granted a base path — from its
+          <strong>Base paths</strong> action below, or by putting it in a group under
+          <button class="link" type="button" (click)="showGroups.emit()">Groups</button>.
+        </p>
 
-          <div class="buttons">
-            <button class="secondary" type="button" (click)="cancelEdit()">Cancel</button>
-            <button type="submit" [disabled]="editForm.invalid || busy()">Save</button>
-          </div>
-        </form>
+        <button type="submit" [disabled]="inviteForm.invalid || busy()">Send invitation</button>
+      </form>
+    }
+  </div>
+</section>
+
+<section class="panel wide">
+  <span class="title">Accounts</span>
+
+  @if (undeliveredInvite(); as pending) {
+    <div class="undelivered">
+      <p>
+        <strong>{{ pending.username }}</strong> was created, but the invitation to
+        {{ pending.email }} could not be sent. The account has no password and cannot sign in until
+        someone follows an invitation link.
+      </p>
+      @if (undeliveredInviteReason(); as reason) {
+        <p class="reason">{{ reason }}</p>
       }
-
-      @if (accessFor()?.id === user.id) {
-        <admin-access-list
-          [heading]="'What ' + user.username + ' may see'"
-          [options]="basePathOptions()"
-          [granted]="accessGranted()"
-          [busy]="busy()"
-          emptyText="There are no base paths yet. Add one under Base paths."
-          (save)="saveAccess($event)"
-          (cancel)="closeAccess()"
-        />
-      }
-    </li>
+      <div class="actions">
+        <button type="button" (click)="resendInvite(pending)">Resend invitation</button>
+        <button class="secondary" type="button" (click)="dismissUndelivered()">Dismiss</button>
+      </div>
+    </div>
   }
-</ul>
+
+  @if (users().length === 0) {
+    <p class="empty">No accounts yet.</p>
+  }
+
+  <ul class="list">
+    @for (user of users(); track user.id) {
+      <li class="entry">
+        <div class="row">
+          <div class="main">
+            <span class="name">
+              {{ user.username }}
+              @if (isSelf(user)) {
+                <span class="you">you</span>
+              }
+            </span>
+            <span class="meta">{{ user.email }}</span>
+            <span class="chips">
+              <span class="chip" [class]="status(user)">{{ statusLabel(user) }}</span>
+              @for (role of user.roles; track role) {
+                <span class="chip">{{ role }}</span>
+              }
+            </span>
+            @if (status(user) === 'invited') {
+              <span class="meta">Has not accepted the invitation yet — it cannot sign in.</span>
+            }
+            <span class="meta">{{ access(user) }}</span>
+          </div>
+
+          <div class="row-actions">
+            <button
+              class="icon-btn quiet"
+              type="button"
+              title="Actions"
+              aria-label="Actions"
+              [matMenuTriggerFor]="menu"
+            >
+              <mat-icon>more_vert</mat-icon>
+            </button>
+
+            <mat-menu #menu="matMenu">
+              <button mat-menu-item type="button" (click)="startEdit(user)">
+                <mat-icon>edit</mat-icon>
+                <span>Edit name and roles</span>
+              </button>
+              <button mat-menu-item type="button" (click)="openAccess(user)">
+                <mat-icon>folder_open</mat-icon>
+                <span>Base paths</span>
+              </button>
+              @if (!user.emailConfirmed) {
+                <button mat-menu-item type="button" (click)="resendInvite(user)">
+                  <mat-icon>outgoing_mail</mat-icon>
+                  <span>Resend invitation</span>
+                </button>
+              }
+              @if (user.isLockedOut) {
+                <button mat-menu-item type="button" (click)="setLockout(user, false)">
+                  <mat-icon>lock_open</mat-icon>
+                  <span>Enable account</span>
+                </button>
+              } @else {
+                <button mat-menu-item type="button" (click)="setLockout(user, true)">
+                  <mat-icon>lock</mat-icon>
+                  <span>Disable account</span>
+                </button>
+              }
+              <div class="menu-divider"></div>
+              <button mat-menu-item class="danger" type="button" (click)="remove(user)">
+                <mat-icon>delete</mat-icon>
+                <span>Delete account</span>
+              </button>
+            </mat-menu>
+          </div>
+        </div>
+
+        @if (editingId() === user.id) {
+          <div class="drawer">
+            <form (ngSubmit)="saveEdit(user)" #editForm="ngForm">
+              <div class="form-control">
+                <label for="edit-username">Name</label>
+                <input
+                  id="edit-username"
+                  type="text"
+                  name="editUsername"
+                  [(ngModel)]="editUsername"
+                  autocomplete="off"
+                  required
+                />
+              </div>
+
+              <div class="form-control">
+                <label for="edit-email">Email</label>
+                <input id="edit-email" type="email" [value]="user.email" disabled />
+                <span class="hint">
+                  An address is changed by its own account, from the account screen, where the new
+                  one is confirmed before it takes effect.
+                </span>
+              </div>
+
+              <span class="label">Roles</span>
+              @for (role of roles(); track role.name) {
+                <label class="check">
+                  <input
+                    type="checkbox"
+                    [checked]="hasEditRole(role.name)"
+                    (change)="toggleEditRole(role.name, $any($event.target).checked)"
+                  />
+                  <span class="text">
+                    <span>{{ role.name }}</span>
+                    @if (role.name === adminRole) {
+                      <span class="hint">
+                        Taking it away ends the session and takes every base path with it, bar the
+                        ones granted outright.
+                      </span>
+                    }
+                  </span>
+                </label>
+              }
+
+              <p class="hint">
+                Group membership is set as a whole list from the Groups section, not per account.
+              </p>
+
+              <div class="buttons">
+                <button class="secondary" type="button" (click)="cancelEdit()">Cancel</button>
+                <button type="submit" [disabled]="editForm.invalid || busy()">Save</button>
+              </div>
+            </form>
+          </div>
+        }
+
+        @if (accessFor()?.id === user.id) {
+          <admin-access-list
+            [heading]="'Base paths granted to ' + user.username"
+            [options]="basePathOptions()"
+            [granted]="accessGranted()"
+            [busy]="busy()"
+            emptyText="There are no base paths yet. Add one under Paths."
+            [note]="accessNote"
+            (save)="saveAccess($event)"
+            (cancel)="closeAccess()"
+          />
+        }
+      </li>
+    }
+  </ul>
+</section>

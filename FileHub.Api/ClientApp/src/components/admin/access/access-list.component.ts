@@ -9,9 +9,11 @@ export interface IAccessOption {
 }
 
 /**
- * The grant editor, used from both ends of the same table: "who may see this base path" and
- * "which base paths may this user see". Both routes replace the whole set, so this edits a
- * complete list of ticks and saves all of it — an id left unticked is a revocation, not a no-op.
+ * The grant editor. Five screens use it, because the access model is three tables edited from both
+ * ends: who may see this base path, which base paths may this user see, which groups may see this
+ * base path, who is in this group, and what does this group grant. Every one of those routes
+ * replaces the whole set, so this edits a complete list of ticks and saves all of it — an id left
+ * unticked is a revocation, not a no-op.
  *
  * The draft is a `linkedSignal` on the input: reopening the editor on another row re-seeds it,
  * so the component can be reused for the next row without being torn down.
@@ -28,6 +30,8 @@ export class AccessListComponent {
   /** The ids currently granted, as the server has them. */
   public readonly granted = input.required<readonly string[]>();
   public readonly emptyText = input('There is nothing to grant yet.');
+  /** What unticking something costs — a revocation takes share links with it, always. */
+  public readonly note = input('');
   public readonly busy = input(false);
 
   public readonly save = output<string[]>();
@@ -56,4 +60,13 @@ export class AccessListComponent {
   public onSave(): void {
     this.save.emit(this.draft());
   }
+}
+
+/**
+ * The ids that were granted and are not in the draft. Every one of these five editors saves a whole
+ * list, so this is what tells a caller whether the save is a revocation — and a revocation deletes
+ * share links, which is worth asking about before it happens rather than reporting afterwards.
+ */
+export function revokedIds(granted: readonly string[], draft: readonly string[]): string[] {
+  return granted.filter((id) => !draft.includes(id));
 }

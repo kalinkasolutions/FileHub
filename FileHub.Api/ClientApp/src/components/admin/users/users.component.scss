@@ -6,15 +6,31 @@
   @include admin-section;
 }
 
+.panel {
+  @include admin-panel;
+}
+
+.wide {
+  @include admin-panel-wide;
+}
+
 .entry {
   @include flex(column);
-  gap: $default-padding;
+  border-bottom: 1px solid $border-subtle;
+
+  &:last-child {
+    border-bottom: none;
+  }
 }
 
 .row {
   @include admin-row;
   align-items: flex-start;
-  padding-top: $default-padding + 2;
+  border-bottom: none;
+}
+
+.drawer {
+  @include admin-drawer;
 }
 
 .chip {
@@ -36,18 +52,22 @@
   font-size: $font-size-small;
 }
 
-// The role counts read as a strip of small tiles — they are a summary, not a list to act on.
+// The role counts are a summary rather than a list to act on, so they are ruled rows like any
+// other listing instead of a strip of tiles.
 .roles {
-  @include flex(row);
-  gap: $small-margin;
-  flex-wrap: wrap;
+  @include flex(column);
 
   .role {
-    @include flex(column);
-    gap: 2px;
-    padding: $default-padding $default-margin;
-    border-radius: $border-radius;
-    background: $surface;
+    @include flex(row);
+    align-items: baseline;
+    justify-content: space-between;
+    gap: $default-padding;
+    min-height: $row-min-height;
+    border-bottom: 1px solid $border-subtle;
+  }
+
+  .role:last-child {
+    border-bottom: none;
   }
 
   .name {
@@ -64,49 +84,36 @@
 .undelivered {
   @include flex(column);
   gap: $default-padding;
-  padding: $default-margin;
-  border: 1px solid $border-danger;
-  border-radius: $border-radius;
+  margin: $default-padding;
+  padding: $default-padding;
+  border-left: $border-panel-width solid $text-danger;
   background: $danger-hover;
 
   p {
     margin: 0;
     font-size: $font-size-small;
     line-height: 1.5;
+    overflow-wrap: anywhere;
   }
 }
 
-.panel {
-  padding: $default-margin;
-  border: 1px solid $border-elevated;
-  border-radius: $border-radius;
-  background: $bg-elevated;
-
-  .label {
-    color: $text-dim;
-    font-size: $font-size-small;
-  }
-}
-
+// A role and the sentence explaining it. The box lines up with the *first* line of that sentence
+// rather than with the middle of the block, which is where centring would put it.
 .check {
   @include flex(row);
-  align-items: center;
-  gap: 12px;
+  align-items: flex-start;
+  gap: $small-padding;
   min-height: $row-min-height;
+  padding: $small-padding 0;
   cursor: pointer;
+
+  input {
+    margin-top: 3px;
+  }
 
   .text {
     @include flex(column);
     min-width: 0;
-  }
-}
-
-.buttons {
-  @include flex(row);
-  gap: $default-padding;
-
-  button {
-    flex: 1;
   }
 }
 

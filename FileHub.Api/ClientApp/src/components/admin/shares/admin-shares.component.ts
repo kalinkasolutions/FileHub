@@ -2,7 +2,13 @@ import { DatePipe } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
-import { IAdminShare, downloadsLabel, shareLocation } from '@models/IAdminShare';
+import {
+  IAdminShare,
+  audienceLabel,
+  downloadsLabel,
+  isRestricted,
+  shareLocation,
+} from '@models/IAdminShare';
 import { formatBytes } from '@util/format';
 import { AdminShareService } from '@services/admin-share.service';
 import { apiErrorMessage } from '@services/api-error';
@@ -47,6 +53,15 @@ export class AdminSharesComponent implements OnInit {
     return formatBytes(share.size);
   }
 
+  /** Who the link answers — the difference between a URL the internet can read and one it cannot. */
+  public audience(share: IAdminShare): string {
+    return audienceLabel(share);
+  }
+
+  public restricted(share: IAdminShare): boolean {
+    return isRestricted(share);
+  }
+
   public copy(share: IAdminShare): void {
     navigator.clipboard.writeText(share.link).then(
       () => this.toastr.success('Link copied'),
@@ -60,8 +75,8 @@ export class AdminSharesComponent implements OnInit {
     confirm(this.dialog, {
       title: `Revoke the link to ${share.name}?`,
       message:
-        `The link stops working immediately for everyone who has it. ${share.createdBy} is not ` +
-        `told, and the file itself is untouched.`,
+        `Right now it answers: ${this.audience(share)}. Revoking stops it immediately for all of ` +
+        `them. ${share.createdBy} is not told, and the file itself is untouched.`,
       confirm: 'Revoke link',
     }).subscribe((confirmed) => {
       if (!confirmed) {
