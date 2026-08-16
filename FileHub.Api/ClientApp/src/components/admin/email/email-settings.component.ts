@@ -43,6 +43,8 @@ export class EmailSettingsComponent implements OnInit {
   public readonly fromName = signal('');
   public readonly security = signal('Auto');
   public readonly hasPassword = signal(false);
+  /** Set when the last save dropped the stored password because the destination moved. */
+  public readonly passwordCleared = signal(false);
 
   public readonly saving = signal(false);
   public readonly sending = signal(false);
@@ -72,8 +74,8 @@ export class EmailSettingsComponent implements OnInit {
         smtpHost: this.smtpHost().trim(),
         port: this.port(),
         username: this.username().trim(),
-        // Empty means "keep the stored one" — the API is explicit about it, so nothing is cleared
-        // by leaving the box alone.
+        // Empty means "keep the stored one" — but only while the destination stays put. Moving
+        // the host, port, transport or username drops it, and the response says so.
         password: this.password(),
         fromAddress: this.fromAddress().trim(),
         fromName: this.fromName().trim(),
@@ -83,6 +85,14 @@ export class EmailSettingsComponent implements OnInit {
       .subscribe({
         next: (settings) => {
           this.apply(settings);
+
+          if (settings.passwordCleared) {
+            this.toastr.warning(
+              'Saved — the stored password was cleared because the server changed',
+            );
+            return;
+          }
+
           this.toastr.success('Email settings saved');
         },
         error: (error: unknown) =>
@@ -120,6 +130,7 @@ export class EmailSettingsComponent implements OnInit {
     this.fromName.set(settings.fromName);
     this.security.set(settings.secureSocketOptions || 'Auto');
     this.hasPassword.set(settings.hasPassword);
+    this.passwordCleared.set(settings.passwordCleared);
     // Never round-trip what was typed: the box is a replacement, and leaving it filled would
     // resend the same secret on the next save for no reason.
     this.password.set('');

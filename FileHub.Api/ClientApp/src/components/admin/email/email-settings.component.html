@@ -94,7 +94,10 @@
       autocomplete="new-password"
     />
     <span class="hint">
-      @if (hasPassword()) {
+      @if (passwordCleared()) {
+        The stored password was cleared: this save changed where mail is sent, and FileHub will not
+        forward a saved secret to a new server. Enter the password for the new one.
+      } @else if (hasPassword()) {
         A password is stored. FileHub cannot show it — leave this empty to keep it, or type a new
         one to replace it.
       } @else {

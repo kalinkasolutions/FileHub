@@ -12,11 +12,20 @@ export interface IEmailSettings {
   /** MailKit's `SecureSocketOptions` by name — one of {@link secureSocketOptions}. */
   secureSocketOptions: string;
   hasPassword: boolean;
+  /**
+   * True when the save just dropped the stored password because it moved: a different host, port
+   * or transport, or the username removed. "Leave it empty to keep it" does not hold across a
+   * move — the secret would otherwise be sent to somewhere new.
+   */
+  passwordCleared: boolean;
 }
 
 /**
  * `PUT /api/admin/email/settings`. An empty `password` keeps the stored one, which is what makes
- * editing the host possible without retyping a secret the screen cannot read back.
+ * editing the sender or the from-name possible without retyping a secret the screen cannot read
+ * back — but only while the destination stays put. Change the host, the port, the transport or
+ * the username and the stored password is dropped rather than sent somewhere new; the response's
+ * `passwordCleared` says it happened.
  */
 export interface IUpdateEmailSettings {
   smtpHost: string;
@@ -54,6 +63,7 @@ export const emptyEmailSettings: IEmailSettings = {
   fromName: '',
   secureSocketOptions: 'Auto',
   hasPassword: false,
+  passwordCleared: false,
 };
 
 /**
