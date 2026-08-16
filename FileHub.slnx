@@ -1,0 +1,9 @@
+<Solution>
+  <Project Path="FileHub.Api/FileHub.Api.csproj" />
+  <Project Path="FileHub.BusinessLogic/FileHub.BusinessLogic.csproj" />
+  <Project Path="FileHub.Dal/FileHub.Dal.csproj" />
+  <Project Path="FileHub.Dtos/FileHub.Dtos.csproj" />
+  <Project Path="FileHub.Entities/FileHub.Entities.csproj" />
+  <Project Path="FileHub.IntegrationTests/FileHub.IntegrationTests.csproj" />
+  <Project Path="FileHub.Shared/FileHub.Shared.csproj" />
+</Solution>

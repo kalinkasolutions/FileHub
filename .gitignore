@@ -74,3 +74,11 @@ Thumbs.db
 
 node_modules/
 __debug_bin*
+
+# .NET
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+data/
