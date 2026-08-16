@@ -78,6 +78,13 @@ public abstract class TestHostBase : IDisposable
         RoleManager = m_scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
     }
 
+    /// <summary>
+    /// A second DI scope, with its own DbContext and its own service instances — what a test needs
+    /// to stand in for two requests arriving at once. The scopes share the one in-memory database,
+    /// which is the point: it is the row that has to survive the interleaving, not the objects.
+    /// </summary>
+    protected IServiceScope NewScope() => m_provider.CreateScope();
+
     /// <summary>Creates both roles, so a test can assign them the way <c>Seed</c> would have.</summary>
     protected async Task EnsureRolesAsync()
     {

@@ -20,6 +20,18 @@ public sealed class UserAdminService : IUserAdminService
     private const string LastAdminMessage =
         "This is the last administrator who can sign in. Give another account the Admin role first.";
 
+    /// <summary>
+    /// Serialises every operation that can take an admin away. The last-admin guard reads the
+    /// admins in one step and writes in another, so two requests that interleave between the two —
+    /// a self-demotion and a delete of the other admin — each still see the other's admin and both
+    /// go through, leaving none. That is not repairable from inside the app.
+    ///
+    /// This is a process-wide lock, not a distributed one: FileHub is a single container over a
+    /// single SQLite file, which is the only reason it is enough. Running two instances against one
+    /// database would need the check and the write inside one serialisable transaction instead.
+    /// </summary>
+    private static readonly SemaphoreSlim s_adminMutationLock = new(1, 1);
+
     private readonly ILogger<UserAdminService> m_logger;
     private readonly IUserAdminRepository m_userAdminRepository;
     private readonly UserManager<FileHubUser> m_userManager;
@@ -64,6 +76,17 @@ public sealed class UserAdminService : IUserAdminService
 
         var username = inviteUserDto.Username.Trim();
         var email = inviteUserDto.Email.Trim();
+
+        if (!EmailAddressCheck.IsSendable(email))
+        {
+            // [EmailAddress] lets through addresses MimeKit refuses to parse. Catching them here,
+            // before the account row exists, is what keeps the invite path from leaving an account
+            // whose invitation can never be sent and whose address an admin cannot correct.
+            return OperationResult<InviteResultDto>.Validation(new Dictionary<string, string[]>
+            {
+                [nameof(InviteUserDto.Email)] = ["This is not an address email can be sent to."]
+            });
+        }
 
         var user = new FileHubUser
         {
@@ -152,6 +175,22 @@ public sealed class UserAdminService : IUserAdminService
             return validation;
         }
 
+        // A role change can drop the Admin role, so it runs under the same lock as lockout and
+        // delete; see s_adminMutationLock.
+        await s_adminMutationLock.WaitAsync();
+
+        try
+        {
+            return await UpdateUserCoreAsync(userId, updateUserDto);
+        }
+        finally
+        {
+            s_adminMutationLock.Release();
+        }
+    }
+
+    private async Task<OperationResult<Empty>> UpdateUserCoreAsync(Guid userId, UpdateUserDto updateUserDto)
+    {
         var user = await m_userManager.FindByIdAsync(userId.ToString());
         if (user is null)
         {
@@ -215,6 +254,23 @@ public sealed class UserAdminService : IUserAdminService
             }
         }
 
+        if (toRemove.Length > 0 || toAdd.Length > 0)
+        {
+            // Roles are baked into the sign-in cookie, so a session that is already open keeps the
+            // Admin role it was issued with until it signs in again. Rotating the security stamp is
+            // what ends those sessions, within SecurityStampValidator's interval.
+            var stamped = await m_userManager.UpdateSecurityStampAsync(user);
+            if (!stamped.Succeeded)
+            {
+                m_logger.LogError(
+                    "Changed the roles of user {UserId} but could not rotate their security stamp: {Error}",
+                    user.Id, stamped.ToErrorString());
+
+                return OperationResult<Empty>.Error(
+                    "The roles were changed, but the user's existing sessions could not be ended. Try again.");
+            }
+        }
+
         m_logger.LogInformation(
             "Updated user {UserId}: name \"{Username}\", roles {Roles}", user.Id, username, string.Join(", ", roles.Value));
 
@@ -234,6 +290,20 @@ public sealed class UserAdminService : IUserAdminService
             return OperationResult<Empty>.BadRequest("You cannot disable your own account.");
         }
 
+        await s_adminMutationLock.WaitAsync();
+
+        try
+        {
+            return await SetLockoutCoreAsync(userId, setLockoutDto);
+        }
+        finally
+        {
+            s_adminMutationLock.Release();
+        }
+    }
+
+    private async Task<OperationResult<Empty>> SetLockoutCoreAsync(Guid userId, SetLockoutDto setLockoutDto)
+    {
         var user = await m_userManager.FindByIdAsync(userId.ToString());
         if (user is null)
         {
@@ -260,6 +330,20 @@ public sealed class UserAdminService : IUserAdminService
             return OperationResult<Empty>.BadRequest("You cannot delete your own account from the user list.");
         }
 
+        await s_adminMutationLock.WaitAsync();
+
+        try
+        {
+            return await DeleteUserCoreAsync(userId);
+        }
+        finally
+        {
+            s_adminMutationLock.Release();
+        }
+    }
+
+    private async Task<OperationResult<Empty>> DeleteUserCoreAsync(Guid userId)
+    {
         var user = await m_userManager.FindByIdAsync(userId.ToString());
         if (user is null)
         {
@@ -300,6 +384,21 @@ public sealed class UserAdminService : IUserAdminService
         if (!result.Succeeded)
         {
             return OperationResult<Empty>.BadRequest(result.ToErrorString());
+        }
+
+        // Lockout is only consulted at sign-in, so on its own it refuses new logins and leaves every
+        // session the account already has alive — for the 30 days the cookie is good for. Rotating
+        // the security stamp is what makes SecurityStampValidator throw those cookies out, within
+        // the one-minute interval Program.cs configures. Disabling an account has to end it.
+        var stamped = await m_userManager.UpdateSecurityStampAsync(user);
+        if (!stamped.Succeeded)
+        {
+            m_logger.LogError(
+                "Disabled user {UserId} but could not rotate their security stamp: {Error}",
+                user.Id, stamped.ToErrorString());
+
+            return OperationResult<Empty>.Error(
+                "The account was disabled, but its existing sessions could not be ended. Try again.");
         }
 
         m_logger.LogInformation("Disabled user {UserId}", user.Id);

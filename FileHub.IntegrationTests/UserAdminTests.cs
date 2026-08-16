@@ -1,4 +1,6 @@
 using Dtos.Admin;
+using FileHub.BusinessLogic.Services.Admin;
+using Microsoft.Extensions.DependencyInjection;
 using Shared;
 
 namespace FileHub.IntegrationTests;
@@ -125,6 +127,28 @@ public sealed class UserAdminTests : AdminTestBase
 
         Assert.Equal(ResultCode.Validation, result.ResultCode);
         Assert.Contains(nameof(InviteUserDto.Email), result.ValidationErrors.Keys);
+    }
+
+    [Fact]
+    public async Task Inviting_an_address_that_cannot_be_put_on_a_message_creates_no_account()
+    {
+        await EnsureRolesAsync();
+
+        var result = await Admin.InviteUserAsync(new InviteUserDto
+        {
+            Username = "ada",
+            Email = "bad user@example.com",
+            Roles = [Shared.Roles.User]
+        });
+
+        // [EmailAddress] accepts this and MimeKit throws on it. The account used to be written
+        // first and the send to blow up after it, leaving an account whose invitation could never
+        // be sent and whose address no admin route can correct.
+        Assert.Equal(ResultCode.Validation, result.ResultCode);
+        Assert.Contains(
+            result.ValidationErrors[nameof(InviteUserDto.Email)],
+            m => m.Contains("email can be sent to", StringComparison.Ordinal));
+        Assert.Empty(Context.Users);
     }
 
     [Fact]
@@ -334,6 +358,35 @@ public sealed class UserAdminTests : AdminTestBase
     }
 
     [Fact]
+    public async Task Disabling_an_account_ends_the_session_it_already_has()
+    {
+        var ada = await CreateAdminAsync("ada@example.com");
+        var grace = await CreateMemberAsync("grace@example.com");
+        var stampBefore = await UserManager.GetSecurityStampAsync(grace);
+
+        await Admin.SetLockoutAsync(ada.Id, grace.Id, new SetLockoutDto { Locked = true });
+
+        // Lockout is only consulted at sign-in: on its own it refuses new logins and leaves the
+        // cookie the account is already holding working for its full 30 days. The security stamp is
+        // what SecurityStampValidator compares, so rotating it is what actually ends the session.
+        Assert.NotEqual(stampBefore, await UserManager.GetSecurityStampAsync(await ReloadAsync(grace.Id)));
+    }
+
+    [Fact]
+    public async Task Taking_the_admin_role_away_ends_the_sessions_that_still_carry_it()
+    {
+        var ada = await CreateAdminAsync("ada@example.com");
+        var grace = await CreateAdminAsync("grace@example.com");
+        var stampBefore = await UserManager.GetSecurityStampAsync(grace);
+
+        // The name is unchanged, so nothing else in the update rotates the stamp on its way past.
+        var result = await Admin.UpdateUserAsync(grace.Id, Unchanged(grace, Shared.Roles.User));
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        Assert.NotEqual(stampBefore, await UserManager.GetSecurityStampAsync(await ReloadAsync(grace.Id)));
+    }
+
+    [Fact]
     public async Task Disabling_an_unknown_user_is_not_found()
     {
         var ada = await CreateAdminAsync("ada@example.com");
@@ -479,6 +532,45 @@ public sealed class UserAdminTests : AdminTestBase
         var result = await Admin.DeleteUserAsync(grace.Id, ada.Id);
 
         Assert.Equal(ResultCode.BadRequest, result.ResultCode);
+    }
+
+    [Fact]
+    public async Task Two_admin_removals_at_once_cannot_leave_the_install_without_one()
+    {
+        // Two requests, so two scopes with a DbContext each — the guard reads the admins in one step
+        // and writes in another, and this is the interleaving that used to let a self-demotion and a
+        // delete of the other admin both go through and leave zero admins behind.
+        for (var round = 0; round < 10; round++)
+        {
+            var ada = await CreateAdminAsync($"ada{round}@example.com");
+            var grace = await CreateAdminAsync($"grace{round}@example.com");
+
+            using var demoteScope = NewScope();
+            using var deleteScope = NewScope();
+            var demoter = demoteScope.ServiceProvider.GetRequiredService<IUserAdminService>();
+            var deleter = deleteScope.ServiceProvider.GetRequiredService<IUserAdminService>();
+
+            var demote = Task.Run(() => demoter.UpdateUserAsync(ada.Id, Unchanged(ada, Shared.Roles.User)));
+            var delete = Task.Run(() => deleter.DeleteUserAsync(ada.Id, grace.Id));
+            var results = await Task.WhenAll(demote, delete);
+
+            Context.ChangeTracker.Clear();
+            Assert.NotEmpty(await UserManager.GetUsersInRoleAsync(Shared.Roles.Admin));
+            Assert.Contains(results, r => r.HasError);
+
+            await ResetAdminsAsync();
+        }
+    }
+
+    /// <summary>Clears the accounts a round of the race test left behind, whichever way it went.</summary>
+    private async Task ResetAdminsAsync()
+    {
+        Context.ChangeTracker.Clear();
+
+        foreach (var user in Context.Users.ToList())
+        {
+            await UserManager.DeleteAsync(user);
+        }
     }
 
     [Fact]
