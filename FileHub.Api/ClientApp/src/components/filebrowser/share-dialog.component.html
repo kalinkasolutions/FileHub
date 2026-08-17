@@ -5,16 +5,34 @@
 
   @if (link()) {
     <div class="form-control">
-      <label for="share-link">Public link</label>
+      <label for="share-link">{{ audience() ? 'Group link' : 'Public link' }}</label>
       <div class="link-row">
         <input id="share-link" type="text" readonly [value]="link()" />
         <button class="icon-btn" type="button" aria-label="Copy the link" (click)="copy()">
           <mat-icon>content_copy</mat-icon>
         </button>
       </div>
-      <span class="hint">Anyone with this link can download it — no sign-in needed.</span>
     </div>
   } @else {
+    <!-- A caller who belongs to no group has nothing to choose between, so the picker and its
+         warning stay away entirely and the link is anonymous, exactly as it always was. -->
+    @if (groups().length > 0) {
+      <div class="form-control">
+        <label for="share-audience">Who can open it</label>
+        <select
+          id="share-audience"
+          name="audience"
+          [ngModel]="audienceGroupId()"
+          (ngModelChange)="setAudience($event)"
+        >
+          <option value="">Anyone with the link</option>
+          @for (group of groups(); track group.id) {
+            <option [value]="group.id">Members of {{ group.name }}</option>
+          }
+        </select>
+      </div>
+    }
+
     <div class="form-control">
       <label for="share-limit">Download limit</label>
       <input
@@ -29,6 +47,20 @@
       <span class="hint">0 lets the link be used as often as anyone likes.</span>
     </div>
   }
+
+  <!-- Shown in both states and not only next to the finished URL: whether the link is worth
+       anything to the person it is pasted to is the one thing the URL itself never shows. -->
+  <p class="audience-note" [class.restricted]="audience()">
+    <mat-icon>{{ audience() ? 'lock' : 'public' }}</mat-icon>
+    @if (audience(); as group) {
+      <span>
+        Only signed-in members of <strong>{{ group.name }}</strong> can open this. Sent to anyone
+        else, it is a dead link.
+      </span>
+    } @else {
+      <span>Anyone with this link can download it — no sign-in needed.</span>
+    }
+  </p>
 </mat-dialog-content>
 
 <mat-dialog-actions>

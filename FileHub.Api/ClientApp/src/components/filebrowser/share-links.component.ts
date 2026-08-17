@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { IShareLink } from '@models/IShareLink';
 import { apiErrorMessage } from '@services/api-error';
@@ -27,8 +27,26 @@ export class ShareLinksComponent {
   public readonly shares = signal<IShareLink[]>([]);
   public readonly isLoading = signal(true);
 
+  public readonly count = computed(() => {
+    if (this.isLoading()) {
+      return '';
+    }
+
+    const total = this.shares().length;
+
+    return total === 1 ? '1 link' : `${total} links`;
+  });
+
   public constructor() {
     this.load();
+  }
+
+  /**
+   * Whether the link is aimed at a group, and so is not anonymous: sending it to someone outside
+   * that group hands them a dead URL. Nothing in the link itself says so, which is why the row does.
+   */
+  public isRestricted(share: IShareLink): boolean {
+    return !!share.audienceGroupId;
   }
 
   /** Size is a byte count here even for a directory — the API measures a share when it is created,
