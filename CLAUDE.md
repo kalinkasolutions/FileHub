@@ -444,22 +444,89 @@ headers, `ShareLinks`, the rate limiter, and the forwarded-headers configuration
 covered, because it is the part of startup that can brick an install; the migration and role half
 in `Seed` is not.
 
+The SPA has **110 vitest specs** (`npm test`), over the things worth pinning without a browser:
+path building, the size and audience formatters, the services against `HttpTestingController`, and
+the guards. They do not cover how anything *looks* — the layout bugs in this codebase have all been
+found by screenshotting a running instance at 360px and 1280px, not by a spec, so do that when
+changing a screen rather than trusting a green suite.
+
 ### Frontend
 
 Angular 21, standalone components, **signals** (`signal`/`computed`) and **zoneless** — state
 written from an rxjs callback needs `markForCheck()` or nothing renders. Angular Material + CDK,
-`ngx-toastr`, SCSS, Prettier. Mobile-first: design for small screens, then layer on `min-width`
-media queries. **Never use the `style` attribute in a template** — always a class.
+`ngx-toastr`, SCSS, Prettier. Mobile-first: the small-screen layout is the one written first, and
+the phone case is a `max-width: 470px` step-down rather than a pile of `min-width` overrides.
+**Never use the `style` attribute in a template** — always a class.
 
-The design system is `src/_variables.scss` and `src/_mixins.scss`: CoreList's structure (the token
-names, the type/space/radius scales, the `flex`/`hover`/`icon-size`/`button-base`/`control-input`/
-`screen-header`/`account-section` mixins, the global `button` and `.icon-btn` families in
-`styles.scss`, the element-qualified Material overlay selectors) wearing **FileHub's colours** —
-the terminal green `#2fc812` and the warm near-black its panels were filled with, which the whole
-grey ramp is mixed from. Import with `@use 'variables' as *;` / `@use 'mixins' as *;` and prefer
-the tokens to hardcoded values. Material's panel selectors have to stay element-qualified
-(`div.mat-mdc-menu-panel`, …) because Material injects its own structural CSS at runtime, after
-this stylesheet, and wins an equal-specificity tie.
+#### The look is FileHub's own
+
+The design system is `src/_variables.scss`, `src/_mixins.scss` and the globals in `styles.scss`.
+It is deliberately **not** a generic dark theme, and an earlier version of this app that borrowed
+one wholesale was rejected for exactly that. What it is:
+
+- **One monospace face** for the whole app — `$font-main` *is* `$font-mono`. A file listing is a
+  column of names, and a proportional face makes that column ragged; every other screen follows the
+  listing rather than the other way round.
+- **Square corners everywhere.** Every radius token (`$border-radius`, `$radius-icon`,
+  `$radius-pill`, …) is `0`. They still exist so a component asks for "the" radius and gets
+  FileHub's answer instead of inventing one. This is the decision most of the rest follows from —
+  do not introduce a `border-radius`.
+- **The panel is the one structural idea.** `@include panel` is a 5px accent rule around a darker
+  fill with a hard, offsetless shadow; its `> .title` is ruled off in the lighter accent so the rule
+  reads as part of the border. Anything that is a *thing* on a screen — a listing, a form, a
+  settings block, a menu, a dialog, a toast — is one of these. Reach for it rather than inventing a
+  card. `@include panel-grid($max)` lays several out and collapses to a column under 470px; the
+  `$max` argument exists because a fixed px track also caps a `grid-column: 1 / -1` child, so a
+  screen with one wide listing wants the default `1fr` and a row of forms passes `$max-form-width`.
+- **Inputs are a ruled line**, not a filled box: a 2px bottom border that turns green on focus, and
+  that is the whole focus treatment — no ring, no glow. **Buttons** are square translucent-green
+  slabs (`$accent-fill`), with `.secondary` and `.danger` outlined, because only one thing on a
+  screen should look like the thing to press.
+- **Icons are set in the accent** — the green glyph is how a row says it can be acted on. Anything
+  that colours its own contents (a filled button, a tab) overrides that with `color: inherit`, which
+  `button-base`, `icon-button-base` and `tab-bar` already do.
+- **`@include chip`** is the small outlined tag, with `.invited` / `.disabled` / `.restricted` as
+  the only states worth a colour. `.restricted` is `$share-purple`, for a share link that answers
+  only a group: neither the accent nor a warning, because it is neither.
+- **Tabs sit at the top** of a screen (`@include tab-bar`), under the header. The bar scrolls
+  sideways rather than wrapping — five sections do not fit a phone, and a wrapped bar pushes the
+  content it belongs to off the screen — and marks the current tab with an accent underline rather
+  than a fill, since a filled tab reads as a button to press. Its scrollbar is hidden, so a screen
+  that restores a remembered section has to scroll the active tab into view itself.
+- **The page is lighter than the panels standing on it** (`$bg-page` `#333` against `$surface`
+  `#2b2828`), which is the inversion the app has always had. It is why `.icon-btn.quiet` hovers to
+  `$surface-hover` and not to `$surface`: hovering to the panel's own fill is no feedback at all,
+  and most quiet buttons live inside a panel.
+- **Mobile-first, and not as a slogan.** The root font size steps down to 14px under 470px, so every
+  measure written in `em` or in the spacing tokens tightens with it — prefer those to px.
+
+Import with `@use 'variables' as *;` / `@use 'mixins' as *;`. Material is **themed, not removed**:
+its panel selectors have to stay element-qualified (`div.mat-mdc-menu-panel`, …) because Material
+injects its own structural CSS at runtime, after this stylesheet, and wins an equal-specificity tie;
+dialog padding goes through its `--mat-dialog-*` variables for the same reason. `ngx-toastr` is
+themed too — left alone it is the one surface on screen still wearing somebody else's look.
+
+The logo is **`file-hub.svg`**, the wordmark, in the header and above every auth screen. It is live
+text rather than outlines, so it renders in whatever font the viewer has, and it is blue — the one
+non-green thing in the app. Both were true of the original and are left alone deliberately. The
+square "F" mark stays as the favicon and in the mail templates, where a raster is needed.
+`thebeaver.png` is on the 404, where it has always been.
+
+#### Two things that cost a day each
+
+**A rule in `app.component.scss` cannot reach the routed view.** The router renders that component
+as a *sibling* of `<router-outlet>`, outside `app.component`'s template, so Angular's view
+encapsulation scopes the rule to a content attribute the view never carries and it silently matches
+nothing. The sizing for `.shell.chromed > :not(app-header)` therefore lives in `styles.scss`, which
+has no encapsulation. Written in the component, it did nothing, and every chromed view was one
+header taller than the screen — which is what pushed a bottom-of-screen element out of sight and
+looked like a layout bug anywhere but where it was.
+
+**An `IntersectionObserver` for incremental rendering must take the scrolling list as its `root`.**
+The file browser's sentinel is the last row *inside* the list, which is the scroller: against the
+implicit viewport root it sits exactly at that list's own overflow clip, so it has zero intersection
+area at the moment it should fire, and `rootMargin` grows the *root's* rect rather than an
+ancestor's clip. The symptom is a list that renders its first page and never loads another.
 
 Routes (`src/app/app.routes.ts`): `login` and `''` (the browser) are eager — one of the two is the
 first thing every visit needs. The screens reached from a mail link (`accept-invite`,
@@ -471,6 +538,15 @@ landing is the one screen a stranger sees, and it must look the same to a signed
 Three guards: `authGuard` (session, else `/login`), `adminGuard` (the `Admin` role; sends a
 signed-in non-admin back to `/` rather than to a sign-in screen that would read as a bug), and
 `passwordChangeGuard` (described above).
+
+**The admin area is one component with five sections** — Users, Groups, Paths, Links, Email — not
+nested routes, which is what lets the header and the tab bar stay put while the section changes.
+The section is remembered in a module variable, so returning to `/admin` reopens the last one.
+Group membership is editable **only from the group side**: there is no `api/admin/users/{id}/groups`
+because the members list is replaced as a whole, so a per-user editor would mean reading every
+group and issuing one PUT per group to save one checkbox, racing the Groups screen while it did.
+A base path's two grant lists (users, groups) are siblings, not a hierarchy, and their counts are
+deliberately not summed — a user granted directly *and* through a group would be counted twice.
 
 **The wire is camelCase** — ASP.NET's default JSON policy — and ids are `Guid` strings. A listing
 entry's `size` is a byte count for a file and an **entry count** for a directory; `itemId` is a

@@ -49,16 +49,19 @@ There is no registration page. On a fresh database the only account is the one F
 4. **Admin → Paths → add a base path.** This is a path *inside the container* — `/srv/storage`
    for the mount in the example compose file, not the host directory it comes from. Anything
    below a base path is browsable; nothing above it is reachable.
-5. **Admin → Users → your own row → Base paths → grant yourself the path.** Access is per
-   account and per path, and being an admin grants nothing implicitly, so until you do this your
-   own file list is empty.
+5. **Browse it.** An admin sees every base path, so there is nothing to grant yourself — the disk
+   is already there under *directories*. Everybody else sees only what they are given in step 8.
 6. **Admin → Email → enter your SMTP settings and send a test.** Do this before step 7:
    invitations are the only way an account comes into existence, and they arrive by mail. The
    password is write-only — later edits can leave it blank to keep it, *except* when you change the
    host, port, transport or username, which clears it rather than sending your secret to a server
    it was never given to. The screen says so when it happens.
 7. **Admin → Users → invite.** The invited person gets a link that sets their first password and
-   confirms their address in one step. Grant them their base paths from the same row menu.
+   confirms their address in one step.
+8. **Give them access to something.** Either per account — Admin → Users → the row's menu → *Base
+   paths* — or, when several people need the same disks, **Admin → Groups**: create a group, put
+   accounts in it, and grant the group its paths. An account's access is the union of its own
+   grants and its groups', so a group only ever adds. An account with neither sees an empty list.
 
 ## Configuration
 
@@ -89,9 +92,11 @@ address.
   member's access is the union of their own grants and their groups'.
 - **A share link is normally the one anonymous surface.** It is an unguessable id, it may carry a
   download limit, and it stops working when the share or its base path is deleted — or when its
-  creator loses every route to that base path. A link can instead be aimed at a **group**, in
-  which case it answers only signed-in members of that group and looks like a dead link to
-  everyone else, link previews included.
+  creator loses every route to that base path. A link can instead be aimed at a **group**, chosen
+  when the link is created, in which case it answers only signed-in members of that group and looks
+  like a dead link to everyone else, link previews included — so it cannot usefully be forwarded
+  outside the group. Deleting a group deletes the links aimed at it, rather than quietly making
+  them public.
 - `..` traversal is refused, and so is any path that resolves out of the base path through a
   symlink, however many links deep.
 - **Two-factor is per account**, enabled from the account screen; enrolling and regenerating
