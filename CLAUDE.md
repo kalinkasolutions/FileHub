@@ -28,15 +28,24 @@ Migrations are applied at startup by `Seed.InitializeAsync`; there is no manual 
 step, and a migration that is added but never applied locally will be applied by the next `dotnet
 run` against whatever database the connection string points at.
 
-Frontend, from `FileHub.Api/ClientApp`:
+Frontend, from `frontend/`:
 
 ```bash
 npm install
 npm start          # ng serve — for a quick look at a component, not for talking to the API
-npm run build      # outputs to ../wwwroot, which is what the API serves
-npm run watch      # rebuild into wwwroot on change; this is the dev loop
+npm run build      # outputs to ../FileHub.Api/wwwroot, which is what the API serves
+npm run watch      # rebuild into the API's wwwroot on change; this is the dev loop
 npm test           # vitest via @angular/build:unit-test
 ```
+
+**The SPA lives beside the backend projects, not inside `FileHub.Api`.** The build output still
+lands in `FileHub.Api/wwwroot` — that has not changed and cannot, since the API serves it from
+`ContentRoot/wwwroot`. What changed is where the *sources* sit, and the reason is `dotnet watch`:
+it watches each watched file's containing directory recursively, so an SPA inside the API project
+put `node_modules` under the watch. That was ~2500 of the ~2800 directories being watched, and on
+Linux it exhausts `fs.inotify.max_user_instances` (128 by default), which fails the watcher
+outright with `The configured user limit on the number of inotify instances has been reached`.
+Do not move it back under a project the SDK globs.
 
 ### The dev loop
 

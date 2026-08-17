@@ -4,8 +4,6 @@
 **/node_modules
 # Built SPA is produced inside the image (stage 1), never copied from the host.
 FileHub.Api/wwwroot
-# The outgoing Go implementation; nothing in the image comes from it.
-backend
 .git
 .github
 .vs

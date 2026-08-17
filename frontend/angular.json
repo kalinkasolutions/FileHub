@@ -27,7 +27,7 @@
               ]
             },
             "outputPath": {
-              "base": "../wwwroot",
+              "base": "../FileHub.Api/wwwroot",
               "browser": ""
             },
             "browser": "src/main.ts",

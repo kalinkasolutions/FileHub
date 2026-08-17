@@ -1,14 +1,15 @@
 # ---- Stage 1: build the Angular SPA ----
-# angular.json's outputPath is ../wwwroot, so `npm run build` (from /app/ClientApp)
-# emits the compiled SPA to /app/wwwroot.
+# angular.json's outputPath is ../FileHub.Api/wwwroot, so `npm run build` (from /app/frontend)
+# emits the compiled SPA to /app/FileHub.Api/wwwroot — the same layout as the repository, which is
+# what keeps the one output path true both here and on a developer's machine.
 FROM node:22-alpine AS client_build_env
-WORKDIR /app/ClientApp
+WORKDIR /app/frontend
 
 # Install deps first so this layer is cached unless the lockfile changes.
-COPY FileHub.Api/ClientApp/package.json FileHub.Api/ClientApp/package-lock.json ./
+COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 
-COPY FileHub.Api/ClientApp/ ./
+COPY frontend/ ./
 RUN npm run build
 
 # ---- Stage 2: restore & publish the .NET app ----
@@ -37,7 +38,7 @@ WORKDIR /app
 COPY --from=dotnet_build_env /app/out ./
 # The SPA is excluded from publish in the csproj, so copy the built wwwroot in directly.
 # UseStaticFiles()/MapFallbackToFile serve it from ContentRoot/wwwroot at runtime.
-COPY --from=client_build_env /app/wwwroot ./wwwroot
+COPY --from=client_build_env /app/FileHub.Api/wwwroot ./wwwroot
 
 # What release this image is. The publish workflow passes the release tag, commit and build time;
 # a plain `docker build` leaves the defaults, and the SPA then shows a development build.

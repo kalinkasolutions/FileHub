@@ -138,9 +138,9 @@ dotnet test
 ```
 
 ```bash
-cd FileHub.Api/ClientApp
+cd frontend
 npm ci
-npm run watch     # rebuilds into ../wwwroot; the API live-reloads on it
+npm run watch     # rebuilds into ../FileHub.Api/wwwroot; the API live-reloads on it
 npm test
 ```
 
