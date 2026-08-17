@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { IShareLink } from '@models/IShareLink';
 import { apiErrorMessage } from '@services/api-error';
@@ -26,6 +26,16 @@ export class ShareLinksComponent {
 
   public readonly shares = signal<IShareLink[]>([]);
   public readonly isLoading = signal(true);
+
+  public readonly count = computed(() => {
+    if (this.isLoading()) {
+      return '';
+    }
+
+    const total = this.shares().length;
+
+    return total === 1 ? '1 link' : `${total} links`;
+  });
 
   public constructor() {
     this.load();

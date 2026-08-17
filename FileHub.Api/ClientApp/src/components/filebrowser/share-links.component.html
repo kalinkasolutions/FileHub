@@ -1,3 +1,8 @@
+<header class="title">
+  <span class="here">Your links</span>
+  <span class="count">{{ count() }}</span>
+</header>
+
 @if (isLoading()) {
   <p class="empty">Loading…</p>
 } @else if (shares().length === 0) {
@@ -11,7 +16,9 @@
         </mat-icon>
 
         <div class="details">
-          <span class="name" [title]="share.relativePath || share.name">{{ share.name }}</span>
+          <div class="headline">
+            <span class="name" [title]="share.relativePath || share.name">{{ share.name }}</span>
+          </div>
           <span class="meta">
             {{ meta(share) }} · shared {{ share.createdAt | date: 'mediumDate' }}
           </span>

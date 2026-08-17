@@ -1,9 +1,33 @@
 @use 'mixins' as *;
 @use 'variables' as *;
 
+// The links are a panel of their own, the same shape the file listing is: same accent rule, same
+// ruled heading, and the list inside it is what scrolls.
 :host {
-  @include flex(column);
-  gap: $small-margin;
+  @include panel;
+  flex: 1;
+  min-height: 0;
+
+  > .title {
+    @include flex(row);
+    align-items: center;
+    gap: $small-padding;
+    flex-shrink: 0;
+  }
+}
+
+.here {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.count {
+  flex-shrink: 0;
+  color: $text-dim;
+  font-size: $font-size-small;
 }
 
 .empty {
@@ -14,37 +38,49 @@
 }
 
 .links {
-  @include flex(column);
-  gap: $small-margin;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .link {
   @include tile-row;
-  gap: $small-padding;
-  padding: $default-padding $small-padding $default-padding 12px;
+  align-items: flex-start;
+  padding: $small-padding;
 
   .kind {
     @include icon-size;
     flex-shrink: 0;
-    color: $icon-faint;
+    margin-top: 2px;
     cursor: default;
   }
 
-  .kind.folder {
-    color: $primary-green;
+  .kind:not(.folder) {
+    color: $icon-faint;
   }
 
   .details {
     @include flex(column);
+    gap: 2px;
     flex: 1;
     min-width: 0;
   }
 
+  // Name and audience share a line: who can open a link belongs next to what it points at, not
+  // buried in the run of numbers underneath.
+  .headline {
+    @include flex(row);
+    align-items: center;
+    gap: $small-padding;
+    flex-wrap: wrap;
+  }
+
   .name {
+    flex: 1 1 8em;
+    min-width: 0;
     overflow: hidden;
     color: $text-primary;
-    font-family: $font-mono;
-    font-size: $font-size-base;
+    font-size: $font-size-row;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -57,10 +93,16 @@
     line-height: 1.4;
   }
 
-  // The row is raised already, so a quiet action needs the next surface up to register as hovered.
+  // The row is a surface already, so a quiet action needs the next one up to register as hovered.
   .icon-btn.quiet {
     @include hover {
       background: $surface-elevated-hover;
     }
+  }
+}
+
+@media (min-width: 600px) {
+  .link {
+    padding: $small-padding $default-padding;
   }
 }

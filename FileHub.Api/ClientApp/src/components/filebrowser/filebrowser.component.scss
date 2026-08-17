@@ -3,40 +3,69 @@
 
 :host {
   @include app-shell;
+  // `app-shell`'s `height: 100%` is the whole shell — header included — and the app component's own
+  // `height: auto` correction never reaches this element: a routed view is created by the outlet, so
+  // it carries none of that template's scoping attributes and none of its `> *` rules match. Left at
+  // 100% the view is a header taller than the screen and the panel's bottom rule falls off it.
+  height: auto;
+  flex: 1;
+  min-height: 0;
 }
 
-.browser-header {
+.tabs {
+  @include tab-bar;
+}
+
+// The panel fills the screen and the *list* is what scrolls, so the accent rule stays drawn around
+// the folder instead of scrolling off the top of it.
+.content {
   @include flex(column);
-  gap: $default-padding;
-  flex-shrink: 0;
-  padding: $header-padding;
-  border-bottom: 1px solid $border-subtle;
-}
-
-.heading {
-  @include flex(row);
-  align-items: center;
-  gap: $default-padding;
-  min-height: $tap-target-min;
-}
-
-.title {
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
-  font-size: $font-size-title;
-  font-weight: 600;
-  letter-spacing: $letter-spacing-title;
+  padding: $content-padding;
+}
+
+.listing {
+  @include panel;
+  flex: 1;
+  min-height: 0;
+
+  > .title {
+    @include flex(row);
+    align-items: center;
+    gap: $small-padding;
+    flex-shrink: 0;
+    padding-left: $small-padding;
+  }
+}
+
+// The folder you are standing in, in the same monospace column as its contents.
+.here {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-// A trail can be deeper than the screen is wide, so it scrolls sideways — without a scrollbar of
-// its own, because the component keeps the last crumb in view.
+// How much of the folder is on screen. It says "n of m" while the filter is narrowing the list,
+// which is the only sign of how much the filter is hiding.
+.count {
+  flex-shrink: 0;
+  color: $text-dim;
+  font-size: $font-size-small;
+}
+
+// The trail scrolls sideways without a scrollbar of its own — the component keeps the last crumb
+// in view, and a bar here would read as one more rule.
 .crumbs {
   @include flex(row);
   align-items: center;
-  gap: $small-padding;
+  flex-shrink: 0;
   overflow-x: auto;
-  font-family: $font-mono;
+  padding: $small-padding;
+  border-bottom: 1px solid $border-subtle;
   font-size: $font-size-small;
   white-space: nowrap;
   scrollbar-width: none;
@@ -48,42 +77,50 @@
 
 .crumb {
   min-height: 0;
-  padding: 2px $small-padding;
-  border-radius: $radius-menu-item;
+  padding: 0 2px;
   background: transparent;
-  color: $link-primary;
-  font-family: inherit;
+  color: $text-secondary;
   font-size: inherit;
   font-weight: 400;
 
   @include hover {
-    background: $surface;
+    background: transparent;
     color: $link-hover;
   }
 
   // The crumb you are standing on. It is disabled rather than hidden so the trail keeps its shape,
-  // and it drops the dimming a disabled button normally takes.
+  // it wears the accent because that is how this app marks the current thing, and it drops the
+  // dimming a disabled button normally takes.
   &:disabled {
     opacity: 1;
-    color: $text-muted;
+    color: $primary-green;
+    text-decoration: underline;
   }
 }
 
 .separator {
+  padding: 0 2px;
   color: $icon-faint;
 }
 
-.content {
-  @include flex(column);
-  gap: $small-margin;
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: $content-padding;
-}
-
-.filter {
+// A terminal prompt rather than a search box: the glyph, then the ruled line the app gives inputs.
+.filter-row {
+  @include flex(row);
+  align-items: center;
+  gap: $small-padding;
   flex-shrink: 0;
+  padding: 0 $small-padding;
+  border-bottom: 1px solid $border-subtle;
+
+  mat-icon {
+    @include icon-size($icon-size-inline);
+    flex-shrink: 0;
+    cursor: default;
+  }
+
+  .filter {
+    border-bottom: none;
+  }
 }
 
 .empty {
@@ -93,29 +130,36 @@
   line-height: 1.5;
 }
 
+// The list is the scroller, not the page.
 .entries {
-  @include flex(column);
-  gap: $small-margin;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .entry {
   @include tile-row;
-  gap: $small-padding;
-  padding: 0 $small-padding 0 12px;
-
-  @include hover {
-    background: $surface-hover;
-  }
 
   .kind {
     @include icon-size;
     flex-shrink: 0;
-    color: $icon-faint;
     cursor: default;
   }
 
-  .kind.folder {
-    color: $primary-green;
+  // A file is not an action, so its glyph is not painted in the accent the way a folder's is.
+  .kind:not(.folder) {
+    color: $icon-faint;
+  }
+
+  // Mobile-first: on a phone this is a column, so the name gets the width the size would have taken
+  // — at 360px a one-line row leaves about ten glyphs of a file name, which is not a file name.
+  .details {
+    @include flex(column);
+    justify-content: center;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+    padding: $small-padding 0;
   }
 
   // The whole point of the browser: names in one monospace column, so they line up and a long one
@@ -124,17 +168,16 @@
     // `display: block` matters on the button: the global button shape is a flex container, and a
     // flex container cannot ellipsize the anonymous item its text becomes — it would just clip.
     display: block;
-    flex: 1;
+    width: 100%;
     min-width: 0;
     min-height: 0;
     overflow: hidden;
-    padding: $default-padding 0;
-    border-radius: 0;
+    padding: 0;
     background: transparent;
     color: $text-primary;
-    font-family: $font-mono;
-    font-size: $font-size-base;
+    font-size: $font-size-row;
     font-weight: 400;
+    line-height: 1.4;
     text-align: left;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -149,15 +192,13 @@
 
   .size {
     flex-shrink: 0;
-    min-width: 76px;
     color: $text-dim;
-    font-family: $font-mono;
     font-size: $font-size-small;
-    text-align: right;
+    line-height: 1.4;
   }
 
-  // The row is already raised, so a row action's hover fill has to be the next surface up or it
-  // disappears into the row it sits on.
+  // The row's own hover fill is the surface these actions sit on, so a quiet button needs the next
+  // one up to register as hovered at all.
   .icon-btn.quiet {
     @include hover {
       background: $surface-elevated-hover;
@@ -166,23 +207,38 @@
 }
 
 .sentinel {
-  flex-shrink: 0;
   height: 1px;
 }
 
-.tabs {
-  @include tab-bar;
+// Above a phone the row goes back to one line, which is what makes the listing a column of names
+// with a column of sizes beside it rather than a stack of two-line blocks.
+@media (min-width: 470px) {
+  .entry .details {
+    @include flex(row);
+    align-items: center;
+    gap: $small-padding;
+  }
+
+  .entry .size {
+    // Reserved rather than natural, so the numbers line up down the list instead of stepping in and
+    // out with the length of each one.
+    min-width: 5em;
+    text-align: right;
+  }
 }
 
-// From a tablet up there is room for the size column to breathe and for the rows to sit off the
-// edge of the shell.
+// From a tablet up there is room for the panel to sit off the edge of the shell and for the size
+// column to breathe.
 @media (min-width: 600px) {
   .content {
     padding: $default-margin;
   }
 
-  .entry .size {
-    min-width: 110px;
-    padding-right: $default-padding;
+  .entry {
+    padding: 0 $default-padding;
+
+    .size {
+      min-width: 7em;
+    }
   }
 }

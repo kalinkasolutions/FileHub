@@ -14,6 +14,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { IFileEntry } from '@models/IFileEntry';
 import { apiErrorMessage } from '@services/api-error';
+import { AuthService } from '@services/auth.service';
 import { DirectoryService } from '@services/directory.service';
 import { FileService } from '@services/file.service';
 import { IPathSegment, PathService } from '@services/path.service';
@@ -51,10 +52,12 @@ export class FilebrowserComponent {
   private readonly fileService = inject(FileService);
   private readonly dialog = inject(MatDialog);
   private readonly toastr = inject(ToastrService);
+  private readonly authService = inject(AuthService);
 
   public readonly pathService = inject(PathService);
 
   private readonly crumbs = viewChild<ElementRef<HTMLElement>>('crumbs');
+  private readonly scroller = viewChild<ElementRef<HTMLElement>>('scroller');
   private readonly sentinel = viewChild<ElementRef<HTMLElement>>('sentinel');
 
   /**
@@ -85,6 +88,25 @@ export class FilebrowserComponent {
 
   public readonly visible = computed(() => this.filtered().slice(0, this.shown()));
 
+  /**
+   * The tally in the panel's heading. It counts what the filter left, against what the folder holds,
+   * because a filtered listing otherwise gives no sign of how much of the folder it is hiding.
+   */
+  public readonly count = computed(() => {
+    if (this.isLoading()) {
+      return '';
+    }
+
+    const total = this.entries().length;
+    const matched = this.filtered().length;
+
+    if (matched !== total) {
+      return `${matched} of ${total}`;
+    }
+
+    return total === 1 ? '1 item' : `${total} items`;
+  });
+
   public readonly emptyMessage = computed(() => {
     if (this.hasFailed()) {
       return 'This folder could not be read.';
@@ -92,6 +114,12 @@ export class FilebrowserComponent {
 
     if (this.search().trim().length > 0) {
       return 'Nothing here matches that.';
+    }
+
+    // An admin reaches every base path by the role alone, so an empty top level cannot mean a
+    // missing grant for them — it means nobody has added a disk yet, which is their own job.
+    if (this.pathService.isAtTop() && this.authService.isAdmin()) {
+      return 'No disks yet — add one in the admin area and it turns up here.';
     }
 
     if (this.pathService.isAtTop()) {
@@ -112,10 +140,16 @@ export class FilebrowserComponent {
 
     // Re-attached whenever the sentinel comes or goes — it is inside the files tab, so switching
     // tabs removes it from the DOM.
+    //
+    // The root is the list, not the viewport. The sentinel is the last row of a scroller that runs
+    // to the bottom edge of the screen, so against the viewport it is clipped away by the list's own
+    // overflow at exactly the moment it should fire, and `rootMargin` — which grows the root's rect,
+    // not an ancestor's clip — never gets a chance to see it. Rendering then stops at one page.
     effect((onCleanup) => {
       const element = this.sentinel()?.nativeElement;
+      const root = this.scroller()?.nativeElement;
 
-      if (!element) {
+      if (!element || !root) {
         return;
       }
 
@@ -125,7 +159,7 @@ export class FilebrowserComponent {
             this.showMore();
           }
         },
-        { rootMargin: '300px' },
+        { root, rootMargin: '300px' },
       );
 
       observer.observe(element);
