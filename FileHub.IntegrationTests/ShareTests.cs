@@ -134,7 +134,7 @@ public sealed class ShareTests : SharesTestBase
         var basePath = await CreateBasePathAsync(Tree.Root);
         await GrantAsync(basePath.Id, alice.Id);
 
-        var result = await Shares.CreateAsync(alice.Id, callerIsAdmin: false, new CreateShareDto
+        var result = await Shares.CreateAsync(alice.Id, callerIsAdmin: false, callerCanCreateShares: true, new CreateShareDto
         {
             BasePathId = basePath.Id,
             RelativePath = "a.txt",
@@ -157,7 +157,7 @@ public sealed class ShareTests : SharesTestBase
         var basePath = await CreateBasePathAsync(Tree.Root);
         await GrantAsync(basePath.Id, alice.Id);
 
-        var result = await Shares.CreateAsync(alice.Id, callerIsAdmin: false, new CreateShareDto
+        var result = await Shares.CreateAsync(alice.Id, callerIsAdmin: false, callerCanCreateShares: true, new CreateShareDto
         {
             BasePathId = basePath.Id,
             RelativePath = relativePath
@@ -174,7 +174,7 @@ public sealed class ShareTests : SharesTestBase
         var basePath = await CreateBasePathAsync(Tree.Root);
         await GrantAsync(basePath.Id, alice.Id);
 
-        var result = await Shares.CreateAsync(alice.Id, callerIsAdmin: false, new CreateShareDto
+        var result = await Shares.CreateAsync(alice.Id, callerIsAdmin: false, callerCanCreateShares: true, new CreateShareDto
         {
             BasePathId = basePath.Id,
             RelativePath = "gone.txt"

@@ -3,6 +3,7 @@ using Entities.Account;
 using FileHub.BusinessLogic.Services.Identity;
 using FileHub.Extensions;
 using Microsoft.AspNetCore.Identity;
+using Shared;
 
 namespace FileHub.Endpoints;
 
@@ -139,7 +140,10 @@ public static class AuthEndpoint
             UserId = user.Id,
             Username = user.UserName ?? string.Empty,
             Email = user.Email ?? string.Empty,
-            Roles = [.. roles],
+            // Effective, not stored: the admin role implies the others, and the client uses this to
+            // decide what to offer. Answering with the stored set would hide from an admin a button
+            // the API would have honoured.
+            Roles = [.. Roles.Effective(roles)],
             MustChangePassword = user.MustChangePassword
         });
     }

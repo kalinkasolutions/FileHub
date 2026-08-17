@@ -1,5 +1,6 @@
 using Dal.Repositories.Admin;
 using Dal.Repositories.Identity;
+using Dal.Repositories.Shares;
 using Dtos.Admin;
 using Entities.Account;
 using FileHub.BusinessLogic.Services.Admin;
@@ -48,6 +49,7 @@ public abstract class IdentityTestBase : TestHostBase
 
         services.AddScoped<IIdentityRepository, IdentityRepository>();
         services.AddScoped<IUserAdminRepository, UserAdminRepository>();
+        services.AddScoped<IShareRepository, ShareRepository>();
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<IUserAdminService, UserAdminService>();
     }

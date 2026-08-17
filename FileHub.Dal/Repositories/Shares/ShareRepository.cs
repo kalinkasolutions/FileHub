@@ -97,6 +97,11 @@ public sealed class ShareRepository : IShareRepository
             .Where(s => !AdminUserIds().Contains(s.CreatedById))
             .ExecuteDeleteAsync();
 
+    public Task<int> DeleteAllSharesOfUserAsync(Guid userId) =>
+        m_context.Shares
+            .Where(s => s.CreatedById == userId)
+            .ExecuteDeleteAsync();
+
     public Task SaveChangesAsync() => m_context.SaveChangesAsync();
 
     /// <summary>

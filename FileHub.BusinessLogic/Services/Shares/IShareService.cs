@@ -19,8 +19,15 @@ public interface IShareService
     /// Creates a link to a path the caller can reach. The target's total size is measured here,
     /// once, and cached on the row. An audience group the caller does not belong to is a 400 —
     /// unless they are an admin, who may aim a link at any group.
+    /// <para>
+    /// <paramref name="callerCanCreateShares"/> is the <c>CreateShares</c> role, which publishing
+    /// requires: reading a disk and handing out an anonymous URL into it are separate powers, and
+    /// access to the base path only settles the first. An admin holds the role implicitly, so
+    /// <paramref name="callerIsAdmin"/> is enough on its own.
+    /// </para>
     /// </summary>
-    Task<OperationResult<ShareDto>> CreateAsync(Guid userId, bool callerIsAdmin, CreateShareDto dto);
+    Task<OperationResult<ShareDto>> CreateAsync(
+        Guid userId, bool callerIsAdmin, bool callerCanCreateShares, CreateShareDto dto);
 
     Task<OperationResult<List<ShareDto>>> ListForUserAsync(Guid userId);
 

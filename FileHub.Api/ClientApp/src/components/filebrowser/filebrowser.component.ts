@@ -184,7 +184,17 @@ export class FilebrowserComponent {
     this.shown.set(pageSize);
   }
 
+  /**
+   * Whether this account may publish a link. Without it there is no share button and no Links tab —
+   * losing the role revokes the links, so there is nothing behind that tab to reach.
+   */
+  public readonly canShare = computed(() => this.authService.canCreateShares());
+
   public showTab(tab: BrowserTab): void {
+    if (tab === 'links' && !this.canShare()) {
+      return;
+    }
+
     this.tab.set(tab);
   }
 
@@ -197,6 +207,10 @@ export class FilebrowserComponent {
   }
 
   public share(entry: IFileEntry): void {
+    if (!this.canShare()) {
+      return;
+    }
+
     const data: IShareDialogData = {
       name: entry.name,
       basePathId: entry.id,

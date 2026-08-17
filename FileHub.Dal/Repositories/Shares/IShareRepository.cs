@@ -64,5 +64,14 @@ public interface IShareRepository
     Task<int> DeleteSharesLosingGroupAccessAsync(
         Guid groupId, IReadOnlyCollection<Guid> pendingBasePathIds, IReadOnlyCollection<Guid> pendingMemberIds);
 
+    /// <summary>
+    /// Removes every link <paramref name="userId"/> created, whatever base path it points into, and
+    /// answers how many. This is the revocation for losing the right to publish at all — the
+    /// <c>CreateShares</c> role, or the Admin role that implies it — where no base path survives the
+    /// change because the permission itself is gone. There is no admin exemption here: the caller
+    /// decides who has lost the right, and an admin who is being demoted has lost it.
+    /// </summary>
+    Task<int> DeleteAllSharesOfUserAsync(Guid userId);
+
     Task SaveChangesAsync();
 }

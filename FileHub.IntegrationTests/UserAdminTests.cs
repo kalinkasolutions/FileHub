@@ -612,9 +612,14 @@ public sealed class UserAdminTests : AdminTestBase
 
         var result = await Roles.ListRolesAsync();
 
-        Assert.Equal(2, result.Value.Length);
+        Assert.Equal(3, result.Value.Length);
         Assert.Equal(1, result.Value.Single(r => r.Name == Shared.Roles.Admin).UserCount);
         Assert.Equal(2, result.Value.Single(r => r.Name == Shared.Roles.User).UserCount);
+
+        // The count is who holds the role as a row. An admin holds CreateShares implicitly and is
+        // deliberately not counted here — storing it would leave a demotion with a row to clean up
+        // that nobody granted.
+        Assert.Equal(0, result.Value.Single(r => r.Name == Shared.Roles.CreateShares).UserCount);
     }
 
     [Fact]
@@ -624,6 +629,8 @@ public sealed class UserAdminTests : AdminTestBase
 
         // They are what the authorization policies check, so a row that drifted from them would be
         // a lie — the list comes from the constants, not from the table.
-        Assert.Equal([Shared.Roles.Admin, Shared.Roles.User], result.Value.Select(r => r.Name));
+        Assert.Equal(
+            [Shared.Roles.Admin, Shared.Roles.User, Shared.Roles.CreateShares],
+            result.Value.Select(r => r.Name));
     }
 }

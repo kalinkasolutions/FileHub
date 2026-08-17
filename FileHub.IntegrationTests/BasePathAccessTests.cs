@@ -60,7 +60,7 @@ public sealed class BasePathAccessTests : FilesTestBase
         Tree.File("a.txt");
         var basePath = await CreateBasePathAsync(Tree.Root);
 
-        var result = await Shares.CreateAsync(alice.Id, callerIsAdmin: false, new CreateShareDto
+        var result = await Shares.CreateAsync(alice.Id, callerIsAdmin: false, callerCanCreateShares: true, new CreateShareDto
         {
             BasePathId = basePath.Id,
             RelativePath = "a.txt"
@@ -124,7 +124,7 @@ public sealed class BasePathAccessTests : FilesTestBase
         Tree.File("a.txt");
         var basePath = await CreateBasePathAsync(Tree.Root);
 
-        var result = await Shares.CreateAsync(admin.Id, callerIsAdmin: true, new CreateShareDto
+        var result = await Shares.CreateAsync(admin.Id, callerIsAdmin: true, callerCanCreateShares: true, new CreateShareDto
         {
             BasePathId = basePath.Id,
             RelativePath = "a.txt"

@@ -3,9 +3,10 @@
 
   <div class="body">
     <p class="hint">
-      Roles are fixed and cannot be created here. <strong>Admin</strong> unlocks this area and is an
-      implicit grant of <em>every</em> base path; <strong>User</strong> is what browsing and sharing
-      need, so every account has it.
+      Roles are fixed and cannot be created here. <strong>Admin</strong> unlocks this area, grants
+      <em>every</em> base path, and carries every other role with it. <strong>User</strong> is what
+      browsing needs, so every account has it. <strong>CreateShares</strong> is what publishing a
+      link needs — browsing a disk does not include it. The counts are who holds a role outright.
     </p>
     <ul class="roles">
       @for (role of roles(); track role.name) {
@@ -78,7 +79,12 @@
                 <span class="hint">Always granted — an account without it can see nothing.</span>
               }
               @if (role.name === adminRole) {
-                <span class="hint">Sees every base path without being granted one.</span>
+                <span class="hint">
+                  Sees every base path without being granted one, and holds every other role.
+                </span>
+              }
+              @if (role.name === createSharesRole) {
+                <span class="hint">May publish share links. Browsing a disk does not include it.</span>
               }
             </span>
           </label>
@@ -228,6 +234,12 @@
                       <span class="hint">
                         Taking it away ends the session and takes every base path with it, bar the
                         ones granted outright.
+                      </span>
+                    }
+                    @if (role.name === createSharesRole) {
+                      <span class="hint">
+                        Taking it away deletes the share links this account has published — including
+                        the ones it made as an admin.
                       </span>
                     }
                   </span>

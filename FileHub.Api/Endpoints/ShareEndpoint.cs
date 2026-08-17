@@ -20,7 +20,13 @@ public static class ShareEndpoint
     {
         var group = builder.MapGroup("api/share").RequireAuthorization();
 
-        group.MapPost("", CreateAsync);
+        // Publishing needs the CreateShares role on top of a session; listing and revoking do not.
+        // A user whose role was taken away has no links left — losing it revokes them — but one who
+        // never had it can still be walked through the screen without being lied to, and an account
+        // that keeps a link must always be able to take it down.
+        group.MapPost("", CreateAsync)
+            .RequireAuthorization(policy => policy.RequireRole(Roles.CreateShares));
+
         group.MapGet("", ListAsync);
         group.MapDelete("{id:guid}", DeleteAsync);
 
@@ -33,7 +39,12 @@ public static class ShareEndpoint
     private static async Task<IResult> CreateAsync(
         CreateShareDto dto, ClaimsPrincipal user, IShareService service, IOptions<AppOptions> options)
     {
-        var result = await service.CreateAsync(user.GetUserId(), user.IsInRole(Roles.Admin), dto);
+        // The role travels as an argument, like callerIsAdmin, so the rule is visible in the service
+        // and a service-level test can set either answer. The route policy above is the control; this
+        // is what makes the service refuse on its own rather than trusting that a route was mapped
+        // correctly. An admin holds the role implicitly, through the claims factory.
+        var result = await service.CreateAsync(
+            user.GetUserId(), user.IsInRole(Roles.Admin), user.IsInRole(Roles.CreateShares), dto);
 
         if (result.IsSuccess)
         {

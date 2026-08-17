@@ -31,12 +31,24 @@ public sealed class ShareService : IShareService
         m_groupRepository = groupRepository;
     }
 
-    public async Task<OperationResult<ShareDto>> CreateAsync(Guid userId, bool callerIsAdmin, CreateShareDto dto)
+    public async Task<OperationResult<ShareDto>> CreateAsync(
+        Guid userId, bool callerIsAdmin, bool callerCanCreateShares, CreateShareDto dto)
     {
         var validation = DtoValidator.Validate(dto);
         if (validation.HasError)
         {
             return validation.MapError<ShareDto>();
+        }
+
+        // Publishing is its own permission. Being able to browse a base path settles what the caller
+        // may read; it does not settle whether they may put an anonymous URL to it into the world.
+        // Refused before anything else is looked at, so a caller without the role learns nothing
+        // about the base path or the path they named.
+        if (!callerIsAdmin && !callerCanCreateShares)
+        {
+            m_logger.LogWarning(
+                "User {UserId} tried to create a link without the {Role} role", userId, Roles.CreateShares);
+            return OperationResult<ShareDto>.Forbidden(CreateRefused);
         }
 
         // Who the link is for. Null is the default and means anonymous by URL. A caller may only
@@ -335,4 +347,9 @@ public sealed class ShareService : IShareService
     /// <summary>One message for both ways aiming a link at a group can be refused, so it cannot be
     /// used to tell a group that does not exist from one the caller is not in.</summary>
     private const string AudienceRefused = "You can only share with a group you belong to";
+
+    /// <summary>Shown to a user who can browse but not publish. It names what is missing rather than
+    /// pretending the path is gone, because the caller can see the file in the listing either
+    /// way.</summary>
+    private const string CreateRefused = "Your account is not allowed to create share links";
 }

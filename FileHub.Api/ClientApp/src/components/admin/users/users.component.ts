@@ -53,6 +53,7 @@ export class UsersComponent implements OnInit {
   public readonly roles = this.roleService.roles;
   public readonly userRole = Roles.User;
   public readonly adminRole = Roles.Admin;
+  public readonly createSharesRole = Roles.CreateShares;
 
   /** Revoking a direct grant deletes the links made under it, so the editor says so before saving. */
   public readonly accessNote =

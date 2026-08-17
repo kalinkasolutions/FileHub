@@ -169,7 +169,7 @@ public sealed class BasePathAdminTests : FilesTestBase
         Tree.File("movies/a.txt", "hello");
         var movies = await CreateBasePathAsync(Path.Combine(Tree.Root, "movies"), "Movies");
         await GrantAsync(movies.Id, alice.Id);
-        await Shares.CreateAsync(alice.Id, callerIsAdmin: false, new CreateShareDto { BasePathId = movies.Id, RelativePath = "a.txt" });
+        await Shares.CreateAsync(alice.Id, callerIsAdmin: false, callerCanCreateShares: true, new CreateShareDto { BasePathId = movies.Id, RelativePath = "a.txt" });
 
         await BasePaths.DeleteAsync(movies.Id);
 

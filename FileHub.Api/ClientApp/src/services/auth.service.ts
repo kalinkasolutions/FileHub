@@ -38,6 +38,14 @@ export class AuthService {
   public readonly status: Signal<IAuthStatus | null> = this.state.asReadonly();
   public readonly isAuthenticated = computed(() => this.state()?.authenticated ?? false);
   public readonly isAdmin = computed(() => this.state()?.roles.includes(Roles.Admin) ?? false);
+
+  /**
+   * Whether to offer the share controls at all. The API refuses without the role either way — this
+   * is what keeps a button on screen from being one that always fails.
+   */
+  public readonly canCreateShares = computed(
+    () => this.state()?.roles.includes(Roles.CreateShares) ?? false,
+  );
   public readonly mustChangePassword = computed(() => this.state()?.mustChangePassword ?? false);
   public readonly username = computed(() => this.state()?.username ?? '');
 

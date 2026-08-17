@@ -1,9 +1,11 @@
+using Dal.Repositories.Admin;
 using Dal.Repositories.BasePaths;
 using Dal.Repositories.Groups;
 using Dal.Repositories.Shares;
 using Dtos.BasePaths;
 using Dtos.Groups;
 using Dtos.Shares;
+using FileHub.BusinessLogic.Services.Admin;
 using FileHub.BusinessLogic.Services.BasePaths;
 using FileHub.BusinessLogic.Services.Files;
 using FileHub.BusinessLogic.Services.Groups;
@@ -27,6 +29,12 @@ public abstract class SharesTestBase : TestHostBase
     protected IGroupService Groups => Services.GetRequiredService<IGroupService>();
     protected IFileService Files => Services.GetRequiredService<IFileService>();
 
+    /// <summary>
+    /// The admin user service, because taking the CreateShares role away is one of the things that
+    /// revokes a link — so proving it does needs both halves in one fixture.
+    /// </summary>
+    protected IUserAdminService Users => Services.GetRequiredService<IUserAdminService>();
+
     protected SharesTestBase() : base(Configure)
     {
     }
@@ -40,6 +48,8 @@ public abstract class SharesTestBase : TestHostBase
         services.AddScoped<IGroupService, GroupService>();
         services.AddScoped<IFileService, FileService>();
         services.AddScoped<IShareService, ShareService>();
+        services.AddScoped<IUserAdminRepository, UserAdminRepository>();
+        services.AddScoped<IUserAdminService, UserAdminService>();
     }
 
     protected async Task<BasePathDto> CreateBasePathAsync(string path, string name = "Media")
@@ -82,13 +92,17 @@ public abstract class SharesTestBase : TestHostBase
     protected async Task<ShareDto> ShareAsync(
         Guid userId, Guid basePathId, string relativePath, int maxDownloads = 0, Guid? audienceGroupId = null)
     {
-        var result = await Shares.CreateAsync(userId, callerIsAdmin: false, new CreateShareDto
-        {
-            BasePathId = basePathId,
-            RelativePath = relativePath,
-            MaxDownloadCount = maxDownloads,
-            AudienceGroupId = audienceGroupId
-        });
+        var result = await Shares.CreateAsync(
+            userId,
+            callerIsAdmin: false,
+            callerCanCreateShares: true,
+            new CreateShareDto
+            {
+                BasePathId = basePathId,
+                RelativePath = relativePath,
+                MaxDownloadCount = maxDownloads,
+                AudienceGroupId = audienceGroupId
+            });
 
         Assert.True(result.IsSuccess, result.ErrorMessage);
         return result.Value;

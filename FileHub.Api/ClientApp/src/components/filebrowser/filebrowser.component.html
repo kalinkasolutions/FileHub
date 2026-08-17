@@ -4,10 +4,13 @@
     <mat-icon>folder_open</mat-icon>
     <span>Files</span>
   </button>
-  <button class="tab" type="button" [class.active]="tab() === 'links'" (click)="showTab('links')">
-    <mat-icon>link</mat-icon>
-    <span>Links</span>
-  </button>
+  <!-- Only an account that may publish has links to show: losing the role revokes them. -->
+  @if (canShare()) {
+    <button class="tab" type="button" [class.active]="tab() === 'links'" (click)="showTab('links')">
+      <mat-icon>link</mat-icon>
+      <span>Links</span>
+    </button>
+  }
 </nav>
 
 <main class="content">
@@ -99,14 +102,17 @@
               <!-- A base path is the whole disk: it is neither downloadable as one zip nor a
                    sensible thing to hand out a public link to. -->
               @if (!entry.isBasePath) {
-                <button
-                  class="icon-btn quiet"
-                  type="button"
-                  [attr.aria-label]="'Share ' + entry.name"
-                  (click)="share(entry)"
-                >
-                  <mat-icon>link</mat-icon>
-                </button>
+                <!-- Publishing is its own permission: reading this disk does not carry it. -->
+                @if (canShare()) {
+                  <button
+                    class="icon-btn quiet"
+                    type="button"
+                    [attr.aria-label]="'Share ' + entry.name"
+                    (click)="share(entry)"
+                  >
+                    <mat-icon>link</mat-icon>
+                  </button>
+                }
                 <button
                   class="icon-btn quiet"
                   type="button"

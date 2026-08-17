@@ -1,4 +1,5 @@
 using Dal.Repositories.Admin;
+using Dal.Repositories.Shares;
 using Dtos.Admin;
 using Entities.Account;
 using FileHub.BusinessLogic.Services.Admin;
@@ -24,6 +25,9 @@ public abstract class AdminTestBase : TestHostBase
     private static void Configure(IServiceCollection services)
     {
         services.AddScoped<IUserAdminRepository, UserAdminRepository>();
+        // Taking the right to publish away from an account revokes the links it published, so the
+        // admin service reaches the share table.
+        services.AddScoped<IShareRepository, ShareRepository>();
         services.AddScoped<IUserAdminService, UserAdminService>();
         services.AddScoped<IRoleService, RoleService>();
     }

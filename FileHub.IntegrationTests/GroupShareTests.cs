@@ -56,7 +56,7 @@ public sealed class GroupShareTests : SharesTestBase
         await GrantAsync(basePath.Id, alice.Id, bob.Id);
         var family = await CreateGroupAsync("Family", alice.Id);
 
-        var result = await Shares.CreateAsync(bob.Id, callerIsAdmin: false, new CreateShareDto
+        var result = await Shares.CreateAsync(bob.Id, callerIsAdmin: false, callerCanCreateShares: true, new CreateShareDto
         {
             BasePathId = basePath.Id,
             RelativePath = "a.txt",
@@ -77,14 +77,14 @@ public sealed class GroupShareTests : SharesTestBase
         await GrantAsync(basePath.Id, bob.Id);
         var family = await CreateGroupAsync("Family", alice.Id);
 
-        var notAMember = await Shares.CreateAsync(bob.Id, callerIsAdmin: false, new CreateShareDto
+        var notAMember = await Shares.CreateAsync(bob.Id, callerIsAdmin: false, callerCanCreateShares: true, new CreateShareDto
         {
             BasePathId = basePath.Id,
             RelativePath = "a.txt",
             AudienceGroupId = family.Id
         });
 
-        var unknown = await Shares.CreateAsync(bob.Id, callerIsAdmin: false, new CreateShareDto
+        var unknown = await Shares.CreateAsync(bob.Id, callerIsAdmin: false, callerCanCreateShares: true, new CreateShareDto
         {
             BasePathId = basePath.Id,
             RelativePath = "a.txt",
@@ -105,7 +105,7 @@ public sealed class GroupShareTests : SharesTestBase
         var basePath = await CreateBasePathAsync(Tree.Root);
         var family = await CreateGroupAsync("Family", alice.Id);
 
-        var result = await Shares.CreateAsync(admin.Id, callerIsAdmin: true, new CreateShareDto
+        var result = await Shares.CreateAsync(admin.Id, callerIsAdmin: true, callerCanCreateShares: true, new CreateShareDto
         {
             BasePathId = basePath.Id,
             RelativePath = "a.txt",
@@ -346,7 +346,7 @@ public sealed class GroupShareTests : SharesTestBase
         Tree.File("a.txt");
         var basePath = await CreateBasePathAsync(Tree.Root);
 
-        var created = await Shares.CreateAsync(admin.Id, callerIsAdmin: true, new CreateShareDto
+        var created = await Shares.CreateAsync(admin.Id, callerIsAdmin: true, callerCanCreateShares: true, new CreateShareDto
         {
             BasePathId = basePath.Id,
             RelativePath = "a.txt"

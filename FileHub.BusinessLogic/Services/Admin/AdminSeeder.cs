@@ -130,7 +130,7 @@ public static class AdminSeeder
             return OperationResult<Empty>.Error($"Could not create the admin account: {created.ToErrorString()}");
         }
 
-        var roled = await userManager.AddToRolesAsync(admin, [Roles.Admin, Roles.User]);
+        var roled = await userManager.AddToRolesAsync(admin, s_adminRoles);
         if (!roled.Succeeded)
         {
             return OperationResult<Empty>.Error($"Could not assign the admin roles: {roled.ToErrorString()}");
@@ -168,8 +168,15 @@ public static class AdminSeeder
         credentialOutput.Flush();
     }
 
+    /// <summary>
+    /// The roles the seeded admin is given. Not <see cref="Roles.All"/>: the Admin role already
+    /// implies every other one, so storing them as rows would only leave a demotion with more to
+    /// clean up than it removed.
+    /// </summary>
+    private static readonly string[] s_adminRoles = [Roles.Admin, Roles.User];
+
     private static string[] MissingRoles(IList<string> currentRoles) =>
-        Roles.All.Except(currentRoles, StringComparer.Ordinal).ToArray();
+        s_adminRoles.Except(currentRoles, StringComparer.Ordinal).ToArray();
 
     /// <summary>
     /// A display name no account holds yet. <c>FindByNameAsync</c> is a lookup for availability

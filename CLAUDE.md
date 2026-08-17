@@ -113,8 +113,15 @@ and forwarding the request untouched.
   redeems it: it confirms the address and sets the first password in one call, so an admin never
   learns a user's password. Both halves have to keep using the *email-confirmation* token — a reset
   token will not redeem here.
-- **Roles are `Admin` and `User`** (`Shared/Roles.cs`), seeded at startup. They are fixed: there is
-  no role creation, and `api/admin/roles` only lists them with their counts.
+- **Roles are `Admin`, `User` and `CreateShares`** (`Shared/Roles.cs`), seeded at startup. They are
+  fixed: there is no role creation, and `api/admin/roles` only lists them with their counts.
+  **`Admin` implies every other role**, and the implication lives in exactly one place —
+  `Roles.Effective`. `FileHubClaimsPrincipalFactory` expands it onto the sign-in cookie, so
+  `IsInRole` and every `RequireRole` policy agree with it, and `GET api/auth/status` answers with
+  the expanded set so the SPA never hides a control the API would have honoured. The implied roles
+  are **not stored as rows**: a demotion then has one row to remove rather than a set, and cannot
+  leave a granted-looking row behind. `api/admin/roles`' counts are who holds a role outright, which
+  is why an admin does not appear under `CreateShares`.
 - **The seeded admin** is `AdminSeeder` (in BusinessLogic, so it is reachable from the tests;
   `Seed` still owns migrations and roles). On a database with no admin at all it uses
   `Admin__Email` / `Admin__Password`, and an unset password is generated — deliberately, because a
@@ -308,6 +315,31 @@ the same call, not through the flag.
 never walk a tree: they are unauthenticated, so a `Directory.EnumerateFileSystemEntries` there is
 free IO amplification for anyone holding a link.
 
+#### Publishing is its own permission
+
+**Reaching a base path settles what a user may read; it does not settle whether they may hand out an
+anonymous URL into it.** The second is the `CreateShares` role, and nobody holds it until an admin
+grants it — an omission in the roles list is a no, and `ResolveRoles` deliberately does not add it
+the way it adds `User`. An admin holds it implicitly.
+
+- `POST api/share` carries `.RequireAuthorization(policy => policy.RequireRole(Roles.CreateShares))`
+  **and** `ShareService.CreateAsync` refuses without it, taking the answer as a `callerCanCreateShares`
+  argument beside `callerIsAdmin`. The route policy is the control; the service check is what makes
+  the rule visible where the logic lives and settable from a service-level test. The refusal comes
+  **before the base path and the path are looked at**, so it says nothing about either.
+- `GET api/share` and `DELETE api/share/{id}` stay open to any signed-in account: an account that
+  still holds a link must always be able to take it down.
+- **Losing the permission revokes the links.** `UserAdminService.UpdateUserCoreAsync` compares
+  `Roles.CanCreateShares` before and after and calls `IShareRepository.DeleteAllSharesOfUserAsync`
+  when the answer went from yes to no — *before* the role write, so a failure over-revokes rather
+  than leaving live anonymous URLs behind an account that can no longer make them. Both routes to
+  the permission count, so **demoting an admin revokes what they published under the wildcard**,
+  which is the one direction the base-path revocation queries cannot reach (they exempt admins, and
+  a link created through the wildcard has no grant row to lose). That query has no admin exemption:
+  the caller has already decided who lost the right.
+- Disabling an account does **not** revoke its links — lockout is not the loss of a permission.
+  Deleting the account still does, by the FK cascade.
+
 #### A share can be aimed at a group
 
 `Share.AudienceGroupId` is optional. **Null is the default and means anonymous by URL** — today's
@@ -420,7 +452,7 @@ would make every redeploy sign everybody out.
 
 ### Testing
 
-`FileHub.IntegrationTests` (xUnit, 427 tests) drives the **services**, not the routes: the real service →
+`FileHub.IntegrationTests` (xUnit, 439 tests) drives the **services**, not the routes: the real service →
 repository → EF/Identity stack over a per-test SQLite **in-memory** database (`TestHostBase` takes
 a delegate that registers the slice under test). SQLite rather than the EF in-memory provider,
 because the unique indexes and the `ON DELETE CASCADE` behaviour that share revocation and user
@@ -437,14 +469,16 @@ of those were.
 **What this level cannot see**, and what therefore needs an HTTP-level test if it is ever to be
 covered: `MustChangePasswordMiddleware`, the claims factory and cookie refresh, the role
 authorization on the route groups (`ShareService.DeleteAsync` and `CreateAsync`, `IFileService` and
-the public resolve all take `callerIsAdmin` as a *parameter* — nothing below the endpoint proves the
-caller is one, so a test pins either answer but not that the principal was read), the caller
+the public resolve all take `callerIsAdmin` — and `CreateAsync` also `callerCanCreateShares` — as a
+*parameter*; nothing below the endpoint proves the caller holds either, so a test pins any answer
+but not that the principal was read, and in particular not that the claims factory put the roles an
+admin only implies onto the cookie the `RequireRole` policy reads), the caller
 identity on the anonymous share routes, `FileDownload`'s zip and
 headers, `ShareLinks`, the rate limiter, and the forwarded-headers configuration. `AdminSeeder` is
 covered, because it is the part of startup that can brick an install; the migration and role half
 in `Seed` is not.
 
-The SPA has **110 vitest specs** (`npm test`), over the things worth pinning without a browser:
+The SPA has **114 vitest specs** (`npm test`), over the things worth pinning without a browser:
 path building, the size and audience formatters, the services against `HttpTestingController`, and
 the guards. They do not cover how anything *looks* — the layout bugs in this codebase have all been
 found by screenshotting a running instance at 360px and 1280px, not by a spec, so do that when
@@ -538,6 +572,12 @@ landing is the one screen a stranger sees, and it must look the same to a signed
 Three guards: `authGuard` (session, else `/login`), `adminGuard` (the `Admin` role; sends a
 signed-in non-admin back to `/` rather than to a sign-in screen that would read as a bug), and
 `passwordChangeGuard` (described above).
+
+`AuthService.canCreateShares` is the `CreateShares` role off the status call, and the file browser
+hides both the per-row share button and the whole **Links** tab without it — losing the role revokes
+the links, so there is nothing behind that tab to reach. A plain `roles.includes(...)` is enough
+because the server sends the *effective* roles: an admin's status already carries `CreateShares`
+beside `Admin`, and the client re-derives nothing.
 
 **The admin area is one component with five sections** — Users, Groups, Paths, Links, Email — not
 nested routes, which is what lets the header and the tab bar stay put while the section changes.

@@ -1,5 +1,6 @@
 using Dal.Extensions;
 using Dal.Repositories.Admin;
+using Dal.Repositories.Shares;
 using Dtos.Admin;
 using Entities.Account;
 using FileHub.BusinessLogic.Email;
@@ -34,18 +35,21 @@ public sealed class UserAdminService : IUserAdminService
 
     private readonly ILogger<UserAdminService> m_logger;
     private readonly IUserAdminRepository m_userAdminRepository;
+    private readonly IShareRepository m_shareRepository;
     private readonly UserManager<FileHubUser> m_userManager;
     private readonly IEmailService m_emailService;
 
     public UserAdminService(
         ILogger<UserAdminService> logger,
         IUserAdminRepository userAdminRepository,
+        IShareRepository shareRepository,
         UserManager<FileHubUser> userManager,
         IEmailService emailService
     )
     {
         m_logger = logger;
         m_userAdminRepository = userAdminRepository;
+        m_shareRepository = shareRepository;
         m_userManager = userManager;
         m_emailService = emailService;
     }
@@ -231,6 +235,26 @@ public sealed class UserAdminService : IUserAdminService
             if (!renamed.Succeeded)
             {
                 return OperationResult<Empty>.BadRequest(renamed.ToErrorString());
+            }
+        }
+
+        // Losing the right to publish takes the published links with it, the same way losing a
+        // base-path grant does. It happens before the role is written, so a failure here over-revokes
+        // rather than leaving live anonymous URLs behind an account that can no longer make them —
+        // the redemption path carries no permission lookup that could catch it later.
+        //
+        // Both routes to the right count: the CreateShares role, and the Admin role that implies it.
+        // A demoted admin is the case this exists for — every link they published under the admin
+        // wildcard points at a base path they may now have no grant to at all.
+        if (Roles.CanCreateShares(currentRoles) && !Roles.CanCreateShares(roles.Value))
+        {
+            var revoked = await m_shareRepository.DeleteAllSharesOfUserAsync(user.Id);
+
+            if (revoked > 0)
+            {
+                m_logger.LogInformation(
+                    "Revoked {Count} share link(s) of user {UserId}, who can no longer create them",
+                    revoked, user.Id);
             }
         }
 
@@ -440,8 +464,9 @@ public sealed class UserAdminService : IUserAdminService
 
     /// <summary>
     /// Maps the requested role names onto the fixed set, rejecting anything unknown, and always
-    /// includes <see cref="Roles.User"/> — that role is what browsing and sharing check for, so an
-    /// account without it could sign in and see nothing.
+    /// includes <see cref="Roles.User"/> — that role is what browsing checks for, so an account
+    /// without it could sign in and see nothing. <see cref="Roles.CreateShares"/> is not implied by
+    /// anything and is not added here: it is granted account by account, and an omission means no.
     /// </summary>
     private static OperationResult<string[]> ResolveRoles(string[] requestedRoles)
     {

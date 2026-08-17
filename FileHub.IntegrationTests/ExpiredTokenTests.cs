@@ -1,5 +1,6 @@
 using Dal.Repositories.Admin;
 using Dal.Repositories.Identity;
+using Dal.Repositories.Shares;
 using Dtos.Admin;
 using Dtos.Auth;
 using Entities.Account;
@@ -39,6 +40,7 @@ public sealed class ExpiredTokenTests : TestHostBase
 
         services.AddScoped<IIdentityRepository, IdentityRepository>();
         services.AddScoped<IUserAdminRepository, UserAdminRepository>();
+        services.AddScoped<IShareRepository, ShareRepository>();
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<IUserAdminService, UserAdminService>();
     }
