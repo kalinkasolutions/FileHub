@@ -10,7 +10,9 @@
 } @else {
   <ul class="links">
     @for (share of shares(); track share.id) {
-      <li class="link">
+      <!-- The accent rule down the edge is what separates a group-only link from an anonymous one
+           across a whole screenful; the tag next to the name says which group. -->
+      <li class="link" [class.restricted]="isRestricted(share)">
         <mat-icon class="kind" [class.folder]="share.isDir">
           {{ share.isDir ? 'folder' : 'draft' }}
         </mat-icon>
@@ -18,6 +20,10 @@
         <div class="details">
           <div class="headline">
             <span class="name" [title]="share.relativePath || share.name">{{ share.name }}</span>
+            <span class="audience">
+              <mat-icon>{{ isRestricted(share) ? 'lock' : 'public' }}</mat-icon>
+              <span>{{ share.audienceGroupName || 'Anyone' }}</span>
+            </span>
           </div>
           <span class="meta">
             {{ meta(share) }} · shared {{ share.createdAt | date: 'mediumDate' }}

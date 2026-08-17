@@ -41,6 +41,14 @@ export class ShareLinksComponent {
     this.load();
   }
 
+  /**
+   * Whether the link is aimed at a group, and so is not anonymous: sending it to someone outside
+   * that group hands them a dead URL. Nothing in the link itself says so, which is why the row does.
+   */
+  public isRestricted(share: IShareLink): boolean {
+    return !!share.audienceGroupId;
+  }
+
   /** Size is a byte count here even for a directory — the API measures a share when it is created,
    * unlike a listing row, where a directory's size is how many entries it holds. */
   public meta(share: IShareLink): string {

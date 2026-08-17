@@ -60,4 +60,21 @@
     color: $icon-quiet;
     cursor: default;
   }
+
+  // A group-aimed link is the exception and wears the accent, so choosing a group visibly changes
+  // the dialog rather than only changing a word in it.
+  &.restricted {
+    border-left-color: $primary-green;
+    background: $accent-wash;
+    color: $text-primary;
+
+    mat-icon {
+      color: $primary-green;
+    }
+
+    strong {
+      color: $primary-green;
+      font-weight: 700;
+    }
+  }
 }

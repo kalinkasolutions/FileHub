@@ -47,6 +47,9 @@
   @include tile-row;
   align-items: flex-start;
   padding: $small-padding;
+  // Every row carries the rule so that turning it on colours it rather than moving the row; it is
+  // the one mark that reads from across a full screen of links.
+  border-left: $border-panel-width solid transparent;
 
   .kind {
     @include icon-size;
@@ -85,6 +88,34 @@
     white-space: nowrap;
   }
 
+  // The tag every row wears, so "anyone" is stated rather than merely implied by the absence of a
+  // group: an unlabelled row would be read as "not loaded yet" as easily as "public".
+  .audience {
+    @include flex(row);
+    align-items: center;
+    gap: 3px;
+    flex-shrink: 0;
+    max-width: 100%;
+    padding: 1px $small-padding 1px 3px;
+    border: 1px solid $border-subtle;
+    color: $text-dim;
+    font-size: $font-size-label;
+    letter-spacing: $letter-spacing-label;
+
+    mat-icon {
+      @include icon-size($icon-size-inline);
+      flex-shrink: 0;
+      color: $icon-faint;
+      cursor: default;
+    }
+
+    span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
   // Wraps rather than truncating: the whole line is facts you came here for — how big it is, how
   // often it has been fetched, how much of its limit is left.
   .meta {
@@ -97,6 +128,30 @@
   .icon-btn.quiet {
     @include hover {
       background: $surface-elevated-hover;
+    }
+  }
+}
+
+// A link only its group can open. The accent is the app's mark for "this one is different", and it
+// is spent here on the one property of a share that its URL does not carry.
+.link.restricted {
+  border-left-color: $primary-green;
+  background: $accent-wash;
+  // The subtle hairline disappears into the wash, so two restricted rows in a row would read as one
+  // taller row rather than as two links.
+  border-bottom-color: rgba($primary-green, 0.35);
+
+  @include hover {
+    background: $accent-wash;
+  }
+
+  .audience {
+    border-color: $primary-green;
+    background: $surface;
+    color: $primary-green;
+
+    mat-icon {
+      color: $primary-green;
     }
   }
 }

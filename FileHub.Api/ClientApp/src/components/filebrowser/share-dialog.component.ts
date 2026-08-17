@@ -1,8 +1,10 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
+import { IGroupSummary } from '@models/IGroupSummary';
 import { apiErrorMessage } from '@services/api-error';
+import { GroupService } from '@services/group.service';
 import { ShareService } from '@services/share.service';
 import { ToastrService } from 'ngx-toastr';
 import { finalize } from 'rxjs';
@@ -15,10 +17,17 @@ export interface IShareDialogData {
   relativePath: string;
 }
 
+/** The audience picker's "no group" option. An empty string, because that is what a `<select>` holds. */
+const anyone = '';
+
 /**
- * Turns one entry into a public link. Two states in one dialog: the limit before the link exists,
- * the link itself afterwards — a link is worth nothing unless it is copied, so the dialog stays
- * open with it on screen instead of closing and leaving the user to find it again.
+ * Turns one entry into a link. Two states in one dialog: the audience and the limit before the link
+ * exists, the link itself afterwards — a link is worth nothing unless it is copied, so the dialog
+ * stays open with it on screen instead of closing and leaving the user to find it again.
+ *
+ * The audience is the one choice that changes what the URL is worth: left alone the link is
+ * anonymous, and aimed at a group it only answers signed-in members of it. Because that is invisible
+ * in the URL itself, the dialog says which of the two it made, in both states.
  */
 @Component({
   standalone: true,
@@ -29,6 +38,7 @@ export interface IShareDialogData {
 })
 export class ShareDialogComponent {
   private readonly shareService = inject(ShareService);
+  private readonly groupService = inject(GroupService);
   private readonly toastr = inject(ToastrService);
 
   public readonly data = inject<IShareDialogData>(MAT_DIALOG_DATA);
@@ -38,6 +48,30 @@ export class ShareDialogComponent {
   public readonly link = signal('');
   public readonly isSaving = signal(false);
 
+  /**
+   * Empty until the groups arrive, and empty for good for a caller who is in none — the picker is
+   * hidden in that case rather than shown with one option, which would only raise a question the
+   * user cannot act on.
+   */
+  public readonly groups = signal<IGroupSummary[]>([]);
+  public readonly audienceGroupId = signal(anyone);
+
+  /** The group the link is aimed at, or null while it is still anonymous-by-URL. */
+  public readonly audience = computed<IGroupSummary | null>(() => {
+    const id = this.audienceGroupId();
+
+    return this.groups().find((group) => group.id === id) ?? null;
+  });
+
+  public constructor() {
+    this.groupService.list().subscribe({
+      // A caller with no groups is the ordinary case and not a failure; so is the request failing.
+      // Either way the dialog keeps working exactly as it did before groups existed.
+      next: (groups) => this.groups.set(groups),
+      error: () => this.groups.set([]),
+    });
+  }
+
   public create(): void {
     this.isSaving.set(true);
 
@@ -46,6 +80,7 @@ export class ShareDialogComponent {
         basePathId: this.data.basePathId,
         relativePath: this.data.relativePath,
         maxDownloadCount: this.limit(),
+        audienceGroupId: this.audienceGroupId() === anyone ? null : this.audienceGroupId(),
       })
       .pipe(finalize(() => this.isSaving.set(false)))
       .subscribe({
@@ -70,6 +105,10 @@ export class ShareDialogComponent {
       .writeText(this.link())
       .then(() => this.toastr.success('Link copied to the clipboard'))
       .catch(() => this.toastr.info('Copy the link from the box above'));
+  }
+
+  public setAudience(groupId: string): void {
+    this.audienceGroupId.set(groupId);
   }
 
   public setLimit(value: string): void {
