@@ -451,6 +451,22 @@ div.mat-mdc-dialog-surface {
   }
 }
 
+// ─── The routed view inside the chrome ──────────────────────────────────────
+// Global on purpose: the router renders the routed component as a sibling of `<router-outlet>`,
+// so it is not part of `app.component`'s template and Angular's view encapsulation would scope
+// any rule written there to a content attribute the view does not carry. Written there, this
+// silently did nothing, and every chromed view was one header taller than the screen — which is
+// what pushed a bottom-of-screen element out of sight.
+.shell.chromed > :not(app-header) {
+  width: 100%;
+  max-width: $max-content-width;
+  // The view takes what the header leaves. Its own `app-shell` asks for `height: 100%`, which here
+  // would be the shell's height *plus* the header, so the height comes from the flex line instead.
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+
 // ─── Toasts ─────────────────────────────────────────────────────────────────
 // ngx-toastr ships its own look: rounded corners, its own font stack, a filled colour block and a
 // background-image glyph. Left alone it is the one thing on screen that is not FileHub, so it gets

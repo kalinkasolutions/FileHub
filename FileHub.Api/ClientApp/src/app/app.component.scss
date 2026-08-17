@@ -23,23 +23,13 @@
   }
 }
 
+// The rules that size the *routed view* inside this shell are in `styles.scss`, not here. The
+// router renders that component as a sibling of `<router-outlet>` — outside this template — so it
+// carries none of this stylesheet's content attribute, and a rule written here compiles to a
+// selector that can never match it.
 .shell.chromed {
   justify-content: flex-start;
   padding: 0;
-
-  > * {
-    width: 100%;
-    max-width: $max-content-width;
-  }
-
-  // The routed view takes what the header leaves. Its own `app-shell` sets `height: 100%`, which
-  // here would be the shell's full height *plus* the header — so the height comes from the flex
-  // line instead.
-  > :not(app-header) {
-    flex: 1;
-    min-height: 0;
-    height: auto;
-  }
 }
 
 .loading-overlay {
