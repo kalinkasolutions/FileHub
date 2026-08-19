@@ -4,14 +4,12 @@
 
 :host {
   @include admin-section;
+  // Create a group on the left, the Groups listing beside it.
+  @include admin-section-split;
 }
 
 .panel {
   @include admin-panel;
-}
-
-.wide {
-  @include admin-panel-wide;
 }
 
 .entry {

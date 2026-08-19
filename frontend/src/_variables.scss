@@ -65,10 +65,15 @@ $link-primary: $text-primary;
 $link-hover: $primary-green;
 
 // ── Shadows ─────────────────────────────────────────────────────────────────
-// Hard and offsetless, the way the original panels sat on the page. No soft material elevation.
-$shadow-elevated: #141415 1px 0 29px 0;
+// Offset down and to the right, so the box casts on that side only the way a square-cornered panel
+// sitting on the page would — never the four-sided glow of soft material elevation. The edge is
+// taken off with a small blur and a translucent black rather than a solid slab, which at full
+// opacity read as a second border. Keep the blur no wider than twice the offset: a blur reaches
+// about half its radius past the shadow's own edge, so beyond that it clears the top and left edges
+// of the box and the shadow is back on all four sides.
+$shadow-elevated: rgba(20, 20, 21, 0.55) 4px 4px 8px 0;
 $shadow-fab: $shadow-elevated;
-$shadow-drag: #141415 1px 0 12px 0;
+$shadow-drag: rgba(20, 20, 21, 0.5) 3px 3px 6px 0;
 
 // ── Type ────────────────────────────────────────────────────────────────────
 // One face for the whole app. A file listing is a column of names, and a proportional face makes

@@ -28,6 +28,11 @@ public static class ShareEndpoint
             .RequireAuthorization(policy => policy.RequireRole(Roles.CreateShares));
 
         group.MapGet("", ListAsync);
+
+        // What the caller's groups were sent. Only a session is needed: receiving a link is not
+        // publishing one, so an account without CreateShares still reaches this.
+        group.MapGet("received", ListReceivedAsync);
+
         group.MapDelete("{id:guid}", DeleteAsync);
 
         var admin = builder.MapGroup("api/admin").RequireAuthorization(policy => policy.RequireRole(Roles.Admin));
@@ -63,6 +68,24 @@ public static class ShareEndpoint
         {
             // The public address is the API's to know, not the service's, so the link is stamped on
             // the way out rather than built three layers down.
+            foreach (var share in result.Value)
+            {
+                share.Link = ShareLinks.Share(options.Value, share.Id);
+            }
+        }
+
+        return result.ToHttpResult();
+    }
+
+    private static async Task<IResult> ListReceivedAsync(
+        ClaimsPrincipal user, IShareService service, IOptions<AppOptions> options)
+    {
+        // No callerIsAdmin: this list is the caller's group memberships, not a privilege. An admin
+        // who wants every link in the install has api/admin/shares.
+        var result = await service.ListForAudienceAsync(user.GetUserId());
+
+        if (result.IsSuccess)
+        {
             foreach (var share in result.Value)
             {
                 share.Link = ShareLinks.Share(options.Value, share.Id);

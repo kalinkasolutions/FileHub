@@ -88,13 +88,21 @@ public abstract class SharesTestBase : TestHostBase
         Assert.True(result.IsSuccess, result.ErrorMessage);
     }
 
-    /// <summary>Creates a link and asserts it was created, so a test can get straight to the link.</summary>
+    /// <summary>
+    /// Creates a link and asserts it was created, so a test can get straight to the link. Aiming one
+    /// at a group needs <paramref name="callerIsAdmin"/>: the audience is admin-only.
+    /// </summary>
     protected async Task<ShareDto> ShareAsync(
-        Guid userId, Guid basePathId, string relativePath, int maxDownloads = 0, Guid? audienceGroupId = null)
+        Guid userId,
+        Guid basePathId,
+        string relativePath,
+        int maxDownloads = 0,
+        Guid? audienceGroupId = null,
+        bool callerIsAdmin = false)
     {
         var result = await Shares.CreateAsync(
             userId,
-            callerIsAdmin: false,
+            callerIsAdmin,
             callerCanCreateShares: true,
             new CreateShareDto
             {

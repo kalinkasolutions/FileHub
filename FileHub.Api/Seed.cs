@@ -25,6 +25,14 @@ public static class Seed
 
         await MigrateAsync(services, logger);
         await EnsureRolesAsync(services, logger);
+
+        // Before the admin seeding, not after: DevSeed creates an admin, so EnsureAdminAsync then
+        // finds one and does nothing — no generated bootstrap password, no forced first change.
+        if (app.Environment.IsDevelopment())
+        {
+            await DevSeed.InitializeAsync(services, logger);
+        }
+
         await EnsureAdminAsync(services, logger);
     }
 

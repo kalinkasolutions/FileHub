@@ -1,5 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
+import { IReceivedShare } from '@models/IReceivedShare';
 import { ICreateShare, IShareLink } from '@models/IShareLink';
 import { Observable } from 'rxjs';
 
@@ -19,6 +20,15 @@ export class ShareService {
   /** The caller's **own** links. A non-admin has no other way to see or revoke what they shared. */
   public list(): Observable<IShareLink[]> {
     return this.http.get<IShareLink[]>('/api/share');
+  }
+
+  /**
+   * The links aimed at a group the caller belongs to — what was shared *with* them, as opposed to
+   * what they shared. Needs only a session: receiving a link is not publishing one, so an account
+   * without `CreateShares` reaches this while the list above stays empty for it.
+   */
+  public received(): Observable<IReceivedShare[]> {
+    return this.http.get<IReceivedShare[]>('/api/share/received');
   }
 
   public revoke(id: string): Observable<void> {

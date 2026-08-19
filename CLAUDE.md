@@ -365,16 +365,34 @@ behaviour exactly. Set, the link only answers a signed-in member of that group, 
 - **The audience is re-checked in `TryRegisterDownloadAsync`'s conditional UPDATE**, next to the
   download limit, rather than trusted from the resolve before it. That statement is the one place a
   redemption is granted, so every rule about who may redeem belongs in its `WHERE` clause.
-- Who may *aim* a link at a group: a member of it, or an admin. Anyone else gets a 400 — and so does
-  a group id that does not exist, with the same message, so the error cannot be used to enumerate
-  the groups in the install.
+- **Aiming a link at a group is admin-only.** Everyone else gets a 400, and so does an admin naming
+  a group id that does not exist, with the same message — the refusal for a non-admin comes *before*
+  the group is looked up, so neither answer can be used to enumerate the groups in the install.
+  The rule was once "a member of it, or an admin", and it was wrong: a group-aimed link is redeemed
+  on membership alone, with no access lookup anywhere on the redemption path, so it hands the group
+  a file none of them may hold a route to. That is a grant, not a narrower way to publish, and
+  grants belong to the access model. `CreateShares` still means what it did — publish what you can
+  reach, to whoever holds the URL — and now means only that.
 - **Deleting a group deletes the links aimed at it**, by `ON DELETE CASCADE` on `AudienceGroupId`
   rather than by a service remembering to. EF's default for an optional relationship is `SET NULL`,
   which would quietly turn every gated link into an anonymous one — a privilege escalation nobody
   performed. The `Cascade` in `FileHubContext` is what stops that, and it must stay.
 
-`GET api/groups` is the only group route an ordinary user reaches: the groups they may aim a link
-at, which is their own — or every group, for an admin.
+`GET api/groups` is the only group route an ordinary user reaches, and since the audience went
+admin-only the share dialog no longer calls it for one. It stays open to a session — a user learning
+which of their own groups they are in gives nothing away — and answers their own groups, or every
+group for an admin, which is what the picker reads.
+
+**The receiving end is `GET api/share/received`** (`ShareService.ListForAudienceAsync`): the links
+aimed at a group the caller belongs to. Without it the audience was write-only — a member could
+redeem a link somebody had sent them, and had no way to find one nobody had, because the target
+often sits under a base path they hold no grant on and is therefore in no listing of theirs.
+Membership is the *whole* condition: there is no admin wildcard, because this answers "what was
+shared with me", which is a fact about the caller's groups rather than a privilege — an admin who
+wants every link has `api/admin/shares`. It needs only a session, not `CreateShares`: receiving a
+link is not publishing one. `ReceivedShareDto` is deliberately thinner than `ShareDto` — no base
+path id, no relative path — because naming the directories above the file would hand a recipient
+the shape of a disk they cannot browse.
 
 `ShareDto.Link` is empty out of the service — the endpoint stamps it with `ShareLinks`, which is
 the only place `App:BaseUrl` turns into a URL.
@@ -461,7 +479,7 @@ would make every redeploy sign everybody out.
 
 ### Testing
 
-`FileHub.IntegrationTests` (xUnit, 439 tests) drives the **services**, not the routes: the real service →
+`FileHub.IntegrationTests` (xUnit, 446 tests) drives the **services**, not the routes: the real service →
 repository → EF/Identity stack over a per-test SQLite **in-memory** database (`TestHostBase` takes
 a delegate that registers the slice under test). SQLite rather than the EF in-memory provider,
 because the unique indexes and the `ON DELETE CASCADE` behaviour that share revocation and user
@@ -487,7 +505,7 @@ headers, `ShareLinks`, the rate limiter, and the forwarded-headers configuration
 covered, because it is the part of startup that can brick an install; the migration and role half
 in `Seed` is not.
 
-The SPA has **114 vitest specs** (`npm test`), over the things worth pinning without a browser:
+The SPA has **121 vitest specs** (`npm test`), over the things worth pinning without a browser:
 path building, the size and audience formatters, the services against `HttpTestingController`, and
 the guards. They do not cover how anything *looks* — the layout bugs in this codebase have all been
 found by screenshotting a running instance at 360px and 1280px, not by a spec, so do that when
@@ -515,12 +533,14 @@ one wholesale was rejected for exactly that. What it is:
   FileHub's answer instead of inventing one. This is the decision most of the rest follows from —
   do not introduce a `border-radius`.
 - **The panel is the one structural idea.** `@include panel` is a 5px accent rule around a darker
-  fill with a hard, offsetless shadow; its `> .title` is ruled off in the lighter accent so the rule
-  reads as part of the border. Anything that is a *thing* on a screen — a listing, a form, a
-  settings block, a menu, a dialog, a toast — is one of these. Reach for it rather than inventing a
-  card. `@include panel-grid($max)` lays several out and collapses to a column under 470px; the
-  `$max` argument exists because a fixed px track also caps a `grid-column: 1 / -1` child, so a
-  screen with one wide listing wants the default `1fr` and a row of forms passes `$max-form-width`.
+  fill with a shadow offset down and to the right — a blur wider than twice that offset reaches past
+  the top and left edges and turns it into the four-sided glow of material elevation, which is not
+  this look. Its `> .title` is ruled off in the lighter accent so the rule reads as part of the
+  border. Anything that is a *thing* on a screen — a listing, a form, a settings block, a menu, a
+  dialog, a toast — is one of these. Reach for it rather than inventing a card. `@include
+  panel-grid($max)` lays several out and collapses to a column under 470px; the `$max` argument
+  exists because a fixed px track also caps a `grid-column: 1 / -1` child, so a screen with one wide
+  listing wants the default `1fr` and a row of forms passes `$max-form-width`.
 - **Inputs are a ruled line**, not a filled box: a 2px bottom border that turns green on focus, and
   that is the whole focus treatment — no ring, no glow. **Buttons** are square translucent-green
   slabs (`$accent-fill`), with `.secondary` and `.danger` outlined, because only one thing on a
@@ -582,11 +602,20 @@ Three guards: `authGuard` (session, else `/login`), `adminGuard` (the `Admin` ro
 signed-in non-admin back to `/` rather than to a sign-in screen that would read as a bug), and
 `passwordChangeGuard` (described above).
 
-`AuthService.canCreateShares` is the `CreateShares` role off the status call, and the file browser
-hides both the per-row share button and the whole **Links** tab without it — losing the role revokes
-the links, so there is nothing behind that tab to reach. A plain `roles.includes(...)` is enough
-because the server sends the *effective* roles: an admin's status already carries `CreateShares`
-beside `Admin`, and the client re-derives nothing.
+**The file browser has three tabs** — Files, Links, Shared. `AuthService.canCreateShares` is the
+`CreateShares` role off the status call, and the browser hides both the per-row share button and the
+whole **Links** tab without it: losing the role revokes the links, so there is nothing behind that
+tab to reach. **Shared** — `api/share/received`, what the caller's groups were sent — is *not* gated
+on it, because being sent a link is not publishing one, and it is drawn unconditionally rather than
+after a request asking whether it would be empty; an account in no group finds the panel saying so.
+A plain `roles.includes(...)` is enough for either because the server sends the *effective* roles:
+an admin's status already carries `CreateShares` beside `Admin`, and the client re-derives nothing.
+
+The share dialog's **audience picker is behind `AuthService.isAdmin`**, matching the API, and the
+groups are not even fetched for anyone else. Both lists of links — the caller's own and the ones
+aimed at their groups — share `_share-list.scss`, so one list of shares does not look like two
+different things depending on which end of it you stand at; the received list is the same rows with
+`.restricted` on all of them, since nothing aimed at a group is anonymous.
 
 **The admin area is one component with five sections** — Users, Groups, Paths, Links, Email — not
 nested routes, which is what lets the header and the tab bar stay put while the section changes.

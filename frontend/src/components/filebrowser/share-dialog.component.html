@@ -14,9 +14,10 @@
       </div>
     </div>
   } @else {
-    <!-- A caller who belongs to no group has nothing to choose between, so the picker and its
-         warning stay away entirely and the link is anonymous, exactly as it always was. -->
-    @if (groups().length > 0) {
+    <!-- Only an admin may aim a link at a group, and an install with no groups has nothing to
+         choose between: in either case the picker stays away entirely and the link is anonymous,
+         exactly as it always was. -->
+    @if (canAim() && groups().length > 0) {
       <div class="form-control">
         <label for="share-audience">Who can open it</label>
         <select

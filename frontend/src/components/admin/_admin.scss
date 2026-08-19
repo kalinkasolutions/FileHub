@@ -1,6 +1,15 @@
 @use 'variables' as *;
 @use 'mixins' as *;
 
+// The width at which the admin area stops being one stacked column and becomes a screen: panels
+// side by side, the screen itself holding still, each panel scrolling its own contents.
+//
+// 960px because the narrow track of the 1:2 split has to clear $panel-min-width — three 300px
+// tracks plus the gaps and the section's own padding. Below it a third of the width squeezes a
+// form, and the shared auto-fit grid drops a panel to a row of its own instead, which is the
+// better answer at that size.
+$admin-wide: 960px;
+
 // The admin sections are all the same shape — a handful of independent things on one screen: a
 // form, a listing, a block of settings — and the app's one way of drawing a thing is the panel. So
 // a section is a `panel-grid` of panels, which lays them side by side on a desktop and stacks them
@@ -12,6 +21,28 @@
   // would fill the difference with empty accent-bordered nothing.
   align-items: start;
   padding: $content-padding;
+
+  // On a wide screen the section is the screen: it takes exactly what the header and the tabs
+  // leave and never grows past it, so nothing scrolls out of the viewport. What scrolls is inside
+  // each panel (see `admin-panel`).
+  //
+  // The single row has to be `minmax(0, 1fr)` rather than the default `auto`: an auto row is
+  // sized by its content, which makes the panels' `max-height: 100%` resolve against their own
+  // height — circular, so the cap does nothing and the tall panel overflows the section.
+  @media (min-width: $admin-wide) {
+    flex: 1;
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr);
+  }
+}
+
+// The shape nearly every admin section has: a form on the leading edge that never needs more than
+// a column of width, and beside it the listing that is the actual screen. Splitting the section
+// 1:2 rather than evenly is what stops a three-field form from taking half the desktop.
+@mixin admin-section-split {
+  @media (min-width: $admin-wide) {
+    grid-template-columns: 1fr 2fr;
+  }
 }
 
 // One panel of a section. The rule and the fill come from `panel`; what is added here is the
@@ -22,6 +53,40 @@
   // A grid item refuses to go below its content's intrinsic width without this, and a long
   // filesystem path is exactly the content that would push a track wider than its track size.
   min-width: 0;
+
+  // The panel is the scrollport on a wide screen, not the page. It is capped at the section's
+  // height rather than stretched to it — a short form keeps its own height instead of trailing
+  // empty accent-bordered space — and the parts that can get long scroll inside it, which leaves
+  // the title, and the buttons below, where they were.
+  @media (min-width: $admin-wide) {
+    max-height: 100%;
+    overflow: hidden;
+
+    > .body,
+    > .list {
+      min-height: 0;
+      overflow-y: auto;
+    }
+
+    // The action the panel exists for — Save, Add, Send an invitation — rides the bottom of its
+    // own scrollport rather than sitting at the end of a long form where it scrolls out of reach.
+    // Sticky rather than a footer outside the scroller because the button has to stay inside the
+    // <form> it submits. It needs the panel's own fill: the form scrolls *under* it.
+    //
+    // Only a panel's own form. A drawer's buttons belong to the row they were opened from and
+    // scroll with it.
+    > .body > form > .buttons {
+      position: sticky;
+      // A sticky element comes to rest against the scrollport's *content* box, so at `bottom: 0`
+      // the body's own bottom padding is a strip below the button that the form goes on scrolling
+      // through. Sticking that much lower and taking the same amount back as padding puts the
+      // button where it was and paints the strip in the panel's fill.
+      bottom: -$default-padding;
+      padding-top: $small-padding;
+      padding-bottom: $default-padding;
+      background-color: $surface;
+    }
+  }
 
   // Everything that is not a listing: the explanation, the form, the buttons. Rows want to rule
   // edge to edge, so they stay outside it.
@@ -162,13 +227,13 @@
 }
 
 // The editor a row opens underneath itself: renaming a base path, ticking who may see it. It is
-// deliberately *not* a panel — a panel inside a panel reads as a second thing on the screen — so it
-// takes the accent as a rule on its leading edge only, over the darker fill.
+// deliberately *not* a panel — a panel inside a panel reads as a second thing on the screen — so
+// the darker fill is the whole treatment: it is already inside a bordered panel, and a second rule
+// inside that one is one rule too many.
 @mixin admin-drawer {
   @include flex(column);
   gap: $default-padding;
   padding: $default-padding;
-  border-left: $border-panel-width solid $primary-green;
   background: $bg-elevated;
 
   form {
@@ -186,6 +251,17 @@
 
     button {
       flex: 1;
+    }
+
+    // The same reasoning as a panel form's buttons: the listing is the scrollport on a wide
+    // screen, and a drawer with a column of roles in it is exactly what pushes Save out of the
+    // bottom of it. It rides the bottom of the list while its own drawer is in view and scrolls
+    // away with it, because the buttons belong to that row and not to the panel.
+    @media (min-width: $admin-wide) {
+      position: sticky;
+      bottom: 0;
+      padding-top: $small-padding;
+      background-color: $bg-elevated;
     }
   }
 }

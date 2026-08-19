@@ -39,6 +39,17 @@ public sealed class ShareRepository : IShareRepository
             .OrderByDescending(s => s.CreatedAt)
             .ToListAsync();
 
+    public Task<List<Share>> GetForAudienceAsync(Guid userId) =>
+        m_context.Shares
+            .Include(s => s.BasePath)
+            .Include(s => s.CreatedBy)
+            .Include(s => s.AudienceGroup)
+            .Where(s => s.AudienceGroupId != null)
+            .Where(s => m_context.GroupMemberships.Any(
+                m => m.GroupId == s.AudienceGroupId && m.UserId == userId))
+            .OrderByDescending(s => s.CreatedAt)
+            .ToListAsync();
+
     public void Remove(Share share) => m_context.Shares.Remove(share);
 
     public async Task<bool> TryRegisterDownloadAsync(Guid id, Guid? callerId, bool callerIsAdmin)

@@ -51,26 +51,33 @@ public sealed class ShareService : IShareService
             return OperationResult<ShareDto>.Forbidden(CreateRefused);
         }
 
-        // Who the link is for. Null is the default and means anonymous by URL. A caller may only
-        // aim a link at a group they belong to; an admin may aim one at any. A group that does not
-        // exist is refused with the same message as one the caller is not in, so the error cannot
-        // be used to find out which groups there are.
+        // Who the link is for. Null is the default, means anonymous by URL, and is the only thing an
+        // ordinary account may create.
+        //
+        // Aiming a link at a group is not a narrower way to publish — it is a grant. The members
+        // redeem it whether or not they hold any route to that base path, and the redemption path
+        // deliberately carries no access lookup that would notice. Deciding that a group may read
+        // something it was never granted is the access model's business, and the access model is
+        // the admin's. So the audience is admin-only, and everyone else publishes the way they
+        // always could: to whoever holds the URL, out of what they can already reach.
+        //
+        // Refused before the group is so much as looked up, so the answer says nothing about which
+        // groups exist — and an admin's unknown-group refusal is the same message, for the same
+        // reason.
         Group? audienceGroup = null;
 
         if (dto.AudienceGroupId is not null)
         {
+            if (!callerIsAdmin)
+            {
+                m_logger.LogWarning("User {UserId} tried to aim a link at a group", userId);
+                return OperationResult<ShareDto>.BadRequest(AudienceRefused);
+            }
+
             audienceGroup = await m_groupRepository.GetAsync(dto.AudienceGroupId.Value);
 
             if (audienceGroup is null)
             {
-                return OperationResult<ShareDto>.BadRequest(AudienceRefused);
-            }
-
-            if (!callerIsAdmin && !await m_groupRepository.IsMemberAsync(audienceGroup.Id, userId))
-            {
-                m_logger.LogWarning(
-                    "User {UserId} tried to aim a link at group {GroupId} without belonging to it",
-                    userId, audienceGroup.Id);
                 return OperationResult<ShareDto>.BadRequest(AudienceRefused);
             }
         }
@@ -131,6 +138,13 @@ public sealed class ShareService : IShareService
         var shares = await m_shareRepository.GetByCreatorAsync(userId);
         var dtos = shares.Select(s => MapShare(s, s.BasePath.Name, IsDirectory(s), s.AudienceGroup?.Name)).ToList();
         return OperationResult<List<ShareDto>>.Success(dtos);
+    }
+
+    public async Task<OperationResult<List<ReceivedShareDto>>> ListForAudienceAsync(Guid userId)
+    {
+        var shares = await m_shareRepository.GetForAudienceAsync(userId);
+        var dtos = shares.Select(MapReceivedShare).ToList();
+        return OperationResult<List<ReceivedShareDto>>.Success(dtos);
     }
 
     public async Task<OperationResult<List<AdminShareDto>>> ListAllAsync()
@@ -296,6 +310,29 @@ public sealed class ShareService : IShareService
         Link = string.Empty
     };
 
+    /// <summary>
+    /// Thinner than the creator's view on purpose: a member of the audience may hold no grant on the
+    /// base path, so the relative path and the base path's name are left off rather than handing
+    /// them the shape of a disk they cannot browse.
+    /// </summary>
+    private static ReceivedShareDto MapReceivedShare(Share share) => new()
+    {
+        Id = share.Id,
+        Name = TargetName(share, share.BasePath.Name),
+        IsDir = IsDirectory(share),
+        Size = share.Size,
+        DownloadCount = share.DownloadCount,
+        MaxDownloadCount = share.MaxDownloadCount,
+        CreatedAt = share.CreatedAt,
+        // The query only returns links that have one, so this is never the fallback in practice.
+        AudienceGroupId = share.AudienceGroupId ?? Guid.Empty,
+        AudienceGroupName = share.AudienceGroup?.Name ?? string.Empty,
+        // The display name is what a colleague is called on the account screen; the address is the
+        // fallback for an invitation nobody has accepted yet.
+        SharedBy = share.CreatedBy?.UserName ?? share.CreatedBy?.Email ?? string.Empty,
+        Link = string.Empty
+    };
+
     private static AdminShareDto MapAdminShare(Share share) => new()
     {
         Id = share.Id,
@@ -344,9 +381,10 @@ public sealed class ShareService : IShareService
     /// tell an unknown id from an exhausted one, or from one aimed at somebody else.</summary>
     private const string PublicFailure = "Share not found";
 
-    /// <summary>One message for both ways aiming a link at a group can be refused, so it cannot be
-    /// used to tell a group that does not exist from one the caller is not in.</summary>
-    private const string AudienceRefused = "You can only share with a group you belong to";
+    /// <summary>One message for both ways aiming a link at a group can be refused — the caller is
+    /// not an admin, or the group does not exist — so it cannot be used to find out which groups
+    /// the install has.</summary>
+    private const string AudienceRefused = "Only an administrator can aim a link at a group";
 
     /// <summary>Shown to a user who can browse but not publish. It names what is missing rather than
     /// pretending the path is gone, because the caller can see the file in the listing either

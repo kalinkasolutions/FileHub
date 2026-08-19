@@ -14,6 +14,14 @@ public interface IShareRepository
 
     Task<List<Share>> GetByCreatorAsync(Guid userId);
 
+    /// <summary>
+    /// The links aimed at a group <paramref name="userId"/> belongs to, with base path, creator and
+    /// audience group loaded. Membership is the whole condition: there is no admin wildcard here,
+    /// because this answers "what was shared with me", which is a fact about the groups the caller
+    /// is in and not a privilege. An admin who wants every link has the admin list.
+    /// </summary>
+    Task<List<Share>> GetForAudienceAsync(Guid userId);
+
     void Remove(Share share);
 
     /// <summary>

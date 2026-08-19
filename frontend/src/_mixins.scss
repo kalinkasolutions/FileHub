@@ -321,24 +321,6 @@
   text-transform: uppercase;
 }
 
-// The header at the top of a screen: title left, optional actions right, ruled off in accent —
-// the same rule a panel's title carries, so a screen reads as one big panel.
-@mixin screen-header {
-  @include flex(row);
-  align-items: center;
-  justify-content: space-between;
-  gap: $default-padding;
-  flex-shrink: 0;
-  padding: $small-padding $header-padding;
-  border-bottom: 2px solid $primary-green;
-
-  .title {
-    font-size: $font-size-title;
-    font-weight: 700;
-    letter-spacing: $letter-spacing-title;
-  }
-}
-
 // A done/total bar.
 @mixin progress-bar {
   overflow: hidden;

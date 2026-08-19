@@ -68,7 +68,11 @@ builder.Services.AddIdentity<FileHubUser, IdentityRole<Guid>>(options =>
         options.Password.RequireDigit = false;
         options.Password.RequireNonAlphanumeric = false;
         options.Password.RequireUppercase = false;
-        options.Password.RequiredLength = 8;
+        // Development seeds two throwaway accounts (see DevSeed) whose passwords are shorter than
+        // this floor. The floor moves rather than the passwords, so the credentials stay the
+        // memorable ones — and only in Development, where the app is on localhost against a
+        // scratch database.
+        options.Password.RequiredLength = builder.Environment.IsDevelopment() ? 4 : 8;
         options.User.RequireUniqueEmail = true;
         // The username is a display name, not an identifier, so it has to allow what people call
         // themselves — spaces and accented letters included. An empty string turns Identity's

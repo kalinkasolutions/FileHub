@@ -1,25 +1,4 @@
 <section class="panel">
-  <span class="title">Roles</span>
-
-  <div class="body">
-    <p class="hint">
-      Roles are fixed and cannot be created here. <strong>Admin</strong> unlocks this area, grants
-      <em>every</em> base path, and carries every other role with it. <strong>User</strong> is what
-      browsing needs, so every account has it. <strong>CreateShares</strong> is what publishing a
-      link needs — browsing a disk does not include it. The counts are who holds a role outright.
-    </p>
-    <ul class="roles">
-      @for (role of roles(); track role.name) {
-        <li class="role">
-          <span class="name">{{ role.name }}</span>
-          <span class="meta">{{ role.userCount }} account(s)</span>
-        </li>
-      }
-    </ul>
-  </div>
-</section>
-
-<section class="panel">
   <span class="title">Invite an account</span>
 
   <div class="body">
@@ -84,7 +63,9 @@
                 </span>
               }
               @if (role.name === createSharesRole) {
-                <span class="hint">May publish share links. Browsing a disk does not include it.</span>
+                <span class="hint"
+                  >May publish share links. Browsing a disk does not include it.</span
+                >
               }
             </span>
           </label>
@@ -96,13 +77,15 @@
           <button class="link" type="button" (click)="showGroups.emit()">Groups</button>.
         </p>
 
-        <button type="submit" [disabled]="inviteForm.invalid || busy()">Send invitation</button>
+        <div class="buttons">
+          <button type="submit" [disabled]="inviteForm.invalid || busy()">Send invitation</button>
+        </div>
       </form>
     }
   </div>
 </section>
 
-<section class="panel wide">
+<section class="panel">
   <span class="title">Accounts</span>
 
   @if (undeliveredInvite(); as pending) {
@@ -238,8 +221,8 @@
                     }
                     @if (role.name === createSharesRole) {
                       <span class="hint">
-                        Taking it away deletes the share links this account has published — including
-                        the ones it made as an admin.
+                        Taking it away deletes the share links this account has published —
+                        including the ones it made as an admin.
                       </span>
                     }
                   </span>

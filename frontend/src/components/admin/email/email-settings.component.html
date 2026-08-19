@@ -136,9 +136,11 @@
         />
       </div>
 
-      <button type="submit" [disabled]="settingsForm.invalid || saving()">
-        {{ saving() ? 'Saving...' : 'Save settings' }}
-      </button>
+      <div class="buttons">
+        <button type="submit" [disabled]="settingsForm.invalid || saving()">
+          {{ saving() ? 'Saving...' : 'Save settings' }}
+        </button>
+      </div>
     </form>
   </div>
 </section>

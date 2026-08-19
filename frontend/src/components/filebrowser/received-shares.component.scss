@@ -1,0 +1,4 @@
+// The same panel and rows as the links this account made — see the partial. What differs is that
+// every row here is restricted, since nothing aimed at a group is anonymous, so the template puts
+// `.restricted` on all of them instead of toggling it per row.
+@use './share-list';

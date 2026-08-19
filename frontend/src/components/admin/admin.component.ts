@@ -1,6 +1,5 @@
 import { Component, ElementRef, afterNextRender, signal, viewChild } from '@angular/core';
 import { MatIcon } from '@angular/material/icon';
-import { RouterLink } from '@angular/router';
 import { BasePathsComponent } from './basepaths/basepaths.component';
 import { GroupsComponent } from './groups/groups.component';
 import { AdminSharesComponent } from './shares/admin-shares.component';
@@ -18,10 +17,10 @@ let lastSection: AdminSection = 'users';
 
 /**
  * The admin area: one shell, five sections, no nested routes. The `admin` route is a single
- * component and the sections are views of it, which is what lets the header and the tab bar stay
- * put while switching between them.
+ * component and the sections are views of it, which is what lets the tab bar stay put while
+ * switching between them.
  *
- * The tab bar sits under the header rather than at the foot of the screen: with five sections a
+ * The tab bar sits at the top of the screen rather than at its foot: with five sections a
  * bottom bar has to wrap, and a wrapped bar pushes the content it belongs to off a phone. The top
  * bar scrolls sideways instead.
  *
@@ -35,7 +34,6 @@ let lastSection: AdminSection = 'users';
   selector: 'admin',
   standalone: true,
   imports: [
-    RouterLink,
     MatIcon,
     UsersComponent,
     GroupsComponent,

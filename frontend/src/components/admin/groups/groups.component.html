@@ -23,12 +23,14 @@
         <span class="hint">Has to be unique; the API compares it without regard to case.</span>
       </div>
 
-      <button type="submit" [disabled]="createForm.invalid || busy()">Create group</button>
+      <div class="buttons">
+        <button type="submit" [disabled]="createForm.invalid || busy()">Create group</button>
+      </div>
     </form>
   </div>
 </section>
 
-<section class="panel wide">
+<section class="panel">
   <span class="title">Groups</span>
 
   @if (groups().length === 0) {

@@ -11,6 +11,14 @@
       <span>Links</span>
     </button>
   }
+  <!-- Not gated on CreateShares: being sent a link is not publishing one, so this is here for an
+       account whose Links tab is not. An account in no group finds it empty, which the panel says
+       in as many words — the alternative is a request on every visit just to decide whether to
+       draw a tab. -->
+  <button class="tab" type="button" [class.active]="tab() === 'shared'" (click)="showTab('shared')">
+    <mat-icon>inbox</mat-icon>
+    <span>Shared</span>
+  </button>
 </nav>
 
 <main class="content">
@@ -131,7 +139,9 @@
         </ul>
       }
     </section>
-  } @else {
+  } @else if (tab() === 'links') {
     <app-share-links></app-share-links>
+  } @else {
+    <app-received-shares></app-received-shares>
   }
 </main>

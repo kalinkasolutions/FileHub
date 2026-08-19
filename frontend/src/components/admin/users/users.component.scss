@@ -4,14 +4,12 @@
 
 :host {
   @include admin-section;
+  // Invite an account on the left, the Accounts listing beside it.
+  @include admin-section-split;
 }
 
 .panel {
   @include admin-panel;
-}
-
-.wide {
-  @include admin-panel-wide;
 }
 
 .entry {
@@ -50,34 +48,6 @@
   margin-left: $small-padding;
   color: $text-dim;
   font-size: $font-size-small;
-}
-
-// The role counts are a summary rather than a list to act on, so they are ruled rows like any
-// other listing instead of a strip of tiles.
-.roles {
-  @include flex(column);
-
-  .role {
-    @include flex(row);
-    align-items: baseline;
-    justify-content: space-between;
-    gap: $default-padding;
-    min-height: $row-min-height;
-    border-bottom: 1px solid $border-subtle;
-  }
-
-  .role:last-child {
-    border-bottom: none;
-  }
-
-  .name {
-    font-size: $font-size-base;
-  }
-
-  .meta {
-    color: $text-dim;
-    font-size: $font-size-small;
-  }
 }
 
 // An account exists but nobody can reach it — the one failure that has to survive a toast.

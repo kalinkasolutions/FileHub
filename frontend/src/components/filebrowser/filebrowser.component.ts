@@ -22,10 +22,15 @@ import { ToastrService } from 'ngx-toastr';
 import { finalize, map } from 'rxjs';
 import { formatEntrySize } from '@util/format';
 import { IShareDialogData, ShareDialogComponent } from './share-dialog.component';
+import { ReceivedSharesComponent } from './received-shares.component';
 import { ShareLinksComponent } from './share-links.component';
 
-/** The two halves of the browsing UI: the tree, and the links the caller has made from it. */
-type BrowserTab = 'files' | 'links';
+/**
+ * The browsing UI's three views: the tree, the links the caller has handed out from it, and the
+ * links aimed at a group they belong to. The last one is not a subset of the first — a group link
+ * can point into a base path the caller holds no grant on, so its target is in no listing of theirs.
+ */
+type BrowserTab = 'files' | 'links' | 'shared';
 
 /**
  * How many rows are put in the DOM at a time. A media directory can hold tens of thousands of
@@ -45,7 +50,7 @@ const pageSize = 50;
   selector: 'app-file-browser',
   templateUrl: './filebrowser.component.html',
   styleUrl: './filebrowser.component.scss',
-  imports: [FormsModule, MatIconModule, ShareLinksComponent],
+  imports: [FormsModule, MatIconModule, ShareLinksComponent, ReceivedSharesComponent],
 })
 export class FilebrowserComponent {
   private readonly directoryService = inject(DirectoryService);
@@ -195,6 +200,8 @@ export class FilebrowserComponent {
       return;
     }
 
+    // 'shared' needs no guard: receiving a link is not publishing one, so an account without
+    // CreateShares reaches that tab even though its Links tab is hidden.
     this.tab.set(tab);
   }
 

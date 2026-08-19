@@ -34,12 +34,14 @@
         />
       </div>
 
-      <button type="submit" [disabled]="addForm.invalid || busy()">Add base path</button>
+      <div class="buttons">
+        <button type="submit" [disabled]="addForm.invalid || busy()">Add base path</button>
+      </div>
     </form>
   </div>
 </section>
 
-<section class="panel wide">
+<section class="panel">
   <span class="title">Base paths</span>
 
   @if (basePaths().length === 0) {

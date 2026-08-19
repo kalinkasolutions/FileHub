@@ -48,6 +48,16 @@ describe('ShareService', () => {
     request.flush({});
   });
 
+  it('reads what the callers groups were sent from its own route', () => {
+    service.received().subscribe();
+
+    // A separate route from the caller's own links: one is what they published, the other what was
+    // published to them, and no account necessarily has both.
+    const request = http.expectOne('/api/share/received');
+    expect(request.request.method).toBe('GET');
+    request.flush([]);
+  });
+
   it('revokes by id', () => {
     service.revoke('s1').subscribe();
 

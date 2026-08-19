@@ -1,28 +1,34 @@
 @use 'variables' as *;
 @use 'mixins' as *;
+@use './admin' as *;
 
 :host {
   @include app-shell;
 }
 
-.screen-header {
-  @include screen-header;
-}
-
-// Under the header, above the content. `tab-bar` rules underneath itself and scrolls sideways, so
-// the five sections stay on one line at 360px instead of wrapping into a second row that would eat
-// the screen the content needs.
+// The first thing on the screen, above the content. `tab-bar` rules underneath itself and scrolls
+// sideways, so the five sections stay on one line at 360px instead of wrapping into a second row
+// that would eat the screen the content needs.
 .tabs {
   @include tab-bar;
 }
 
-// The five sections share one scroll container, so the header and the tabs stay put while a long
-// list scrolls under them.
+// The five sections share one scroll container, so the tabs stay put while a long list scrolls
+// under them.
 .content {
   @include flex(column);
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+
+  // Once the section is wide enough to hold its panels side by side, the screen itself stops
+  // scrolling: the section fills exactly what the tabs leave, and what scrolls is inside each
+  // panel, which is what keeps a form's Save button on screen. Below that width the panels are one
+  // stacked column, where a scrollport each would cut one screen into two short ones — so the page
+  // goes on scrolling as a whole.
+  @media (min-width: $admin-wide) {
+    overflow-y: hidden;
+  }
 }
 
 .loading {

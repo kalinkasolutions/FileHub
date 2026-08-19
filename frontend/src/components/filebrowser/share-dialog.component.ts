@@ -4,6 +4,7 @@ import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { IGroupSummary } from '@models/IGroupSummary';
 import { apiErrorMessage } from '@services/api-error';
+import { AuthService } from '@services/auth.service';
 import { GroupService } from '@services/group.service';
 import { ShareService } from '@services/share.service';
 import { ToastrService } from 'ngx-toastr';
@@ -28,6 +29,11 @@ const anyone = '';
  * The audience is the one choice that changes what the URL is worth: left alone the link is
  * anonymous, and aimed at a group it only answers signed-in members of it. Because that is invisible
  * in the URL itself, the dialog says which of the two it made, in both states.
+ *
+ * **The picker is admin-only**, and so is the API it posts to. A group link is read by members who
+ * may hold no route to the base path, which makes aiming one an access decision rather than a
+ * narrower way to publish. For everybody else this dialog is what it was before groups existed: a
+ * limit, and an anonymous URL.
  */
 @Component({
   standalone: true,
@@ -39,7 +45,11 @@ const anyone = '';
 export class ShareDialogComponent {
   private readonly shareService = inject(ShareService);
   private readonly groupService = inject(GroupService);
+  private readonly authService = inject(AuthService);
   private readonly toastr = inject(ToastrService);
+
+  /** Only an admin may aim a link at a group, so only an admin is offered the choice. */
+  public readonly canAim = this.authService.isAdmin;
 
   public readonly data = inject<IShareDialogData>(MAT_DIALOG_DATA);
 
@@ -49,7 +59,7 @@ export class ShareDialogComponent {
   public readonly isSaving = signal(false);
 
   /**
-   * Empty until the groups arrive, and empty for good for a caller who is in none — the picker is
+   * Empty until the groups arrive, and empty for good for anyone who is not an admin — the picker is
    * hidden in that case rather than shown with one option, which would only raise a question the
    * user cannot act on.
    */
@@ -64,8 +74,14 @@ export class ShareDialogComponent {
   });
 
   public constructor() {
+    // Not even asked for unless the answer can be acted on: for an admin the route lists every
+    // group, and for everyone else the picker is not drawn, so the call would be spent on nothing.
+    if (!this.canAim()) {
+      return;
+    }
+
     this.groupService.list().subscribe({
-      // A caller with no groups is the ordinary case and not a failure; so is the request failing.
+      // An install with no groups is the ordinary case and not a failure; so is the request failing.
       // Either way the dialog keeps working exactly as it did before groups existed.
       next: (groups) => this.groups.set(groups),
       error: () => this.groups.set([]),

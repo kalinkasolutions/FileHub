@@ -17,8 +17,9 @@ public interface IShareService
 {
     /// <summary>
     /// Creates a link to a path the caller can reach. The target's total size is measured here,
-    /// once, and cached on the row. An audience group the caller does not belong to is a 400 —
-    /// unless they are an admin, who may aim a link at any group.
+    /// once, and cached on the row. An audience group is admin-only and anyone else naming one is a
+    /// 400: a group-aimed link is read by members who may hold no route to the base path, which
+    /// makes it a grant rather than a narrower way to publish.
     /// <para>
     /// <paramref name="callerCanCreateShares"/> is the <c>CreateShares</c> role, which publishing
     /// requires: reading a disk and handing out an anonymous URL into it are separate powers, and
@@ -30,6 +31,14 @@ public interface IShareService
         Guid userId, bool callerIsAdmin, bool callerCanCreateShares, CreateShareDto dto);
 
     Task<OperationResult<List<ShareDto>>> ListForUserAsync(Guid userId);
+
+    /// <summary>
+    /// The links aimed at a group the caller belongs to — the receiving end of the audience, which
+    /// no listing showed before: a member could redeem a link they had been sent, and had no way to
+    /// find one they had not. Membership is the only condition, so an admin sees what their own
+    /// groups were sent here and everything else in the admin list.
+    /// </summary>
+    Task<OperationResult<List<ReceivedShareDto>>> ListForAudienceAsync(Guid userId);
 
     /// <summary>Every link in the install, for the admin area.</summary>
     Task<OperationResult<List<AdminShareDto>>> ListAllAsync();

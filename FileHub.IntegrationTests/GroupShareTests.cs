@@ -15,7 +15,7 @@ public sealed class GroupShareTests : SharesTestBase
     // ---- creating ----
 
     [Fact]
-    public async Task A_member_can_aim_a_link_at_their_group()
+    public async Task A_member_cannot_aim_a_link_at_a_group_they_belong_to()
     {
         var alice = await CreateUserAsync("alice@example.com");
         Tree.File("a.txt");
@@ -23,10 +23,18 @@ public sealed class GroupShareTests : SharesTestBase
         await GrantAsync(basePath.Id, alice.Id);
         var family = await CreateGroupAsync("Family", alice.Id);
 
-        var share = await ShareAsync(alice.Id, basePath.Id, "a.txt", audienceGroupId: family.Id);
+        var result = await Shares.CreateAsync(alice.Id, callerIsAdmin: false, callerCanCreateShares: true, new CreateShareDto
+        {
+            BasePathId = basePath.Id,
+            RelativePath = "a.txt",
+            AudienceGroupId = family.Id
+        });
 
-        Assert.Equal(family.Id, share.AudienceGroupId);
-        Assert.Equal("Family", share.AudienceGroupName);
+        // Being in the group is no longer enough, and belonging to it was the whole of the old
+        // rule. A group-aimed link is read by members who may hold no route to the base path, so
+        // creating one is an access decision — and those are the admin's.
+        Assert.Equal(ResultCode.BadRequest, result.ResultCode);
+        Assert.Empty(await Context.Shares.ToListAsync());
     }
 
     [Fact]
@@ -68,7 +76,7 @@ public sealed class GroupShareTests : SharesTestBase
     }
 
     [Fact]
-    public async Task An_unknown_audience_group_answers_exactly_like_one_the_caller_is_not_in()
+    public async Task A_real_group_and_an_invented_one_answer_a_non_admin_identically()
     {
         var alice = await CreateUserAsync("alice@example.com");
         var bob = await CreateUserAsync("bob@example.com");
@@ -77,23 +85,43 @@ public sealed class GroupShareTests : SharesTestBase
         await GrantAsync(basePath.Id, bob.Id);
         var family = await CreateGroupAsync("Family", alice.Id);
 
-        var notAMember = await Shares.CreateAsync(bob.Id, callerIsAdmin: false, callerCanCreateShares: true, new CreateShareDto
+        var real = await Shares.CreateAsync(bob.Id, callerIsAdmin: false, callerCanCreateShares: true, new CreateShareDto
         {
             BasePathId = basePath.Id,
             RelativePath = "a.txt",
             AudienceGroupId = family.Id
         });
 
-        var unknown = await Shares.CreateAsync(bob.Id, callerIsAdmin: false, callerCanCreateShares: true, new CreateShareDto
+        var invented = await Shares.CreateAsync(bob.Id, callerIsAdmin: false, callerCanCreateShares: true, new CreateShareDto
         {
             BasePathId = basePath.Id,
             RelativePath = "a.txt",
             AudienceGroupId = Guid.NewGuid()
         });
 
-        // Telling them apart would let a caller enumerate the groups in the install.
-        Assert.Equal(unknown.ResultCode, notAMember.ResultCode);
-        Assert.Equal(unknown.ErrorMessage, notAMember.ErrorMessage);
+        // The refusal comes before the group is looked up at all, so the two cannot differ — which
+        // is what stops the field being used to enumerate the groups in the install.
+        Assert.Equal(ResultCode.BadRequest, real.ResultCode);
+        Assert.Equal(invented.ResultCode, real.ResultCode);
+        Assert.Equal(invented.ErrorMessage, real.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task An_unknown_group_answers_an_admin_the_same_way_too()
+    {
+        var admin = await CreateUserAsync("admin@example.com", "test-password", Roles.Admin, Roles.User);
+        Tree.File("a.txt");
+        var basePath = await CreateBasePathAsync(Tree.Root);
+
+        var result = await Shares.CreateAsync(admin.Id, callerIsAdmin: true, callerCanCreateShares: true, new CreateShareDto
+        {
+            BasePathId = basePath.Id,
+            RelativePath = "a.txt",
+            AudienceGroupId = Guid.NewGuid()
+        });
+
+        Assert.Equal(ResultCode.BadRequest, result.ResultCode);
+        Assert.Empty(await Context.Shares.ToListAsync());
     }
 
     [Fact]
@@ -232,13 +260,14 @@ public sealed class GroupShareTests : SharesTestBase
     public async Task Deleting_a_group_leaves_the_links_that_were_not_aimed_at_it()
     {
         var alice = await CreateUserAsync("alice@example.com");
+        var owner = await CreateUserAsync("owner@example.com", "test-password", Roles.Admin, Roles.User);
         Tree.File("a.txt");
         Tree.File("b.txt");
         var basePath = await CreateBasePathAsync(Tree.Root);
         await GrantAsync(basePath.Id, alice.Id);
         var family = await CreateGroupAsync("Family", alice.Id);
 
-        await ShareAsync(alice.Id, basePath.Id, "a.txt", audienceGroupId: family.Id);
+        await ShareAsync(owner.Id, basePath.Id, "a.txt", audienceGroupId: family.Id, callerIsAdmin: true);
         var anonymous = await ShareAsync(alice.Id, basePath.Id, "b.txt");
 
         await Groups.DeleteAsync(family.Id);
@@ -368,8 +397,8 @@ public sealed class GroupShareTests : SharesTestBase
         var share = await GroupShareAsync();
 
         NewRequest();
-        var alice = await Context.Users.SingleAsync(u => u.Email == "alice@example.com");
-        var listed = Assert.Single((await Shares.ListForUserAsync(alice.Id)).Value);
+        var owner = await Context.Users.SingleAsync(u => u.Email == "owner@example.com");
+        var listed = Assert.Single((await Shares.ListForUserAsync(owner.Id)).Value);
 
         Assert.Equal(share.AudienceGroupId, listed.AudienceGroupId);
         Assert.Equal("Family", listed.AudienceGroupName);
@@ -386,18 +415,117 @@ public sealed class GroupShareTests : SharesTestBase
         Assert.Equal("Family", listed.AudienceGroupName);
     }
 
+    // ---- what my groups were sent ----
+
+    [Fact]
+    public async Task A_member_sees_the_link_aimed_at_their_group()
+    {
+        var share = await GroupShareAsync();
+
+        NewRequest();
+        var alice = await Context.Users.SingleAsync(u => u.Email == "alice@example.com");
+        var listed = Assert.Single((await Shares.ListForAudienceAsync(alice.Id)).Value);
+
+        Assert.Equal(share.Id, listed.Id);
+        Assert.Equal("a.txt", listed.Name);
+        Assert.Equal("Family", listed.AudienceGroupName);
+        // Alice holds no grant on the base path — the link is her only route to the file, which is
+        // the whole reason an admin aimed one at her group.
+        Assert.Equal("owner", listed.SharedBy);
+    }
+
+    [Fact]
+    public async Task The_received_list_leaves_the_path_off()
+    {
+        var alice = await CreateUserAsync("alice@example.com");
+        var owner = await CreateUserAsync("owner@example.com", "test-password", Roles.Admin, Roles.User);
+        Tree.Dir("invoices");
+        Tree.File(Path.Combine("invoices", "a.txt"), "hello");
+        var basePath = await CreateBasePathAsync(Tree.Root);
+        var family = await CreateGroupAsync("Family", alice.Id);
+
+        await ShareAsync(
+            owner.Id, basePath.Id, Path.Combine("invoices", "a.txt"),
+            audienceGroupId: family.Id, callerIsAdmin: true);
+
+        NewRequest();
+        var listed = Assert.Single((await Shares.ListForAudienceAsync(alice.Id)).Value);
+
+        // A recipient may hold no grant on the base path, so the DTO carries the target's name and
+        // nothing that would sketch the directories above it.
+        Assert.Equal("a.txt", listed.Name);
+        Assert.DoesNotContain("invoices", System.Text.Json.JsonSerializer.Serialize(listed));
+    }
+
+    [Fact]
+    public async Task A_non_member_sees_nothing_in_the_received_list()
+    {
+        var bob = await CreateUserAsync("bob@example.com");
+        await GroupShareAsync();
+
+        NewRequest();
+        Assert.Empty((await Shares.ListForAudienceAsync(bob.Id)).Value);
+    }
+
+    [Fact]
+    public async Task An_anonymous_link_is_in_nobodys_received_list()
+    {
+        var alice = await CreateUserAsync("alice@example.com");
+        Tree.File("a.txt");
+        var basePath = await CreateBasePathAsync(Tree.Root);
+        await GrantAsync(basePath.Id, alice.Id);
+        await CreateGroupAsync("Family", alice.Id);
+        await ShareAsync(alice.Id, basePath.Id, "a.txt");
+
+        // A link with no audience was not sent to anyone; it is in its creator's own list only.
+        NewRequest();
+        Assert.Empty((await Shares.ListForAudienceAsync(alice.Id)).Value);
+        Assert.Single((await Shares.ListForUserAsync(alice.Id)).Value);
+    }
+
+    [Fact]
+    public async Task An_admin_sees_only_what_their_own_groups_were_sent()
+    {
+        var admin = await CreateUserAsync("admin@example.com", "test-password", Roles.Admin, Roles.User);
+        await GroupShareAsync();
+
+        // The wildcard is a route to every base path, not a membership of every group: "what was
+        // shared with me" is a fact about the caller's groups. Every link is in the admin list.
+        NewRequest();
+        Assert.Empty((await Shares.ListForAudienceAsync(admin.Id)).Value);
+        Assert.Single((await Shares.ListAllAsync()).Value);
+    }
+
+    [Fact]
+    public async Task Leaving_the_group_takes_the_link_out_of_the_received_list()
+    {
+        await GroupShareAsync();
+        var alice = await Context.Users.SingleAsync(u => u.Email == "alice@example.com");
+        var family = await Context.Groups.SingleAsync();
+
+        await Groups.SetMembersAsync(family.Id, new SetGroupMembersDto { UserIds = [] });
+
+        // The list is a live query over the memberships, the same fact the redemption checks — so
+        // it cannot show a member a link they would then be refused.
+        NewRequest();
+        Assert.Empty((await Shares.ListForAudienceAsync(alice.Id)).Value);
+    }
+
     /// <summary>
-    /// One file, shared by alice and aimed at "Family", which alice is the only member of. Alice
-    /// holds the base path directly, so nothing here depends on the group also granting access.
+    /// One file, aimed at "Family", which alice is the only member of. The link is made by an admin
+    /// — the only account that may aim one — reaching the base path by the wildcard, so nothing here
+    /// depends on any grant, and alice is a plain member with no route to the base path of her own.
+    /// That is the case the audience exists for.
     /// </summary>
     private async Task<ShareDto> GroupShareAsync()
     {
         var alice = await CreateUserAsync("alice@example.com");
+        var owner = await CreateUserAsync("owner@example.com", "test-password", Roles.Admin, Roles.User);
         Tree.File("a.txt", "hello");
         var basePath = await CreateBasePathAsync(Tree.Root);
-        await GrantAsync(basePath.Id, alice.Id);
         var family = await CreateGroupAsync("Family", alice.Id);
 
-        return await ShareAsync(alice.Id, basePath.Id, "a.txt", audienceGroupId: family.Id);
+        return await ShareAsync(
+            owner.Id, basePath.Id, "a.txt", audienceGroupId: family.Id, callerIsAdmin: true);
     }
 }

@@ -4,6 +4,9 @@
 
 :host {
   @include admin-section;
+  // The test-send on the left, the SMTP settings — the longer form and the point of the screen —
+  // beside it.
+  @include admin-section-split;
 }
 
 .panel {
