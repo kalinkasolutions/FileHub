@@ -1,14 +1,34 @@
-<header class="flex-row" *ngIf="showHeader">
-    <a href="/">
-        <img class="logo" src="file-hub.svg" />
-    </a>
-    <div #pathSegmentsContainer class="flex-row path-segments"
-        [ngStyle]="{ visibility: showPathSegments ? 'visible' : 'hidden' }">
-        <span *ngFor="let segment of path; let last = last" (click)="segmentChange(segment, last)"
-            class="path-segment">{{
-            segment.Name }}</span>
-    </div>
-    <span class="flex-grow"></span>
-    <a class="nav" [class.active]="isActive('/')" routerLink="/">directories</a>
-    <a class="nav" [class.active]="isActive('/admin')" routerLink="/admin">admin</a>
-</header>
+@if (signedIn()) {
+  <a class="brand" routerLink="/" title="FileHub">
+    <img src="file-hub.svg" alt="FileHub" />
+  </a>
+  <!-- Where you are, spelled out as a path rather than left to a highlighted icon. -->
+  <span class="section">{{ section() }}</span>
+
+  <!-- Navigation is links, not buttons: they go somewhere, and the one you are on is underlined
+       in the accent. Only signing out — which acts on the session — is a control. -->
+  <nav>
+    <a class="nav" routerLink="/" [class.active]="section() === 'Files'">directories</a>
+
+    @if (isAdmin()) {
+      <a class="nav" routerLink="/admin" [class.active]="section() === 'Admin'">admin</a>
+    }
+
+    <a class="nav" routerLink="/account" [class.active]="section() === 'Account'">account</a>
+
+    <button
+      class="icon-btn quiet"
+      type="button"
+      (click)="signOut()"
+      title="Sign out"
+      aria-label="Sign out"
+    >
+      <mat-icon>logout</mat-icon>
+    </button>
+  </nav>
+} @else {
+  <!-- No session: the mark, and nothing that would need one. -->
+  <span class="brand">
+    <img src="file-hub.svg" alt="FileHub" />
+  </span>
+}

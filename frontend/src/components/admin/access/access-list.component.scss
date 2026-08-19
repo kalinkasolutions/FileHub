@@ -1,0 +1,78 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+@use '../admin' as *;
+
+// The editor drops into the row it belongs to, so it is the row's drawer rather than a panel of
+// its own — the accent as a rule on the leading edge, over the darker fill.
+:host {
+  @include admin-drawer;
+}
+
+.head {
+  @include flex(row);
+  align-items: center;
+  justify-content: space-between;
+  gap: $default-padding;
+
+  h3 {
+    margin: 0;
+    font-size: $font-size-base;
+    font-weight: 700;
+  }
+
+  .count {
+    color: $text-dim;
+    font-size: $font-size-small;
+  }
+}
+
+.empty {
+  margin: 0;
+  color: $text-placeholder;
+  font-size: $font-size-small;
+}
+
+// What unticking costs. It sits above the buttons because it is about the save, not about the list.
+.note {
+  margin: 0;
+  color: $text-muted;
+  font-size: $font-size-small;
+  line-height: 1.5;
+}
+
+.options {
+  @include flex(column);
+  // Deep enough to scan, short enough that the Save button stays on a phone screen with it.
+  max-height: 20em;
+  overflow-y: auto;
+
+  label {
+    @include flex(row);
+    align-items: center;
+    gap: $small-padding;
+    min-height: $row-min-height;
+    padding: $small-padding 0;
+    border-bottom: 1px solid $border-subtle;
+    cursor: pointer;
+  }
+
+  li:last-child label {
+    border-bottom: none;
+  }
+
+  .text {
+    @include flex(column);
+    min-width: 0;
+  }
+
+  .label {
+    font-size: $font-size-base;
+    overflow-wrap: anywhere;
+  }
+
+  .hint {
+    color: $text-dim;
+    font-size: $font-size-small;
+    overflow-wrap: anywhere;
+  }
+}

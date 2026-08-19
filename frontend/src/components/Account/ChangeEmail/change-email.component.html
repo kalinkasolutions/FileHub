@@ -1,0 +1,57 @@
+<h2>Change email</h2>
+
+<!-- The why comes before the fields: it's what tells you the change isn't instant. -->
+<p class="hint">
+  Your email address is what you sign in with, so we send a confirmation link to the new one first.
+  The address changes when you open that link — not when you press the button.
+</p>
+
+@if (account(); as account) {
+  <div class="row">
+    <span class="label">Current address</span>
+    <span class="value">{{ account.email }}</span>
+  </div>
+}
+
+@if (pending(); as pending) {
+  <p class="hint">
+    A confirmation link is on its way to <strong>{{ pending }}</strong
+    >. Your account keeps its current address until you open it.
+  </p>
+}
+
+@if (failed(); as failed) {
+  <p class="hint warn">
+    {{ failed }} Nothing changed — the link is the only way to complete the change, so try again
+    once mail is working.
+  </p>
+}
+
+<form (ngSubmit)="submit()">
+  <input
+    id="newEmail"
+    type="email"
+    name="newEmail"
+    autocomplete="email"
+    placeholder="you@example.com"
+    aria-label="New email address"
+    maxlength="256"
+    [ngModel]="email()"
+    (ngModelChange)="email.set($event)"
+  />
+
+  <input
+    id="emailPassword"
+    type="password"
+    name="emailPassword"
+    autocomplete="current-password"
+    placeholder="Current password"
+    aria-label="Current password"
+    [ngModel]="currentPassword()"
+    (ngModelChange)="currentPassword.set($event)"
+  />
+
+  <button class="secondary" type="submit" [disabled]="!canSubmit()">
+    {{ busy() ? 'Sending…' : 'Send confirmation link' }}
+  </button>
+</form>

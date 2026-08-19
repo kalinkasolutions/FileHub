@@ -1,75 +1,109 @@
 @use 'variables' as *;
+@use 'mixins' as *;
 
-.path-segment:not(:last-child)::after {
-    content: 'chevron_right';
-    font-family: 'Material Icons';
-    margin: 0 4px;
-    vertical-align: middle;
+// The chrome wraps rather than scrolls or clips: on a 360px phone the wordmark and four
+// destinations do not fit on one line, and every answer that keeps them there hides one of them —
+// the sign-out ended up off the right edge. Wrapping drops the nav onto its own line only on the
+// screens that need it, which is what the original header did at the same width.
+:host {
+  @include flex(row);
+  flex-wrap: wrap;
+  align-items: center;
+  align-content: center;
+  row-gap: 0;
+  column-gap: $small-padding;
+  flex-shrink: 0;
+  width: 100%;
+  min-height: $nav-height;
+  padding: 0 $screen-padding;
+  border-bottom: 1px solid $border-subtle;
+  background: $bg-primary;
 }
 
-.path-segment:not(:last-child):hover {
-    cursor: pointer;
-    color: $green;
-}
+// The wordmark is a wide one — roughly 4:1 drawn, 7:1 including its own margins — so it is sized by
+// width with the height left to follow. A square box would squash it.
+.brand {
+  @include flex(row);
+  align-items: center;
+  flex-shrink: 0;
+  min-height: $tap-target-min;
+  color: $text-primary;
+  text-decoration: none;
 
-.path-segment:not(:last-child) {
-    padding: 0.0em;
-    transition: padding 0.15s ease-in-out;
-}
+  @include hover {
+    color: $text-primary;
+  }
 
-.path-segment:last-child {
-    color: $green;
-    text-decoration: underline;
-}
-
-.path-segments {
-    width: 80%;
-    white-space: nowrap;
-    overflow: hidden;
-}
-
-header {
-    padding: 1em;
-    height: 60px;
-}
-
-header span {
-    display: inline-block;
-}
-
-.nav {
-    margin-left: 0.5em;
-    cursor: pointer;
-    text-decoration: none;
-}
-
-.active,
-.nav:hover {
-    text-decoration: underline;
-    color: $green;
-}
-
-.logo {
+  img {
+    display: block;
     width: 130px;
-    margin-right: 1em;
+    max-width: 30vw;
+    height: auto;
+  }
 }
 
-a > img.logo {
-  display: block; 
+// Where you are, written the way a path is: `/ directories`. It is the first thing to go when the
+// line is short — the underlined link already says it.
+.section {
+  display: none;
+  align-items: center;
+  gap: $small-padding;
+  min-width: 0;
+  overflow: hidden;
+  color: $text-muted;
+  font-size: $font-size-base;
+  white-space: nowrap;
+  text-transform: lowercase;
+
+  &::before {
+    content: '/';
+    color: $icon-faint;
+  }
 }
 
-@media (max-width: 600px) {
-    header {
-        display: flex;
-        flex-wrap: wrap;
-        height: 100px;
-    }
+// `margin-left: auto` rather than a spacer element, so that on the wrapped line the nav is pushed
+// to the right edge instead of stranded under the wordmark.
+nav {
+  @include flex(row);
+  align-items: center;
+  gap: $small-padding;
+  flex-shrink: 0;
+  min-height: $tap-target-min;
+  margin-left: auto;
+}
 
-    .path-segments {
-        width: 100%;
-        overflow-x: auto;
-        order: 1;
-        margin-top: 1em;
-        padding-bottom: 0.6em;
-    }
+// Plain underlined text, green when it is where you are — the original's reading, and the reason
+// the header carries no row of look-alike buttons.
+.nav {
+  @include flex(row);
+  align-items: center;
+  flex-shrink: 0;
+  min-height: $tap-target-min;
+  color: $link-primary;
+  font-size: $font-size-small;
+  white-space: nowrap;
+  text-decoration: underline;
+
+  @include hover {
+    color: $link-hover;
+  }
+
+  &.active {
+    color: $primary-green;
+  }
+}
+
+@media (min-width: 700px) {
+  :host {
+    column-gap: $default-margin;
+    padding: 0 $header-padding;
+  }
+
+  .section {
+    display: flex;
+  }
+
+  .nav {
+    font-size: $font-size-base;
+  }
 }

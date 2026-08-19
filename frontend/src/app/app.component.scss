@@ -1,27 +1,59 @@
 @use 'variables' as *;
+@use 'mixins' as *;
+
+// Two shapes, one element. Without chrome — the auth screens and the 404 — the routed view is a
+// centred block on the page background, which is what `app-root` already arranges. With chrome it
+// becomes the app surface: header pinned at the top, the view filling the rest, capped and centred
+// on a wide screen the way `app-shell` caps the views themselves.
+.shell {
+  width: 100%;
+  height: 100%;
+  @include flex(column);
+  align-items: center;
+  justify-content: center;
+  // Only the chromeless shape needs it: those screens are a bare centred block, so without it the
+  // helper copy beside the panel runs into the edge of a phone screen. With chrome the header and
+  // the routed view each bring their own.
+  padding: $screen-padding;
+
+  // The outlet renders its component as a *sibling*, so the tag itself is an empty element that
+  // would otherwise sit in the flex line and take a share of it.
+  router-outlet {
+    display: none;
+  }
+}
+
+// The rules that size the *routed view* inside this shell are in `styles.scss`, not here. The
+// router renders that component as a sibling of `<router-outlet>` — outside this template — so it
+// carries none of this stylesheet's content attribute, and a rule written here compiles to a
+// selector that can never match it.
+.shell.chromed {
+  justify-content: flex-start;
+  padding: 0;
+}
 
 .loading-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.1);
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    pointer-events: all;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.1);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: all;
 }
 
 .spinner {
-    width: 48px;
-    height: 48px;
-    border: 5px solid rgba(255, 255, 255, 0.1);
-    border-top-color: $green;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
+  width: 48px;
+  height: 48px;
+  border: 5px solid rgba(255, 255, 255, 0.1);
+  border-top-color: $primary-green;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
+  to {
+    transform: rotate(360deg);
+  }
 }

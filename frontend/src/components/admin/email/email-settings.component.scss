@@ -1,0 +1,31 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+@use '../admin' as *;
+
+:host {
+  @include admin-section;
+  // The test-send on the left, the SMTP settings — the longer form and the point of the screen —
+  // beside it.
+  @include admin-section-split;
+}
+
+.panel {
+  @include admin-panel;
+}
+
+.error {
+  margin: 0;
+  color: $text-error;
+  font-size: $font-size-small;
+  line-height: 1.5;
+  // An SMTP failure is one long unbroken string more often than not.
+  overflow-wrap: anywhere;
+}
+
+.ok {
+  color: $primary-green;
+}
+
+.optional {
+  color: $text-placeholder;
+}

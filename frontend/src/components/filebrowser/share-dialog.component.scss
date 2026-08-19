@@ -1,0 +1,80 @@
+@use 'mixins' as *;
+@use 'variables' as *;
+
+// The dialog surface sizes to its content, so the width lives here rather than in a MatDialogConfig
+// — 92vw keeps it off the edges of a small phone.
+:host {
+  display: block;
+  width: min(28em, 92vw);
+}
+
+// The thing being shared, named in the same monospace column the listing put it in.
+.target {
+  margin: 0 0 $default-margin;
+  padding-bottom: $small-padding;
+  border-bottom: 1px solid $border-subtle;
+  overflow-wrap: anywhere;
+  color: $text-secondary;
+  font-size: $font-size-base;
+}
+
+.form-control + .form-control {
+  margin-top: $default-margin;
+}
+
+.link-row {
+  @include flex(row);
+  align-items: center;
+  gap: $small-padding;
+
+  input {
+    font-size: $font-size-small;
+  }
+}
+
+.hint {
+  color: $text-muted;
+  font-size: $font-size-small;
+  line-height: 1.5;
+}
+
+// Who can open the link, said as a strip rather than as a footnote: it is the one property of a
+// share that the URL does not carry, so a user only finds it out when it fails for someone.
+.audience-note {
+  @include flex(row);
+  align-items: flex-start;
+  gap: $small-padding;
+  margin: $default-margin 0 0;
+  padding: $small-padding;
+  border-left: $border-panel-width solid $border-subtle;
+  background: $surface-muted;
+  color: $text-muted;
+  font-size: $font-size-small;
+  line-height: 1.5;
+
+  mat-icon {
+    @include icon-size($icon-size-inline);
+    flex-shrink: 0;
+    // The glyph's own line box is shorter than the text's, so it would ride high without this.
+    margin-top: 2px;
+    color: $icon-quiet;
+    cursor: default;
+  }
+
+  // A group-aimed link is the exception and wears the accent, so choosing a group visibly changes
+  // the dialog rather than only changing a word in it.
+  &.restricted {
+    border-left-color: $primary-green;
+    background: $accent-wash;
+    color: $text-primary;
+
+    mat-icon {
+      color: $primary-green;
+    }
+
+    strong {
+      color: $primary-green;
+      font-weight: 700;
+    }
+  }
+}

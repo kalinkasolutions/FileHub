@@ -1,0 +1,56 @@
+<header class="title">
+  <span class="here">Shared with you</span>
+  <span class="count">{{ count() }}</span>
+</header>
+
+@if (isLoading()) {
+  <p class="empty">Loading…</p>
+} @else if (shares().length === 0) {
+  <p class="empty">
+    Nothing yet. Links an administrator aims at one of your groups turn up here — including files
+    you cannot otherwise browse to.
+  </p>
+} @else {
+  <ul class="links">
+    @for (share of shares(); track share.id) {
+      <!-- Every row here is aimed at a group, so all of them wear the accent rule: the tag says
+           which group, and the meta line says who put it there. -->
+      <li class="link restricted">
+        <mat-icon class="kind" [class.folder]="share.isDir">
+          {{ share.isDir ? 'folder' : 'draft' }}
+        </mat-icon>
+
+        <div class="details">
+          <div class="headline">
+            <span class="name" [title]="share.name">{{ share.name }}</span>
+            <span class="audience">
+              <mat-icon>lock</mat-icon>
+              <span>{{ share.audienceGroupName }}</span>
+            </span>
+          </div>
+          <span class="meta">
+            {{ meta(share) }} · from {{ share.sharedBy }} ·
+            {{ share.createdAt | date: 'mediumDate' }}
+          </span>
+        </div>
+
+        <button
+          class="icon-btn quiet"
+          type="button"
+          [attr.aria-label]="'Open ' + share.name"
+          (click)="open(share)"
+        >
+          <mat-icon>open_in_new</mat-icon>
+        </button>
+        <button
+          class="icon-btn quiet"
+          type="button"
+          [attr.aria-label]="'Copy the link to ' + share.name"
+          (click)="copy(share)"
+        >
+          <mat-icon>content_copy</mat-icon>
+        </button>
+      </li>
+    }
+  </ul>
+}

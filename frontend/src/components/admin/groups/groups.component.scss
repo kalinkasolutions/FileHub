@@ -1,0 +1,31 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+@use '../admin' as *;
+
+:host {
+  @include admin-section;
+  // Create a group on the left, the Groups listing beside it.
+  @include admin-section-split;
+}
+
+.panel {
+  @include admin-panel;
+}
+
+.entry {
+  @include flex(column);
+  border-bottom: 1px solid $border-subtle;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.row {
+  @include admin-row;
+  border-bottom: none;
+}
+
+.drawer {
+  @include admin-drawer;
+}

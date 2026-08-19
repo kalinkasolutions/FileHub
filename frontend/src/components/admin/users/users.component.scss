@@ -1,0 +1,105 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+@use '../admin' as *;
+
+:host {
+  @include admin-section;
+  // Invite an account on the left, the Accounts listing beside it.
+  @include admin-section-split;
+}
+
+.panel {
+  @include admin-panel;
+}
+
+.entry {
+  @include flex(column);
+  border-bottom: 1px solid $border-subtle;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.row {
+  @include admin-row;
+  align-items: flex-start;
+  border-bottom: none;
+}
+
+.drawer {
+  @include admin-drawer;
+}
+
+.chip {
+  @include admin-chip;
+}
+
+.chips {
+  @include flex(row);
+  gap: $small-padding;
+  flex-wrap: wrap;
+  margin-top: $small-padding;
+}
+
+// "you" rides along with the name rather than the chips: it is about the row, not about the
+// account's state.
+.you {
+  margin-left: $small-padding;
+  color: $text-dim;
+  font-size: $font-size-small;
+}
+
+// An account exists but nobody can reach it — the one failure that has to survive a toast.
+.undelivered {
+  @include flex(column);
+  gap: $default-padding;
+  margin: $default-padding;
+  padding: $default-padding;
+  border-left: $border-panel-width solid $text-danger;
+  background: $danger-hover;
+
+  p {
+    margin: 0;
+    font-size: $font-size-small;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+}
+
+// A role and the sentence explaining it. The box lines up with the *first* line of that sentence
+// rather than with the middle of the block, which is where centring would put it.
+.check {
+  @include flex(row);
+  align-items: flex-start;
+  gap: $small-padding;
+  min-height: $row-min-height;
+  padding: $small-padding 0;
+  cursor: pointer;
+
+  input {
+    margin-top: 3px;
+  }
+
+  .text {
+    @include flex(column);
+    min-width: 0;
+  }
+}
+
+// A sentence that acts on the page rather than navigating, so it is a button wearing link paint.
+.link {
+  display: inline;
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  color: $link-primary;
+  font-size: inherit;
+  font-weight: 400;
+  text-decoration: underline;
+
+  @include hover {
+    background: transparent;
+    color: $link-hover;
+  }
+}

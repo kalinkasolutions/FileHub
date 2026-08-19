@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <RootNamespace>Dal</RootNamespace>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!-- SignInManager (used by IdentityRepository to sign a user in) ships in the ASP.NET Core
+             shared framework rather than in the Identity packages below, because it writes the auth
+             cookie. This adds no dependency the host does not already have. -->
+        <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\FileHub.Entities\FileHub.Entities.csproj" />
+        <ProjectReference Include="..\FileHub.Shared\FileHub.Shared.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.10" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.10" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.10" />
+        <!-- Override the vulnerable native SQLite bundle (2.1.11, GHSA-2m69-gcr7-jv3q) that
+             EF Core Sqlite pins transitively. Flows to BusinessLogic/Api via project references. -->
+        <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.4" />
+    </ItemGroup>
+
+</Project>

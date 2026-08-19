@@ -1,0 +1,76 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
+:host {
+  @include account-section;
+
+  form {
+    gap: $small-margin;
+  }
+}
+
+// `.quiet` hovers to $surface, which is the panel's own fill — inside a panel that is no feedback
+// at all, so the hover is the darker tone instead.
+.icon-btn.quiet {
+  @include hover {
+    background-color: $bg-elevated;
+  }
+}
+
+// A QR code is square and the section is not, so it is capped by the panel's width rather than by
+// a fixed size — at 360px the panel is narrower than the code's natural 220px.
+.qr {
+  align-self: center;
+  width: 220px;
+  max-width: 100%;
+  height: auto;
+  padding: $default-padding;
+  // The encoder draws dark-on-light; keep the quiet zone white so scanners cope.
+  background: #fff;
+}
+
+.app-link {
+  align-self: center;
+  font-size: $font-size-small;
+  text-align: center;
+}
+
+.key {
+  font-family: $font-mono;
+  font-size: $font-size-base;
+  letter-spacing: 0.05em;
+  // 32 characters with no break in them; wrapping is what keeps them inside the panel.
+  overflow-wrap: anywhere;
+  // styles.scss turns selection off app-wide; the key is one of the few things here worth
+  // selecting by hand.
+  user-select: text;
+}
+
+.on {
+  color: $primary-green;
+}
+
+.hint.warn {
+  color: $text-danger;
+}
+
+// The codes sit *inside* a panel, so they cannot be told apart by the panel's own fill — they get
+// the darker one and a hairline instead.
+.codes {
+  @include flex(column);
+  gap: $small-padding;
+  padding: $small-padding $default-padding;
+  border: 1px solid $border-subtle;
+  background: $bg-elevated;
+  font-family: $font-mono;
+  font-size: $font-size-base;
+  // The codes are the one thing on this screen worth selecting.
+  user-select: text;
+}
+
+@media (min-width: 600px) {
+  .codes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}

@@ -1,0 +1,78 @@
+<div class="brand">
+  <img src="file-hub.svg" alt="" />
+</div>
+
+<h1>Sign in</h1>
+
+@if (step() === 'credentials') {
+  <form (ngSubmit)="onSubmit()" #loginForm="ngForm">
+    <div class="form-control">
+      <label for="email">Email</label>
+      <input
+        id="email"
+        type="email"
+        [(ngModel)]="email"
+        name="email"
+        placeholder="you@example.com"
+        autocomplete="email"
+        required
+      />
+    </div>
+
+    <div class="form-control">
+      <label for="password">Password</label>
+      <input
+        id="password"
+        type="password"
+        [(ngModel)]="password"
+        name="password"
+        placeholder="••••••••"
+        autocomplete="current-password"
+        required
+      />
+    </div>
+
+    <button type="submit" [disabled]="loginForm.invalid || isLoading()">
+      {{ isLoading() ? 'Signing in...' : 'Sign in' }}
+    </button>
+  </form>
+
+  <div class="nav-link">
+    <a routerLink="/forgot-password">Forgot password?</a>
+  </div>
+
+  <p class="hint">
+    FileHub has no sign-up: an administrator invites an account, and the invitation mail is what
+    sets its first password.
+  </p>
+} @else {
+  <form (ngSubmit)="onSubmitCode()" #codeForm="ngForm">
+    <div class="form-control">
+      <label for="code">Authenticator code</label>
+      <input
+        id="code"
+        type="text"
+        [(ngModel)]="code"
+        name="code"
+        inputmode="numeric"
+        autocomplete="one-time-code"
+        placeholder="123456"
+        required
+      />
+      <span class="hint">You can also enter one of your recovery codes.</span>
+    </div>
+
+    <label class="remember">
+      <input type="checkbox" [(ngModel)]="rememberMachine" name="rememberMachine" />
+      <span>Don't ask again on this device</span>
+    </label>
+
+    <button type="submit" [disabled]="codeForm.invalid || isLoading()">
+      {{ isLoading() ? 'Verifying...' : 'Verify' }}
+    </button>
+  </form>
+
+  <div class="nav-link">
+    <button class="link" type="button" (click)="restart()">Use a different account</button>
+  </div>
+}

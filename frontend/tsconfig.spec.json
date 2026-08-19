@@ -1,0 +1,11 @@
+/* Type-checking for unit tests. `tsconfig.app.json` excludes `*.spec.ts`, so without this the
+   unit-test builder falls back to it and bundles specs untype-checked — it says so in a warning.
+   The builder picks this file up by name; no angular.json option is needed. */
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./out-tsc/spec",
+    "types": ["vitest/globals"]
+  },
+  "include": ["src/**/*.spec.ts", "src/**/*.d.ts"]
+}

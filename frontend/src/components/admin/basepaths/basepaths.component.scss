@@ -1,0 +1,38 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+@use '../admin' as *;
+
+:host {
+  @include admin-section;
+  // Add a base path on the left, the Base paths listing beside it.
+  @include admin-section-split;
+}
+
+.panel {
+  @include admin-panel;
+}
+
+// A row plus whatever it has opened underneath itself.
+.entry {
+  @include flex(column);
+  border-bottom: 1px solid $border-subtle;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.row {
+  @include admin-row;
+  // The rule belongs to the entry, so the row inside it does not draw a second one above an open
+  // editor.
+  border-bottom: none;
+}
+
+.drawer {
+  @include admin-drawer;
+}
+
+.optional {
+  color: $text-placeholder;
+}

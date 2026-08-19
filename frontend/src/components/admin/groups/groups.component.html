@@ -1,0 +1,133 @@
+<section class="panel">
+  <span class="title">Create a group</span>
+
+  <div class="body">
+    <p class="hint">
+      A group is a named set of accounts that base paths can be granted to. Access is the union of
+      an account's own grants and those of every group it is in, so a group only ever adds — and
+      admins see every base path whatever any of it says.
+    </p>
+
+    <form (ngSubmit)="create()" #createForm="ngForm">
+      <div class="form-control">
+        <label for="new-group">Name</label>
+        <input
+          id="new-group"
+          type="text"
+          name="newName"
+          [(ngModel)]="newName"
+          placeholder="Family"
+          autocomplete="off"
+          required
+        />
+        <span class="hint">Has to be unique; the API compares it without regard to case.</span>
+      </div>
+
+      <div class="buttons">
+        <button type="submit" [disabled]="createForm.invalid || busy()">Create group</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<section class="panel">
+  <span class="title">Groups</span>
+
+  @if (groups().length === 0) {
+    <p class="empty">No groups yet. Base paths can still be granted to accounts one by one.</p>
+  }
+
+  <ul class="list">
+    @for (group of groups(); track group.id) {
+      <li class="entry">
+        <div class="row">
+          <div class="main">
+            <span class="name">{{ group.name }}</span>
+            <span class="meta">{{ members(group) }} · {{ basePaths(group) }}</span>
+            @if (warning(group); as warning) {
+              <span class="meta warn">{{ warning }}</span>
+            }
+          </div>
+
+          <div class="row-actions">
+            <button
+              class="icon-btn quiet"
+              type="button"
+              title="Members"
+              aria-label="Members"
+              (click)="openMembers(group)"
+            >
+              <mat-icon>person</mat-icon>
+            </button>
+            <button
+              class="icon-btn quiet"
+              type="button"
+              title="Base paths it grants"
+              aria-label="Base paths it grants"
+              (click)="openBasePaths(group)"
+            >
+              <mat-icon>folder_open</mat-icon>
+            </button>
+            <button
+              class="icon-btn quiet"
+              type="button"
+              title="Rename"
+              aria-label="Rename"
+              (click)="startEdit(group)"
+            >
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button
+              class="icon-btn danger"
+              type="button"
+              title="Delete"
+              aria-label="Delete"
+              (click)="remove(group)"
+            >
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+        </div>
+
+        @if (editingId() === group.id) {
+          <div class="drawer">
+            <form (ngSubmit)="saveEdit(group)" #editForm="ngForm">
+              <div class="form-control">
+                <label for="edit-group">Name</label>
+                <input
+                  id="edit-group"
+                  type="text"
+                  name="editName"
+                  [(ngModel)]="editName"
+                  autocomplete="off"
+                  required
+                />
+              </div>
+              <p class="hint">
+                Renaming changes nothing about who is in it or what it grants. Share links aimed at
+                it keep working and show the new name.
+              </p>
+              <div class="buttons">
+                <button class="secondary" type="button" (click)="cancelEdit()">Cancel</button>
+                <button type="submit" [disabled]="editForm.invalid || busy()">Save</button>
+              </div>
+            </form>
+          </div>
+        }
+
+        @if (accessFor()?.id === group.id) {
+          <admin-access-list
+            [heading]="accessHeading()"
+            [options]="accessOptions()"
+            [granted]="accessGranted()"
+            [emptyText]="accessEmptyText()"
+            [note]="accessNote()"
+            [busy]="busy()"
+            (save)="saveAccess($event)"
+            (cancel)="closeAccess()"
+          />
+        }
+      </li>
+    }
+  </ul>
+</section>

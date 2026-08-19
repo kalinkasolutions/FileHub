@@ -1,0 +1,153 @@
+<section class="panel">
+  <span class="title">Add a base path</span>
+
+  <div class="body">
+    <p class="hint">
+      An absolute directory on the host that FileHub may read. It has to exist on the server. Until
+      it is granted to a user or a group only admins can see it — the Admin role is an implicit
+      grant of every base path.
+    </p>
+
+    <form (ngSubmit)="add()" #addForm="ngForm">
+      <div class="form-control">
+        <label for="new-path">Path</label>
+        <input
+          id="new-path"
+          type="text"
+          name="newPath"
+          [(ngModel)]="newPath"
+          placeholder="/mnt/media"
+          autocomplete="off"
+          required
+        />
+      </div>
+
+      <div class="form-control">
+        <label for="new-name">Name <span class="optional">optional</span></label>
+        <input
+          id="new-name"
+          type="text"
+          name="newName"
+          [(ngModel)]="newName"
+          placeholder="Defaults to the directory name"
+          autocomplete="off"
+        />
+      </div>
+
+      <div class="buttons">
+        <button type="submit" [disabled]="addForm.invalid || busy()">Add base path</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<section class="panel">
+  <span class="title">Base paths</span>
+
+  @if (basePaths().length === 0) {
+    <p class="empty">No base paths yet. Nothing can be browsed until there is one.</p>
+  }
+
+  <ul class="list">
+    @for (basePath of basePaths(); track basePath.id) {
+      <li class="entry">
+        <div class="row">
+          <div class="main">
+            <span class="name">{{ basePath.name }}</span>
+            <span class="path">{{ basePath.path }}</span>
+            <span class="meta" [class.warn]="ungranted(basePath)">{{ grants(basePath) }}</span>
+          </div>
+
+          <div class="row-actions">
+            <button
+              class="icon-btn quiet"
+              type="button"
+              title="Users who may see this"
+              aria-label="Users who may see this"
+              (click)="openUsers(basePath)"
+            >
+              <mat-icon>person</mat-icon>
+            </button>
+            <button
+              class="icon-btn quiet"
+              type="button"
+              title="Groups granted this"
+              aria-label="Groups granted this"
+              (click)="openGroups(basePath)"
+            >
+              <mat-icon>groups</mat-icon>
+            </button>
+            <button
+              class="icon-btn quiet"
+              type="button"
+              title="Edit"
+              aria-label="Edit"
+              (click)="startEdit(basePath)"
+            >
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button
+              class="icon-btn danger"
+              type="button"
+              title="Delete"
+              aria-label="Delete"
+              (click)="remove(basePath)"
+            >
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+        </div>
+
+        @if (editingId() === basePath.id) {
+          <div class="drawer">
+            <form (ngSubmit)="saveEdit(basePath)" #editForm="ngForm">
+              <div class="form-control">
+                <label for="edit-path">Path</label>
+                <input
+                  id="edit-path"
+                  type="text"
+                  name="editPath"
+                  [(ngModel)]="editPath"
+                  autocomplete="off"
+                  required
+                />
+              </div>
+              <div class="form-control">
+                <label for="edit-name">Name</label>
+                <input
+                  id="edit-name"
+                  type="text"
+                  name="editName"
+                  [(ngModel)]="editName"
+                  placeholder="Defaults to the directory name"
+                  autocomplete="off"
+                />
+              </div>
+              <p class="hint">
+                Repointing a base path repoints every share link into it — the links keep working
+                and serve the new directory.
+              </p>
+              <div class="buttons">
+                <button class="secondary" type="button" (click)="cancelEdit()">Cancel</button>
+                <button type="submit" [disabled]="editForm.invalid || busy()">Save</button>
+              </div>
+            </form>
+          </div>
+        }
+
+        @if (accessFor()?.id === basePath.id) {
+          <admin-access-list
+            [heading]="accessHeading()"
+            [options]="accessOptions()"
+            [granted]="accessGranted()"
+            [emptyText]="accessEmptyText()"
+            [note]="accessNote()"
+            [busy]="busy()"
+            (save)="saveAccess($event)"
+            (cancel)="closeAccess()"
+          />
+        }
+      </li>
+    }
+  </ul>
+</section>

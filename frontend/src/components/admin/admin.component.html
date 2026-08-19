@@ -1,5 +1,95 @@
-<global-header></global-header>
-<div class="box-grid">
-    <app-base-path></app-base-path>
-    <app-admin-share></app-admin-share>
-</div>
+<!-- The app header already names where you are and links back out, so the screen starts at its
+     tabs: `tab-bar` rules underneath itself and scrolls sideways, so five sections fit a phone
+     without wrapping. -->
+<nav class="tabs" #bar>
+  <button
+    class="tab"
+    type="button"
+    [class.active]="section() === 'users'"
+    (click)="show('users')"
+    aria-label="Users"
+  >
+    <mat-icon>group</mat-icon>
+    <span class="label">Users</span>
+  </button>
+  <button
+    class="tab"
+    type="button"
+    [class.active]="section() === 'groups'"
+    (click)="show('groups')"
+    aria-label="Groups"
+  >
+    <mat-icon>groups</mat-icon>
+    <span class="label">Groups</span>
+  </button>
+  <button
+    class="tab"
+    type="button"
+    [class.active]="section() === 'basePaths'"
+    (click)="show('basePaths')"
+    aria-label="Base paths"
+  >
+    <mat-icon>folder_open</mat-icon>
+    <span class="label">Paths</span>
+  </button>
+  <button
+    class="tab"
+    type="button"
+    [class.active]="section() === 'shares'"
+    (click)="show('shares')"
+    aria-label="Share links"
+  >
+    <mat-icon>link</mat-icon>
+    <span class="label">Links</span>
+  </button>
+  <button
+    class="tab"
+    type="button"
+    [class.active]="section() === 'email'"
+    (click)="show('email')"
+    aria-label="Email settings"
+  >
+    <mat-icon>mail</mat-icon>
+    <span class="label">Email</span>
+  </button>
+</nav>
+
+<main class="content">
+  @switch (section()) {
+    @case ('users') {
+      @defer {
+        <admin-users (showEmail)="show('email')" (showGroups)="show('groups')" />
+      } @placeholder {
+        <p class="loading">Loading...</p>
+      }
+    }
+    @case ('groups') {
+      @defer {
+        <admin-groups />
+      } @placeholder {
+        <p class="loading">Loading...</p>
+      }
+    }
+    @case ('basePaths') {
+      @defer {
+        <admin-base-paths />
+      } @placeholder {
+        <p class="loading">Loading...</p>
+      }
+    }
+    @case ('shares') {
+      @defer {
+        <admin-shares />
+      } @placeholder {
+        <p class="loading">Loading...</p>
+      }
+    }
+    @case ('email') {
+      @defer {
+        <admin-email-settings />
+      } @placeholder {
+        <p class="loading">Loading...</p>
+      }
+    }
+  }
+</main>

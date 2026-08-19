@@ -3,7 +3,6 @@
 {
   "compileOnSave": false,
   "compilerOptions": {
-    "outDir": "./dist/out-tsc",
     "strict": true,
     "noImplicitOverride": true,
     "noPropertyAccessFromIndexSignature": true,
@@ -11,35 +10,33 @@
     "noFallthroughCasesInSwitch": true,
     "skipLibCheck": true,
     "isolatedModules": true,
-    "esModuleInterop": true,
     "experimentalDecorators": true,
-    "moduleResolution": "bundler",
     "importHelpers": true,
     "target": "ES2022",
-    "module": "ES2022",
-    "baseUrl": "src",
+    "module": "preserve",
+    "baseUrl": ".",
     "paths": {
-      "@services/*": [
-        "services/*"
-      ],
-      "@components/*": [
-        "components/*"
-      ],
-      "@models/*": [
-        "models/*"
-      ],
-      "@env/*": [
-        "environments/*"
-      ],
-      "@interceptors/*": [
-        "interceptors/*"
-      ]
-    },
+      "@components/*": ["src/components/*"],
+      "@services/*": ["src/services/*"],
+      "@models/*": ["src/models/*"],
+      "@guards/*": ["src/guards/*"],
+      "@interceptors/*": ["src/interceptors/*"],
+      "@util/*": ["src/util/*"]
+    }
   },
   "angularCompilerOptions": {
     "enableI18nLegacyMessageIdFormat": false,
     "strictInjectionParameters": true,
     "strictInputAccessModifiers": true,
     "strictTemplates": true
-  }
+  },
+  "files": [],
+  "references": [
+    {
+      "path": "./tsconfig.app.json"
+    },
+    {
+      "path": "./tsconfig.spec.json"
+    }
+  ]
 }

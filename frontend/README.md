@@ -1,59 +1,35 @@
-# Frontend
+# FileHub — frontend
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.2.8.
+The Angular 21 SPA. It is built into `../FileHub.Api/wwwroot`, which is what `FileHub.Api` serves,
+so there is no dev-server proxy and no `environment.apiUrl`: every request is same-origin and
+relative (`/api/...`), and the session is a cookie.
 
-## Development server
-
-To start a local development server, run:
-
-```bash
-ng serve
-```
-
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+It sits beside the backend projects rather than inside `FileHub.Api` so that `dotnet watch` cannot
+reach `node_modules`: watching the API project used to mean recursively watching 2500 directories
+of dependencies, which exhausts the per-user inotify instance limit on Linux.
 
 ```bash
-ng generate component component-name
+npm install
+npm start          # ng serve, for working on the SPA alone
+npm run build      # production build into ../FileHub.Api/wwwroot
+npm run watch      # rebuild into ../FileHub.Api/wwwroot on change — pair with `dotnet run`
+npm test           # vitest, through @angular/build:unit-test
+npx prettier --write .
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+The dev loop is `npm run watch` in one terminal and `dotnet run` in another: the API watches
+`wwwroot` and live-reloads the browser.
 
-```bash
-ng generate --help
-```
+## Layout
 
-## Building
+- `src/_variables.scss`, `src/_mixins.scss`, `src/styles.scss` — the design system. Tokens and
+  mixins first, global `button` / `input` / `.icon-btn` families and the Material overlay
+  surfaces in `styles.scss`. Import with `@use 'variables' as *;` / `@use 'mixins' as *;`.
+- `src/_legacy.scss` — the globals the not-yet-ported screens were written against, scoped to
+  their elements. Temporary; delete it with them.
+- `src/components/*` — screens. `@components/*`, `@services/*`, `@models/*`, `@guards/*` and
+  `@interceptors/*` are the path aliases.
+- `src/guards/*` — `authGuard` (session), `adminGuard` (role) and `passwordChangeGuard`, which
+  keeps an account that must choose a password on `/change-password`.
 
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+Mobile-first, and never a `style` attribute in a template — always a class.

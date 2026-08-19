@@ -1,7 +1,0 @@
-<div class="search"><input type="search" placeholder="search..." [(ngModel)]="searchTerm" (keyup)="search()" /></div>
-<ul class="directory-list">
-    <li *ngFor="let entry of displayedEntries">
-        <file-entry [fileEntry]="entry" (navigateToDirectory)="navigateToDirectory($event)"></file-entry>
-    </li>
-    <div #sentinel class="sentinel"></div>
-</ul>

@@ -1,0 +1,22 @@
+@use 'mixins' as *;
+@use 'variables' as *;
+
+:host {
+  @include auth-screen;
+}
+
+// The global `h1` carries a 1em margin meant for a screen with no layout of its own; here the
+// column's gap already spaces the title, and the margin only pushed it out of line with the panel.
+h1 {
+  margin: 0;
+  text-align: center;
+}
+
+// A checkbox and its label are one tap target, and it has to be a real one on a phone.
+.remember {
+  @include flex(row);
+  align-items: center;
+  gap: $small-padding;
+  min-height: $tap-target-min;
+  cursor: pointer;
+}

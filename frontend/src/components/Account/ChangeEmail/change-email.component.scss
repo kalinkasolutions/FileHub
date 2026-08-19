@@ -1,0 +1,16 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
+:host {
+  @include account-section;
+
+  // Fields sit closer together than the section's own rhythm.
+  form {
+    gap: $small-margin;
+  }
+}
+
+// A mail that didn't go out is a dead end, not a footnote.
+.hint.warn {
+  color: $text-danger;
+}

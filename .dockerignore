@@ -1,4 +1,14 @@
-.github/
-.vscode/
-conf.json
-docker-compose.yml
+# Keep the build context small and reproducible.
+**/bin
+**/obj
+**/node_modules
+# Built SPA is produced inside the image (stage 1), never copied from the host.
+FileHub.Api/wwwroot
+.git
+.github
+.vs
+.idea
+.vscode
+data
+*.db
+.env

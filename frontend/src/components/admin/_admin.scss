@@ -1,0 +1,274 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
+// The width at which the admin area stops being one stacked column and becomes a screen: panels
+// side by side, the screen itself holding still, each panel scrolling its own contents.
+//
+// 960px because the narrow track of the 1:2 split has to clear $panel-min-width — three 300px
+// tracks plus the gaps and the section's own padding. Below it a third of the width squeezes a
+// form, and the shared auto-fit grid drops a panel to a row of its own instead, which is the
+// better answer at that size.
+$admin-wide: 960px;
+
+// The admin sections are all the same shape — a handful of independent things on one screen: a
+// form, a listing, a block of settings — and the app's one way of drawing a thing is the panel. So
+// a section is a `panel-grid` of panels, which lays them side by side on a desktop and stacks them
+// on a phone without either of them having to say so. It is a local partial and not a global mixin:
+// nothing outside the admin area is built this way.
+@mixin admin-section {
+  @include panel-grid;
+  // Panels are as tall as their contents; stretching a form to the height of the listing beside it
+  // would fill the difference with empty accent-bordered nothing.
+  align-items: start;
+  padding: $content-padding;
+
+  // On a wide screen the section is the screen: it takes exactly what the header and the tabs
+  // leave and never grows past it, so nothing scrolls out of the viewport. What scrolls is inside
+  // each panel (see `admin-panel`).
+  //
+  // The single row has to be `minmax(0, 1fr)` rather than the default `auto`: an auto row is
+  // sized by its content, which makes the panels' `max-height: 100%` resolve against their own
+  // height — circular, so the cap does nothing and the tall panel overflows the section.
+  @media (min-width: $admin-wide) {
+    flex: 1;
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr);
+  }
+}
+
+// The shape nearly every admin section has: a form on the leading edge that never needs more than
+// a column of width, and beside it the listing that is the actual screen. Splitting the section
+// 1:2 rather than evenly is what stops a three-field form from taking half the desktop.
+@mixin admin-section-split {
+  @media (min-width: $admin-wide) {
+    grid-template-columns: 1fr 2fr;
+  }
+}
+
+// One panel of a section. The rule and the fill come from `panel`; what is added here is the
+// vocabulary the sections share inside one — a padded body for prose and forms, an unpadded list
+// for rows.
+@mixin admin-panel {
+  @include panel;
+  // A grid item refuses to go below its content's intrinsic width without this, and a long
+  // filesystem path is exactly the content that would push a track wider than its track size.
+  min-width: 0;
+
+  // The panel is the scrollport on a wide screen, not the page. It is capped at the section's
+  // height rather than stretched to it — a short form keeps its own height instead of trailing
+  // empty accent-bordered space — and the parts that can get long scroll inside it, which leaves
+  // the title, and the buttons below, where they were.
+  @media (min-width: $admin-wide) {
+    max-height: 100%;
+    overflow: hidden;
+
+    > .body,
+    > .list {
+      min-height: 0;
+      overflow-y: auto;
+    }
+
+    // The action the panel exists for — Save, Add, Send an invitation — rides the bottom of its
+    // own scrollport rather than sitting at the end of a long form where it scrolls out of reach.
+    // Sticky rather than a footer outside the scroller because the button has to stay inside the
+    // <form> it submits. It needs the panel's own fill: the form scrolls *under* it.
+    //
+    // Only a panel's own form. A drawer's buttons belong to the row they were opened from and
+    // scroll with it.
+    > .body > form > .buttons {
+      position: sticky;
+      // A sticky element comes to rest against the scrollport's *content* box, so at `bottom: 0`
+      // the body's own bottom padding is a strip below the button that the form goes on scrolling
+      // through. Sticking that much lower and taking the same amount back as padding puts the
+      // button where it was and paints the strip in the panel's fill.
+      bottom: -$default-padding;
+      padding-top: $small-padding;
+      padding-bottom: $default-padding;
+      background-color: $surface;
+    }
+  }
+
+  // Everything that is not a listing: the explanation, the form, the buttons. Rows want to rule
+  // edge to edge, so they stay outside it.
+  .body {
+    @include flex(column);
+    gap: $default-margin;
+    padding: $default-padding;
+  }
+
+  h3 {
+    margin: 0;
+    font-size: $font-size-base;
+    font-weight: 700;
+  }
+
+  .hint {
+    margin: 0;
+    color: $text-muted;
+    font-size: $font-size-small;
+    line-height: 1.5;
+  }
+
+  // A hint about something that is wrong or about to be: an ungranted base path, a group nobody
+  // is in, a mail that did not go out.
+  .warn {
+    color: $text-danger;
+  }
+
+  // The global form rule pads for the auth screens; inside a panel body the controls line up with
+  // the prose above them, and it must not draw a second panel inside this one.
+  form {
+    @include flex(column);
+    gap: $default-padding;
+    padding: 0;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .label {
+    @include section-label;
+  }
+
+  // A listing fills the panel: its rows are ruled, and a padded gutter would break the rule before
+  // it reached the panel's own border.
+  .list {
+    @include flex(column);
+  }
+
+  .empty {
+    margin: 0;
+    padding: $default-padding;
+    color: $text-placeholder;
+    font-size: $font-size-small;
+  }
+
+  .actions {
+    @include flex(row);
+    align-items: center;
+    gap: $default-padding;
+    flex-wrap: wrap;
+  }
+
+  .buttons {
+    @include flex(row);
+    gap: $default-padding;
+
+    button {
+      flex: 1;
+    }
+  }
+}
+
+// A listing is read across, so it gets the whole width of the section rather than one track of it.
+// The declaration is inert once `panel-grid` has collapsed to a flex column on a phone, which is
+// why it needs no media query of its own.
+@mixin admin-panel-wide {
+  grid-column: 1 / -1;
+}
+
+// One row of an admin listing: the label block on the left, the row's own actions on the right.
+// Wraps rather than truncates — a base path and an email address are both worth reading whole.
+@mixin admin-row {
+  @include tile-row;
+  gap: $default-padding;
+  padding: $small-padding;
+  flex-wrap: wrap;
+
+  // The floor is what makes the row wrap on a phone: below it, the label block plus a run of
+  // actions no longer fit on one line, so the actions drop to a line of their own instead of
+  // squeezing a filesystem path into a 6-character column.
+  .main {
+    @include flex(column);
+    gap: 2px;
+    flex: 1;
+    min-width: 12em;
+  }
+
+  .name {
+    font-size: $font-size-row;
+    overflow-wrap: anywhere;
+  }
+
+  .meta {
+    color: $text-dim;
+    font-size: $font-size-small;
+    overflow-wrap: anywhere;
+  }
+
+  // A row's own warning — "granted to nobody", "nobody is in it" — reads as a `.meta` first, so it
+  // has to out-rank the dim it would otherwise inherit from it.
+  .meta.warn {
+    color: $text-danger;
+  }
+
+  // A base path is compared character by character rather than read, so it keeps the accent the
+  // rest of the row does not need.
+  .path {
+    color: $text-secondary;
+    font-size: $font-size-small;
+    overflow-wrap: anywhere;
+  }
+
+  .row-actions {
+    @include flex(row);
+    align-items: center;
+    gap: $small-padding;
+    margin-left: auto;
+
+    // A quiet icon button hovers to `$surface`, which is this panel's own fill — over a row it has
+    // to take the row's hover tint instead or the hover is invisible.
+    .icon-btn.quiet {
+      @include hover {
+        background-color: $surface-hover;
+      }
+    }
+  }
+}
+
+// The editor a row opens underneath itself: renaming a base path, ticking who may see it. It is
+// deliberately *not* a panel — a panel inside a panel reads as a second thing on the screen — so
+// the darker fill is the whole treatment: it is already inside a bordered panel, and a second rule
+// inside that one is one rule too many.
+@mixin admin-drawer {
+  @include flex(column);
+  gap: $default-padding;
+  padding: $default-padding;
+  background: $bg-elevated;
+
+  form {
+    @include flex(column);
+    gap: $default-padding;
+    padding: 0;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .buttons {
+    @include flex(row);
+    gap: $default-padding;
+
+    button {
+      flex: 1;
+    }
+
+    // The same reasoning as a panel form's buttons: the listing is the scrollport on a wide
+    // screen, and a drawer with a column of roles in it is exactly what pushes Save out of the
+    // bottom of it. It rides the bottom of the list while its own drawer is in view and scrolls
+    // away with it, because the buttons belong to that row and not to the panel.
+    @media (min-width: $admin-wide) {
+      position: sticky;
+      bottom: 0;
+      padding-top: $small-padding;
+      background-color: $bg-elevated;
+    }
+  }
+}
+
+// The small tag that carries a status, a role name or a link's audience. Square and outlined, like
+// everything else: a filled pill would read as a button to press.
+// FileHub's tag, under the name these screens already use.
+@mixin admin-chip {
+  @include chip;
+}

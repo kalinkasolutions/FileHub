@@ -1,14 +1,51 @@
-div {
-    width: 100%;
-    height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-direction: column;
+@use 'variables' as *;
+@use 'mixins' as *;
 
+:host {
+  width: 100%;
+  height: 100%;
+  @include flex(column);
+  align-items: center;
+  justify-content: center;
+  padding: $screen-padding;
+  overflow-y: auto;
 }
 
-img {
-    margin: 1em 0 3em 0;
-    max-width: 300px;
+.panel {
+  @include panel;
+  width: 100%;
+  max-width: $max-form-width;
+  gap: $default-margin;
+  padding: $default-padding;
+  text-align: center;
+}
+
+h1 {
+  margin: 0;
+  font-size: $font-size-title;
+  font-weight: 700;
+  letter-spacing: $letter-spacing-title;
+}
+
+// Square and 640px natural, so it is capped by the panel rather than by a fixed size — at 360px
+// the panel is the narrower of the two.
+.beaver {
+  align-self: center;
+  width: 260px;
+  max-width: 100%;
+  height: auto;
+}
+
+.hint {
+  margin: 0;
+  color: $text-muted;
+  font-size: $font-size-small;
+  line-height: 1.5;
+}
+
+// The way out is offered rather than shouted about: it is the secondary outline, not the accent
+// slab, because there is nothing to confirm here.
+.exit {
+  @include button-secondary;
+  text-decoration: none;
 }

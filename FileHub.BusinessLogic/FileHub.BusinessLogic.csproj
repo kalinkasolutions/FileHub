@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="MailKit" Version="4.17.0" />
+        <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.10" />
+        <PackageReference Include="Microsoft.AspNetCore.DataProtection" Version="10.0.10" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\FileHub.Dal\FileHub.Dal.csproj" />
+        <ProjectReference Include="..\FileHub.Dtos\FileHub.Dtos.csproj" />
+    </ItemGroup>
+
+</Project>

@@ -1,0 +1,142 @@
+// FileHub's design tokens.
+//
+// The look is the one the app was written with and is deliberately not a generic dark theme: a
+// monospace face so a column of file names lines up, square corners everywhere, and panels drawn
+// as a thick green rule around a slightly darker fill — a terminal, not a card. Nothing here has a
+// border radius, and that is the single decision most of the rest follows from.
+//
+// Mobile-first: every size below is the small-screen value, and `styles.scss` steps the root font
+// size down further under 470px, which scales everything expressed in em/rem with it.
+
+// ── Surfaces ────────────────────────────────────────────────────────────────
+// The page is *lighter* than the panels on it, which is the inversion the original had (a page of
+// rgba(0,0,0,0.8) over white, with rgb(43,40,40) boxes standing on it).
+$bg-page: #333333;
+$bg-primary: $bg-page;
+$surface: #2b2828;
+$surface-hover: #363232;
+$surface-muted: #2f2c2c;
+$bg-elevated: #262323;
+$surface-elevated-hover: #302c2c;
+
+// ── Lines ───────────────────────────────────────────────────────────────────
+// $border-panel is the signature: 5px of accent around anything that is a panel.
+$border-panel-width: 5px;
+$border-subtle: #4a4545;
+$border-input: rgba(255, 255, 255, 0.55);
+$border-elevated: #4a4545;
+$border-dashed: 1px dashed #5a5454;
+$track: #4a4545;
+
+// ── Text ────────────────────────────────────────────────────────────────────
+$text-primary: #ffffffe3;
+$text-secondary: #ffffffb0;
+$text-muted: #ffffff80;
+$text-dim: #ffffff66;
+$text-placeholder: #ffffff4d;
+$icon-faint: #ffffff4d;
+$icon-quiet: #ffffff99;
+$icon-bright: $text-primary;
+
+// ── Accent ──────────────────────────────────────────────────────────────────
+// The green is FileHub's one colour. Icons are set in it, panels are bordered with it, and the
+// current thing on screen is the thing wearing it.
+$primary-green: #2fc812;
+$primary-green-hover: #4bc44b;
+$accent-fill: rgba(68, 160, 68, 0.7);
+$accent-fill-hover: rgba(68, 160, 68, 0.9);
+$accent-wash: rgba(47, 200, 18, 0.14);
+$on-accent: #ffffff;
+$knob-off: #8b8b8b;
+$knob-on: $primary-green;
+$share-purple: #a78bfa;
+
+// ── Danger ──────────────────────────────────────────────────────────────────
+$text-danger: #ec4343cf;
+$text-error: #ec4343;
+$border-danger: #ec4343cf;
+$danger-hover: rgba(236, 67, 67, 0.16);
+$danger-hover-strong: rgba(236, 67, 67, 0.28);
+$icon-danger: $text-danger;
+$icon-danger-bg: rgba(236, 67, 67, 0.16);
+
+// ── Links ───────────────────────────────────────────────────────────────────
+$link-primary: $text-primary;
+$link-hover: $primary-green;
+
+// ── Shadows ─────────────────────────────────────────────────────────────────
+// Offset down and to the right, so the box casts on that side only the way a square-cornered panel
+// sitting on the page would — never the four-sided glow of soft material elevation. The edge is
+// taken off with a small blur and a translucent black rather than a solid slab, which at full
+// opacity read as a second border. Keep the blur no wider than twice the offset: a blur reaches
+// about half its radius past the shadow's own edge, so beyond that it clears the top and left edges
+// of the box and the shadow is back on all four sides.
+$shadow-elevated: rgba(20, 20, 21, 0.55) 4px 4px 8px 0;
+$shadow-fab: $shadow-elevated;
+$shadow-drag: rgba(20, 20, 21, 0.5) 3px 3px 6px 0;
+
+// ── Type ────────────────────────────────────────────────────────────────────
+// One face for the whole app. A file listing is a column of names, and a proportional face makes
+// that column ragged; everything else follows the listing rather than the other way round.
+$font-mono: Consolas, 'Lucida Console', 'DejaVu Sans Mono', 'Courier New', monospace;
+$font-main: $font-mono;
+
+$font-size-app-title: 20px;
+$font-size-title: 18px;
+$font-size-row: 16px;
+$font-size-base: 16px;
+$font-size-small: 14px;
+$font-size-label: 12px;
+$letter-spacing-title: 0;
+$letter-spacing-label: 0.04em;
+
+// ── Icons ───────────────────────────────────────────────────────────────────
+$icon-size: 22px;
+$icon-size-fab: 26px;
+$icon-size-inline: 14px;
+
+// ── Spacing ─────────────────────────────────────────────────────────────────
+$small-padding: 0.5em;
+$default-padding: 1em;
+$small-margin: 0.5em;
+$default-margin: 1em;
+$header-padding: 1em;
+$content-padding: 0.5em;
+$section-gap: 1em;
+$screen-padding: 0.5em;
+
+// ── Sizes ───────────────────────────────────────────────────────────────────
+$tap-target-min: 40px;
+$row-min-height: 44px;
+$control-height: 48px;
+$item-row-height: 48px;
+$nav-height: 60px;
+$fab-size: 56px;
+$progress-height: 3px;
+$checkbox-size: 18px;
+
+// ── Corners ─────────────────────────────────────────────────────────────────
+// All zero, deliberately. They are still named so a component can ask for "the" radius and get
+// FileHub's answer instead of inventing one.
+$border-radius: 0;
+$radius-icon: 0;
+$radius-menu-item: 0;
+$radius-checkbox: 0;
+$radius-fab: 0;
+$radius-pill: 0;
+
+// ── Layout ──────────────────────────────────────────────────────────────────
+$max-content-width: 1200px;
+// A column of stacked blocks or prose. A form is narrow because its controls are; a column of
+// text at the shell's full width is unreadable — this sits between the two.
+$max-reading-width: 680px;
+$max-form-width: 450px;
+$panel-min-width: 300px;
+
+// ── Motion ──────────────────────────────────────────────────────────────────
+$transition-progress: width 0.3s ease;
+$transition-hover:
+  background-color 0.3s ease,
+  color 0.15s ease,
+  border-color 0.15s ease;
+$transition-toggle: 0.2s ease;
