@@ -57,8 +57,10 @@ same-origin, which is the only reason the session works in development at all: s
 let a credentialed one through. If you reach for `ng serve` to work on a screen that talks to the
 API, you will find this out the slow way.
 
-`Development` also points the connection string and the key ring at `FileHub.Api/data/`, so a
-local run never touches `/var/srv`.
+The connection string and the key ring default to `./data/` — resolved against the working
+directory, so `FileHub.Api/data/` for a local run — and only `docker-compose.yml` moves them to the
+`/var/srv` volume. A run outside the container therefore never touches `/var/srv`, in any
+environment, and `Development` no longer has to override the two paths to arrange that.
 
 ## Architecture
 
@@ -149,8 +151,13 @@ and forwarding the request untouched.
 - **`SignIn.RequireConfirmedEmail` is on**, so an unconfirmed address means the invitation was
   never accepted. The admin screen's "invited" state, and `UserAdminService`'s definition of an
   *active* admin, both depend on it.
-- **Lockout is on** and the anonymous `login` / `forgot-password` routes carry
-  `.RequireRateLimiting("auth")`; the three anonymous share routes carry
+- **Lockout is on** and every anonymous route under `api/auth` that checks a credential carries
+  `.RequireRateLimiting("auth")` — `login`, `forgot-password`, `login-2fa`, and the three link
+  routes (`accept-invite`, `reset-password`, `confirm-email-change`). They share one per-address
+  budget rather than each getting their own. `logout` and `status` are deliberately outside it:
+  neither checks a credential, and `status` is asked on every page load. Limiting the password step
+  and not `login-2fa` would only have moved where an attacker spends attempts, since the second
+  step guesses six digits. The three anonymous share routes carry
   `.RequireRateLimiting("public")` (both fixed windows per client address, registered in
   `Program.cs`). Identity's lockout is per account; the limiter is what makes a spray across
   accounts, or a scraper on a leaked link, cost something. `app.UseRateLimiter()` has to stay in
@@ -249,8 +256,10 @@ query has to be able to see what decides it, and a service-level test has to be 
 Both directions of both grant tables are edited from either end — `api/admin/base-path/{id}/users`
 and `api/admin/users/{id}/base-paths` for the user grants, `api/admin/base-path/{id}/groups` and
 `api/admin/groups/{id}/base-paths` for the group ones — and every PUT **replaces** rather than
-merges. All of them drop ids that no longer exist; the foreign key would otherwise take the whole
-grant change down with it when the admin screen holds a stale row.
+merges. All of them drop ids that no longer exist, and all of them answer 404 when the row the
+route is *named* for is gone; the foreign key would otherwise take the whole grant change down with
+it when the admin screen holds a stale row, as an unhandled `FOREIGN KEY constraint failed` — a 500
+that loses the edit.
 
 A group's name is unique and stored trimmed. The column carries the `NOCASE` collation so the unique
 index and every `Name ==` comparison agree, and `GroupService` checks for a duplicate itself — a name
@@ -297,6 +306,12 @@ becomes a path on disk. Nothing builds one by concatenation.
 - The accepted path is the link, not its target: opening it is what follows the link, and
   rewriting it would change what a share stores and what a listing shows. Resolution decides
   *whether* to answer, not *what* to answer.
+- **Resolving the root is the expensive half, and a listing does it once.** `TryResolve` is
+  `ResolveRoot` plus `TryResolveUnder`, and `ToRelative` is `ResolveRoot` plus `ToRelativeUnder`, so
+  there is still exactly one implementation of each rule. A caller with many paths under one base
+  path — `FileService.ListDirectory`, `ShareService.MapDirectories` — takes the root once and passes
+  it in, instead of paying a stat per segment of it for every entry. Nothing but `ResolveRoot`
+  produces a root for those overloads; handing them anything else is what would weaken them.
 
 The zip walk skips reparse points for the same reason (`AttributesToSkip`) — it has no sandbox of
 its own, so following a link there would be the escape hatch the sandbox closed.
@@ -479,7 +494,7 @@ would make every redeploy sign everybody out.
 
 ### Testing
 
-`FileHub.IntegrationTests` (xUnit, 446 tests) drives the **services**, not the routes: the real service →
+`FileHub.IntegrationTests` (xUnit, 448 tests) drives the **services**, not the routes: the real service →
 repository → EF/Identity stack over a per-test SQLite **in-memory** database (`TestHostBase` takes
 a delegate that registers the slice under test). SQLite rather than the EF in-memory provider,
 because the unique indexes and the `ON DELETE CASCADE` behaviour that share revocation and user
@@ -666,8 +681,11 @@ partition (one attacker can hold login at 429 for everybody), and `Request.Schem
 the auth cookie never gets `Secure`. The cookie's `SecurePolicy` is `Always` outside Development
 regardless — Development runs on plain http and would otherwise have no session at all.
 
-The image runs as uid **1654**, not root, so the bind-mounted `/var/srv` has to be writable by it
-before the first start. Compose publishes on **`127.0.0.1:4122:4122`** — same number both sides, so
+The image defaults to uid **1654**, not root, and compose overrides that with
+`user: "${PUID:-1000}:${PGID:-1000}"` so the container runs as whoever owns the bind-mounted
+`./data` — a fixed uid meant a `chown` before the first start, which is a step an operator only
+finds out about by the first run failing on the migration. It is never root either way. Compose
+publishes on **`127.0.0.1:4122:4122`** — same number both sides, so
 there is one to get wrong — with `read_only`, `tmpfs: /tmp`, `cap_drop: ALL` and
 `no-new-privileges`. A bare `4122:4122` binds `0.0.0.0` and puts the login form on the internet in
 cleartext, around nginx and around TLS.
