@@ -59,14 +59,16 @@ RUN mkdir -p /var/srv && chown -R $APP_UID:$APP_UID /var/srv
 ENV ASPNETCORE_URLS=http://+:4122
 EXPOSE 4122
 
-# Drop root. The aspnet image ships APP_UID=1654 but leaves the container running as root; FileHub
-# reads mounted disks and serves them to the internet, so a container escape or a path bug should
-# not start out as uid 0. Nothing else has to change: 4122 is above 1024, so no capability is
-# needed to bind it, and everything under /app is only ever read.
+# Drop root. APP_UID is Microsoft's, not ours: the aspnet image defines it (1654, with a matching
+# "app" account) but still leaves the container running as uid 0. FileHub reads mounted disks and
+# serves them to the internet, so a container escape or a path bug should not start out as root.
+# Nothing else has to change: 4122 is above 1024, so no capability is needed to bind it, and
+# everything under /app is only ever read.
 #
-# The one thing this does change is the bind mount. /var/srv is where the database and the key ring
-# are written, and the host directory behind it now has to be writable by uid 1654 — an unwritable
-# one fails at startup, on the first migration. See the chown in .env.example / docker-compose.yml.
+# This is the default, for a bare `docker run`. docker-compose.yml overrides it with
+# user: "${PUID:-1000}:${PGID:-1000}", so the container instead runs as whoever owns the
+# bind-mounted ./data — any fixed uid needs a chown on the host before the first start, and that is
+# a step an operator only learns about by the first run failing on the migration.
 USER $APP_UID
 
 ENTRYPOINT ["dotnet", "FileHub.Api.dll"]

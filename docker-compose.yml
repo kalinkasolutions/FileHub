@@ -3,79 +3,50 @@ services:
     container_name: file-hub
     image: kalinkasolutions/filehub:latest
     ports:
-      # Published on loopback ONLY, and on the same port the container listens on so there is one
-      # number to get wrong instead of two (nginx.example.conf proxies to exactly this).
-      #
-      # The app speaks plain http — TLS terminates at the reverse proxy — so a bare "4122:4122"
-      # binds 0.0.0.0 and puts the login form and every download on the public internet in
-      # cleartext, reachable around nginx and around TLS. If the proxy runs on another host, do not
-      # widen this to 0.0.0.0: bind it to the interface that host reaches you on, firewall the
-      # port, and add that proxy's address to TRUSTED_PROXIES below.
+      # Loopback only. The app speaks plain http, so "4122:4122" would bind 0.0.0.0 and put the
+      # login form on the internet in cleartext, around nginx and around TLS.
       - "127.0.0.1:4122:4122"
     restart: always
-    # Nothing in FileHub needs a capability or a setuid binary: it binds 4122 (above 1024) as the
-    # unprivileged uid the image now runs as, reads mounted disks and writes /var/srv. So take the
-    # rest away — the container is what an anonymous share link talks to.
+    # Run as the host user that owns ./data, so the bind mount below needs no chown. Set PUID/PGID
+    # to your own (id -u / id -g). Without this the container uses the base image's own APP_UID
+    # (1654), which owns nothing on your host. Either way it is never root.
+    user: "${PUID:-1000}:${PGID:-1000}"
+    # Nothing here needs a capability: it binds 4122 (above 1024), reads disks, writes /var/srv.
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    # Only /var/srv and /tmp are writable, and both are mounts. This pairs with the volume below:
-    # without a /var/srv mount the app cannot create the key ring and exits at startup, which is
-    # the right failure — a FileHub whose key ring is inside the container signs everyone out on
-    # every redeploy.
     read_only: true
     tmpfs:
-      # The only thing the app writes outside /var/srv. .NET puts its diagnostic socket and any
-      # temporary file here, and a read-only root filesystem otherwise fails at startup.
+      # .NET's diagnostic socket and temp files; a read-only root otherwise fails at startup.
       - /tmp
     volumes:
-      # SQLite database *and* the Data Protection key ring both live under /var/srv. Both have to
-      # be on this volume: a lost key ring invalidates every auth cookie on the next redeploy.
-      #
-      # The container runs as uid 1654, so this directory has to be writable by it — once, before
-      # the first start:  mkdir -p ./data && sudo chown -R 1654:1654 ./data
+      # SQLite database and the Data Protection key ring.
       - ./data:/var/srv
-      # Mount the directories FileHub should serve. Read-only on purpose — FileHub never writes to
-      # them, and :ro means a bug cannot turn a browse route into a delete. A base path added in
-      # the admin UI must be a path *inside the container* (e.g. /srv/storage), not a host path.
+      # Directories to serve, read-only. A base path added in the admin UI is the path *inside*
+      # the container (/srv/storage), not the host path.
       - ./mnt/storage:/srv/storage:ro
     environment:
       - ASPNETCORE_URLS=http://+:4122
-      # SQLite file. Keep it under /var/srv so it lands on the volume above.
+      # Both must stay under /var/srv, which is the volume above.
       - ConnectionStrings__FileHub=${CONNECTION_STRING:-Data Source=/var/srv/filehub.db}
-      # Where the Data Protection key ring is persisted. Also under /var/srv, same reason.
       - DataProtection__KeyPath=${DATA_PROTECTION_KEY_PATH:-/var/srv/keys}
-      # Public origin of the app, no trailing slash. Share links and the links in invitation /
-      # password-reset mails are built from this, so it must be what a browser actually reaches.
+      # Public origin, no trailing slash: share links and mail links are built from it.
       - App__BaseUrl=${APP_BASE_URL:-http://localhost:4122}
-      # Whose X-Forwarded-For / X-Forwarded-Proto may be believed: IP addresses and/or CIDR blocks,
-      # comma separated. Everything else has those headers ignored, so a client cannot pick its own
-      # address or claim its request arrived over https. Unset means loopback plus the private
-      # ranges; narrow it to the proxy's own address. Getting this wrong is not cosmetic — the
-      # rate limits then count the whole internet as one caller and the auth cookie loses Secure.
+      # Whose X-Forwarded-* to believe. Wrong value means one rate-limit bucket for the whole
+      # internet and auth cookies without Secure.
       - ForwardedHeaders__TrustedProxies=${TRUSTED_PROXIES:-127.0.0.0/8, ::1/128, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, fc00::/7}
-      # Bootstrap admin, seeded only when the database has no admin account yet. The account is
-      # created with MustChangePassword, so the first sign-in has to replace this password.
+      # Seeded only when the database has no admin. Empty password = generated and logged once.
       - Admin__Email=${ADMIN_EMAIL:-admin@filehub.local}
-      # Empty on purpose: the app then generates the bootstrap password and logs it once, instead
-      # of every FileHub install sharing one published default.
       - Admin__Password=${ADMIN_PASSWORD:-}
-      # Minimum log level written to the console and the SQLite "Logs" table. One of:
-      # Trace, Debug, Information, Warning, Error, Critical. Defaults to Information.
+      # Trace, Debug, Information, Warning, Error or Critical.
       - Logging__LogLevel__Default=${LOG_LEVEL:-Information}
-      # Email / SMTP settings (override the appsettings.json "Email" section). Double underscores
-      # map to config nesting. These are only the seed values for the EmailSettings row — once an
-      # admin edits the settings in the UI, the row wins. Put secrets in a .env file next to this
-      # compose file rather than committing them.
+      # Seed values for the EmailSettings row; once an admin edits the settings, the row wins.
       - Email__SmtpHost=${EMAIL_SMTP_HOST:-}
       - Email__Port=${EMAIL_PORT:-587}
       - Email__Username=${EMAIL_USERNAME:-}
       - Email__Password=${EMAIL_PASSWORD:-}
       - Email__FromAddress=${EMAIL_FROM_ADDRESS:-no-reply@filehub.example.com}
       - Email__FromName=${EMAIL_FROM_NAME:-FileHub}
-      # One of: None, Auto, SslOnConnect, StartTls, StartTlsWhenAvailable
+      # None, Auto, SslOnConnect, StartTls or StartTlsWhenAvailable.
       - Email__SecureSocketOptions=${EMAIL_SECURE_SOCKET_OPTIONS:-StartTls}
-    # TLS is expected to be terminated by a reverse proxy in front of this container; see
-    # nginx.example.conf. The app reads X-Forwarded-Proto, so the proxy must send it *and* be in
-    # TRUSTED_PROXIES, or every auth cookie is issued as if the request were plain http.
