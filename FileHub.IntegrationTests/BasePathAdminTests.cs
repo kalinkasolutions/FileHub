@@ -207,10 +207,10 @@ public sealed class BasePathAdminTests : FilesTestBase
         Assert.Equal(ResultCode.NotFound, result.ResultCode);
     }
 
-    // Left skipped on purpose: this is the behaviour the mirror method already has, and the one
-    // this method does not. SetUserBasePathsAsync filters ids that match no row before saving;
-    // SetUsersAsync does not, so an unknown user id reaches SQLite and comes back as an unhandled
-    // DbUpdateException ("FOREIGN KEY constraint failed") — a 500, with the whole grant change lost.
+    // Both ends of this grant table drop ids that match no row, so one stale entry in the admin
+    // screen costs that entry rather than the whole save. Without the filter the id reaches SQLite
+    // and comes back as an unhandled DbUpdateException ("FOREIGN KEY constraint failed") — a 500,
+    // with the grant change lost.
     [Fact]
     public async Task Setting_the_users_of_a_base_path_drops_an_unknown_user_id()
     {
@@ -222,5 +222,34 @@ public sealed class BasePathAdminTests : FilesTestBase
 
         Assert.True(result.IsSuccess);
         Assert.Equal(alice.Id, Assert.Single((await BasePaths.GetUsersAsync(movies.Id)).Value));
+    }
+
+    [Fact]
+    public async Task Setting_the_base_paths_of_an_unknown_user_is_not_found()
+    {
+        // The mirror of Setting_the_users_of_an_unknown_base_path_is_not_found. A route named for a
+        // row resolves that row before it writes; this one did not, so an account deleted while the
+        // admin screen held it open reached the foreign key and came back a 500 with the whole
+        // grant change lost — where the same staleness on every sibling screen is a clean 404.
+        var movies = await CreateBasePathAsync(Tree.Dir("movies"), "Movies");
+
+        var result = await BasePaths.SetUserBasePathsAsync(
+            Guid.NewGuid(), new SetUserBasePathsDto { BasePathIds = [movies.Id] });
+
+        Assert.Equal(ResultCode.NotFound, result.ResultCode);
+    }
+
+    [Fact]
+    public async Task Setting_the_base_paths_of_a_user_drops_an_unknown_base_path_id()
+    {
+        // The user is real, so the call goes through; the base path that is not costs itself only.
+        var alice = await CreateUserAsync("alice@example.com");
+        var movies = await CreateBasePathAsync(Tree.Dir("movies"), "Movies");
+
+        var result = await BasePaths.SetUserBasePathsAsync(
+            alice.Id, new SetUserBasePathsDto { BasePathIds = [movies.Id, Guid.NewGuid()] });
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        Assert.Equal(movies.Id, Assert.Single((await BasePaths.GetUserBasePathsAsync(alice.Id)).Value));
     }
 }

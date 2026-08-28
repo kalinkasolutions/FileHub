@@ -228,6 +228,17 @@ public sealed class BasePathService : IBasePathService
             return validation.MapError<Empty>();
         }
 
+        // The account has to still be there. Every other grant screen resolves the row it is named
+        // for before it writes — SetUsersAsync and SetGroupsAsync both 404 an unknown base path —
+        // and this one did not, so an admin saving against a row for an account deleted meanwhile
+        // reached SQLite and came back as an unhandled "FOREIGN KEY constraint failed": a 500, with
+        // the whole grant change lost, where the same staleness anywhere else is a clean answer.
+        var existing = await m_basePathRepository.FilterExistingUserIdsAsync([userId]);
+        if (existing.Count == 0)
+        {
+            return OperationResult<Empty>.NotFound("User not found");
+        }
+
         var requested = dto.BasePathIds ?? [];
 
         // An id that matches no base path would fail on the foreign key at save time; drop it here
