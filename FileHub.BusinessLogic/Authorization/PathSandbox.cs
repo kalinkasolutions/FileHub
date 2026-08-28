@@ -34,17 +34,46 @@ public static class PathSandbox
     {
         fullPath = string.Empty;
 
-        if (string.IsNullOrWhiteSpace(basePath))
-        {
-            return false;
-        }
-
-        var root = Normalize(basePath);
+        var root = ResolveRoot(basePath);
 
         if (root is null)
         {
             return false;
         }
+
+        return TryResolveUnder(root, relativePath, out fullPath);
+    }
+
+    /// <summary>
+    /// The base path as the filesystem really sees it, or null when it cannot be resolved at all.
+    /// <para>
+    /// Resolving a root costs a stat per segment of it, and <see cref="TryResolve"/> pays that on
+    /// every call. A caller that resolves many paths under <em>one</em> base path — a directory
+    /// listing, a page of share rows — takes the root once with this and hands it to
+    /// <see cref="TryResolveUnder"/> and <see cref="ToRelativeUnder"/> instead, which is the same
+    /// decision with the root's own resolution lifted out of the loop.
+    /// </para>
+    /// </summary>
+    public static string? ResolveRoot(string basePath)
+    {
+        if (string.IsNullOrWhiteSpace(basePath))
+        {
+            return null;
+        }
+
+        return Normalize(basePath);
+    }
+
+    /// <summary>
+    /// <see cref="TryResolve"/> for a root <see cref="ResolveRoot"/> has already produced. Every
+    /// rule the two-argument version applies is applied here — this *is* that version's body, and
+    /// the root is the only thing not re-derived. Passing anything else as
+    /// <paramref name="resolvedRoot"/> is what would weaken it, which is why nothing but
+    /// <see cref="ResolveRoot"/> produces one.
+    /// </summary>
+    public static bool TryResolveUnder(string resolvedRoot, string relativePath, out string fullPath)
+    {
+        fullPath = string.Empty;
 
         var relative = relativePath ?? string.Empty;
 
@@ -63,8 +92,8 @@ public static class PathSandbox
             // Trimmed so "sub" and "sub/" resolve to one string: everything downstream compares and
             // stores this value, and two spellings of one directory would be two of everything.
             candidate = relative.Length == 0
-                ? root
-                : Path.TrimEndingDirectorySeparator(Path.GetFullPath(Path.Combine(root, relative)));
+                ? resolvedRoot
+                : Path.TrimEndingDirectorySeparator(Path.GetFullPath(Path.Combine(resolvedRoot, relative)));
         }
         catch (ArgumentException)
         {
@@ -79,7 +108,7 @@ public static class PathSandbox
         // GetFullPath has already collapsed every "..", so a climb out shows up here as a path
         // outside the root. This is the cheap check; it catches the common case without touching
         // the disk, and the real one below catches everything else.
-        if (!IsInside(root, candidate))
+        if (!IsInside(resolvedRoot, candidate))
         {
             return false;
         }
@@ -88,7 +117,7 @@ public static class PathSandbox
         // number of hops — has to still be inside the base path.
         var resolved = RealPath(candidate);
 
-        if (resolved is null || !IsInside(root, resolved))
+        if (resolved is null || !IsInside(resolvedRoot, resolved))
         {
             return false;
         }
@@ -107,16 +136,23 @@ public static class PathSandbox
     /// </summary>
     public static string ToRelative(string basePath, string fullPath)
     {
-        var root = Normalize(basePath);
+        var root = ResolveRoot(basePath);
 
         if (root is null)
         {
             return string.Empty;
         }
 
+        return ToRelativeUnder(root, fullPath);
+    }
+
+    /// <summary><see cref="ToRelative"/> for a root <see cref="ResolveRoot"/> has already
+    /// produced; see <see cref="TryResolveUnder"/> for why the pair exists.</summary>
+    public static string ToRelativeUnder(string resolvedRoot, string fullPath)
+    {
         var full = Path.GetFullPath(fullPath);
 
-        return IsInside(root, full) ? Below(root, full) : string.Empty;
+        return IsInside(resolvedRoot, full) ? Below(resolvedRoot, full) : string.Empty;
     }
 
     private static bool IsAbsoluteLike(string path)

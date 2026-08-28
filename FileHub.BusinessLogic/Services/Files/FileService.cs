@@ -132,14 +132,26 @@ public sealed class FileService : IFileService
     {
         var entries = new List<FileEntryDto>();
 
+        // The base path is resolved once for the whole listing instead of twice for every entry —
+        // ToRelative and TryResolve each used to re-derive it, and that costs a stat per segment of
+        // it. Every entry below is still decided by the sandbox; only the root's own resolution
+        // moves out of the loop. A null here means the mount went away between the caller's
+        // resolution and this one, which lists as empty rather than as an error.
+        var root = PathSandbox.ResolveRoot(basePath.Path);
+
+        if (root is null)
+        {
+            return entries;
+        }
+
         foreach (var entryPath in EnumerateSafely(directoryPath))
         {
             // Every listed entry is run back through the sandbox, so the listing shows only what the
             // caller could actually open: a symlink pointing off the base path is refused here
             // exactly as it would be on the download route, instead of appearing and then 404ing.
-            var nextSegment = PathSandbox.ToRelative(basePath.Path, entryPath);
+            var nextSegment = PathSandbox.ToRelativeUnder(root, entryPath);
 
-            if (!PathSandbox.TryResolve(basePath.Path, nextSegment, out _))
+            if (!PathSandbox.TryResolveUnder(root, nextSegment, out _))
             {
                 continue;
             }
