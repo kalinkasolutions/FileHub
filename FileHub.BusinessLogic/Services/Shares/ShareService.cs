@@ -136,21 +136,26 @@ public sealed class ShareService : IShareService
     public async Task<OperationResult<List<ShareDto>>> ListForUserAsync(Guid userId)
     {
         var shares = await m_shareRepository.GetByCreatorAsync(userId);
-        var dtos = shares.Select(s => MapShare(s, s.BasePath.Name, IsDirectory(s), s.AudienceGroup?.Name)).ToList();
+        var directories = MapDirectories(shares);
+        var dtos = shares
+            .Select(s => MapShare(s, s.BasePath.Name, directories[s.Id], s.AudienceGroup?.Name))
+            .ToList();
         return OperationResult<List<ShareDto>>.Success(dtos);
     }
 
     public async Task<OperationResult<List<ReceivedShareDto>>> ListForAudienceAsync(Guid userId)
     {
         var shares = await m_shareRepository.GetForAudienceAsync(userId);
-        var dtos = shares.Select(MapReceivedShare).ToList();
+        var directories = MapDirectories(shares);
+        var dtos = shares.Select(s => MapReceivedShare(s, directories[s.Id])).ToList();
         return OperationResult<List<ReceivedShareDto>>.Success(dtos);
     }
 
     public async Task<OperationResult<List<AdminShareDto>>> ListAllAsync()
     {
         var shares = await m_shareRepository.GetAllAsync();
-        var dtos = shares.Select(MapAdminShare).ToList();
+        var directories = MapDirectories(shares);
+        var dtos = shares.Select(s => MapAdminShare(s, directories[s.Id])).ToList();
         return OperationResult<List<AdminShareDto>>.Success(dtos);
     }
 
@@ -242,9 +247,35 @@ public sealed class ShareService : IShareService
         return OperationResult<Empty>.Success();
     }
 
-    private static bool IsDirectory(Share share) =>
-        PathSandbox.TryResolve(share.BasePath.Path, share.RelativePath, out var fullPath)
-        && Directory.Exists(fullPath);
+    /// <summary>
+    /// Whether each link's target is a directory, keyed by share id.
+    /// <para>
+    /// Answering this costs a stat per segment of the base path <em>and</em> of the relative path,
+    /// and a listing is many links into a handful of disks — so each disk's own path is resolved
+    /// once here rather than once per row. The relative path is still resolved per row: that is the
+    /// part that differs, and it goes through the sandbox exactly as it did.
+    /// </para>
+    /// </summary>
+    private static Dictionary<Guid, bool> MapDirectories(List<Share> shares)
+    {
+        var roots = new Dictionary<Guid, string?>();
+        var directories = new Dictionary<Guid, bool>();
+
+        foreach (var share in shares)
+        {
+            if (!roots.TryGetValue(share.BasePathId, out var root))
+            {
+                root = PathSandbox.ResolveRoot(share.BasePath.Path);
+                roots[share.BasePathId] = root;
+            }
+
+            directories[share.Id] = root is not null
+                                    && PathSandbox.TryResolveUnder(root, share.RelativePath, out var fullPath)
+                                    && Directory.Exists(fullPath);
+        }
+
+        return directories;
+    }
 
     /// <summary>
     /// Total bytes below the target. Symlinks are skipped rather than followed: one pointing out of
@@ -315,11 +346,11 @@ public sealed class ShareService : IShareService
     /// base path, so the relative path and the base path's name are left off rather than handing
     /// them the shape of a disk they cannot browse.
     /// </summary>
-    private static ReceivedShareDto MapReceivedShare(Share share) => new()
+    private static ReceivedShareDto MapReceivedShare(Share share, bool isDirectory) => new()
     {
         Id = share.Id,
         Name = TargetName(share, share.BasePath.Name),
-        IsDir = IsDirectory(share),
+        IsDir = isDirectory,
         Size = share.Size,
         DownloadCount = share.DownloadCount,
         MaxDownloadCount = share.MaxDownloadCount,
@@ -333,14 +364,14 @@ public sealed class ShareService : IShareService
         Link = string.Empty
     };
 
-    private static AdminShareDto MapAdminShare(Share share) => new()
+    private static AdminShareDto MapAdminShare(Share share, bool isDirectory) => new()
     {
         Id = share.Id,
         Name = TargetName(share, share.BasePath.Name),
         BasePathId = share.BasePathId,
         BasePathName = share.BasePath.Name,
         RelativePath = share.RelativePath,
-        IsDir = IsDirectory(share),
+        IsDir = isDirectory,
         Size = share.Size,
         DownloadCount = share.DownloadCount,
         MaxDownloadCount = share.MaxDownloadCount,

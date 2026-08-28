@@ -22,18 +22,28 @@ public static class AuthEndpoint
     {
         var group = builder.MapGroup("api/auth");
 
-        // Both of these are reachable from the internet and both take an email address as input, so
-        // they are the two worth rate limiting: one guesses passwords, the other sends mail.
+        // Every anonymous route here that checks a credential is limited, because all of them are
+        // reachable from the internet and none of them costs the caller anything to retry.
+        //
+        // login guesses passwords and forgot-password sends mail; login-2fa is the second half of
+        // the same sign-in and guesses a six-digit code, so limiting the first half and not the
+        // second only moves where an attacker spends their attempts. The three link routes redeem a
+        // token: those tokens are unguessable, so the limit is not what stops them being forged —
+        // it is what stops the routes being a free, unmetered way to make the server do work.
+        //
+        // One "auth" policy, so they share a per-address budget rather than each getting their own.
         group.MapPost("login", LoginAsync).RequireRateLimiting("auth");
         group.MapPost("forgot-password", ForgotPasswordAsync).RequireRateLimiting("auth");
+        group.MapPost("login-2fa", LoginTwoFactorAsync).RequireRateLimiting("auth");
 
-        group.MapPost("login-2fa", LoginTwoFactorAsync);
+        // Not limited: neither checks a credential. Logout ends a session the caller already has,
+        // and status is what the SPA asks on every page load.
         group.MapPost("logout", LogoutAsync);
         group.MapGet("status", GetAuthStatusAsync);
 
-        group.MapPost("accept-invite", AcceptInviteAsync);
-        group.MapPost("reset-password", ResetPasswordAsync);
-        group.MapPost("confirm-email-change", ConfirmEmailChangeAsync);
+        group.MapPost("accept-invite", AcceptInviteAsync).RequireRateLimiting("auth");
+        group.MapPost("reset-password", ResetPasswordAsync).RequireRateLimiting("auth");
+        group.MapPost("confirm-email-change", ConfirmEmailChangeAsync).RequireRateLimiting("auth");
     }
 
     private static async Task<IResult> AcceptInviteAsync(AcceptInviteDto acceptInviteDto, IIdentityService identityService)

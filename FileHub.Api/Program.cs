@@ -45,9 +45,9 @@ var connectionString = builder.Configuration.GetConnectionString("FileHub")
 // entry does not go through EF and cannot feed back into the logging pipeline. The app-wide
 // minimum level comes from Logging:LogLevel:Default (LOG_LEVEL in docker-compose).
 // Absolute on purpose: the SQLite sink resolves a relative path against the *binary's* directory
-// while EF resolves the connection string against the working directory, so a relative
-// "Data Source=./data/filehub.db" (which is what the Development config uses) would quietly put the
-// Logs table in a second database nobody ever looks at.
+// while EF resolves the connection string against the working directory, so the configured default
+// of "Data Source=./data/filehub.db" would quietly put the Logs table in a second database nobody
+// ever looks at. The container overrides both with absolute paths under /var/srv.
 var logDbPath = Path.GetFullPath(new SqliteConnectionStringBuilder(connectionString).DataSource);
 Directory.CreateDirectory(Path.GetDirectoryName(logDbPath)!);
 var minimumLevel = ParseLogLevel(builder.Configuration["Logging:LogLevel:Default"]);
@@ -132,7 +132,8 @@ builder.Services.Configure<SecurityStampValidatorOptions>(options =>
 
 // Persist the Data Protection key ring so auth cookies — and the encrypted SMTP password —
 // survive container recreation. The default location inside the container is wiped on redeploy.
-var keyRingPath = builder.Configuration["DataProtection:KeyPath"] ?? "/var/srv/keys";
+// ./data alongside the database is the default; docker-compose points both at the /var/srv volume.
+var keyRingPath = builder.Configuration["DataProtection:KeyPath"] ?? "./data/keys";
 Directory.CreateDirectory(keyRingPath);
 builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(keyRingPath))

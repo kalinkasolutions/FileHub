@@ -17,12 +17,13 @@ The repo ships a working `docker-compose.yml` and a documented `.env.example`.
 ```bash
 cp .env.example .env                        # set APP_BASE_URL at minimum
 $EDITOR docker-compose.yml                  # mount the directories you want to serve, read-only
-mkdir -p ./data && sudo chown -R 1654:1654 ./data   # the container is not root
+mkdir -p ./data
 docker compose up -d
 ```
 
-The `chown` is not optional: the image runs as the unprivileged uid 1654, and without it the first
-run cannot create the database and exits on the migration.
+The container never runs as root. Compose runs it as `PUID:PGID` from your `.env` (default
+`1000:1000`), so `./data` needs no `chown` as long as those match whoever owns it — `id -u` and
+`id -g`. If they do not, the first run cannot create the database and exits on the migration.
 
 The compose file publishes port **4122 on `127.0.0.1` only** and mounts `./data` at `/var/srv`,
 where the database and the encryption keys live. FileHub speaks plain HTTP — TLS belongs at the
@@ -73,6 +74,7 @@ Everything is environment variables; see `.env.example` for the full comments.
 | `TRUSTED_PROXIES` | **Whose `X-Forwarded-For`/`X-Forwarded-Proto` FileHub believes** — IPs and/or CIDR blocks (host bits clear), comma separated. Get this wrong and the login rate limit counts the whole internet as one caller, and auth cookies lose their `Secure` flag. Narrow it to your proxy. A malformed entry stops the app rather than being skipped. | loopback + the private ranges |
 | `ADMIN_EMAIL` | Address of the seeded admin. Only used on a database with no admin. | `admin@filehub.local` |
 | `ADMIN_PASSWORD` | Bootstrap password. Leave empty to have one generated and printed once — safer than a value sitting in a file before anyone has signed in. | *(generated)* |
+| `PUID` / `PGID` | The uid:gid the container runs as. Match them to the owner of `./data` and the bind mount needs no `chown`. | `1000` / `1000` |
 | `CONNECTION_STRING` | SQLite file. Keep it under `/var/srv` or it dies with the container. | `Data Source=/var/srv/filehub.db` |
 | `DATA_PROTECTION_KEY_PATH` | Where the encryption key ring is written. Same volume, same reason. | `/var/srv/keys` |
 | `LOG_LEVEL` | Minimum level for the console and the `Logs` table. | `Information` |
@@ -125,8 +127,8 @@ It also sets HSTS, `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy` and a C
 
 Back up the `./data` volume. It holds the SQLite database *and* the Data Protection key ring —
 restoring the database without the keys signs everyone out and makes the stored SMTP password
-unreadable (re-enter it under Admin → Email). Restore it owned by uid 1654, the same as a fresh
-install: `sudo chown -R 1654:1654 ./data`.
+unreadable (re-enter it under Admin → Email). Restore it owned by the `PUID:PGID` the container
+runs as, the same as a fresh install.
 
 ## Development
 
