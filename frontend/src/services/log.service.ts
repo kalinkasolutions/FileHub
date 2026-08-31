@@ -1,6 +1,7 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpContext, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { HubConnectionBuilder, HubConnectionState, LogLevel } from '@microsoft/signalr';
+import { skipLoadingOverlay } from '@interceptors/loading.interceptor';
 import { ILogPage, ILogQuery } from '@models/ILogEntry';
 import { Observable } from 'rxjs';
 
@@ -19,7 +20,15 @@ export class LogService {
   private readonly http = inject(HttpClient);
 
   public query(query: ILogQuery): Observable<ILogPage> {
-    return this.http.get<ILogPage>('/api/admin/logs', { params: toParams(query) });
+    return this.http.get<ILogPage>('/api/admin/logs', {
+      params: toParams(query),
+      // No full-screen overlay for this one. Most of these reads are not asked for by a person —
+      // they answer the hub saying a line was written — so on a busy installation the overlay would
+      // spend more time up than down, over the one screen that is meant to keep showing you
+      // something. The first load is silent for the same reason the screen has no spinner of its
+      // own: a slow log is not worth announcing.
+      context: new HttpContext().set(skipLoadingOverlay, true),
+    });
   }
 
   /**
