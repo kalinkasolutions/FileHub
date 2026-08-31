@@ -3,7 +3,7 @@
 **/obj
 **/node_modules
 # Built SPA is produced inside the image (stage 1), never copied from the host.
-FileHub.Api/wwwroot
+backend/FileHub.Api/wwwroot
 .git
 .github
 .vs

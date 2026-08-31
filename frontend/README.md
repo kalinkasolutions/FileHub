@@ -1,18 +1,18 @@
 # FileHub — frontend
 
-The Angular 21 SPA. It is built into `../FileHub.Api/wwwroot`, which is what `FileHub.Api` serves,
+The Angular 21 SPA. It is built into `../backend/FileHub.Api/wwwroot`, which is what the API serves,
 so there is no dev-server proxy and no `environment.apiUrl`: every request is same-origin and
 relative (`/api/...`), and the session is a cookie.
 
-It sits beside the backend projects rather than inside `FileHub.Api` so that `dotnet watch` cannot
+It sits beside `backend/` rather than inside `FileHub.Api` so that `dotnet watch` cannot
 reach `node_modules`: watching the API project used to mean recursively watching 2500 directories
 of dependencies, which exhausts the per-user inotify instance limit on Linux.
 
 ```bash
 npm install
 npm start          # ng serve, for working on the SPA alone
-npm run build      # production build into ../FileHub.Api/wwwroot
-npm run watch      # rebuild into ../FileHub.Api/wwwroot on change — pair with `dotnet run`
+npm run build      # production build into ../backend/FileHub.Api/wwwroot
+npm run watch      # rebuild into ../backend/FileHub.Api/wwwroot on change — pair with `dotnet run`
 npm test           # vitest, through @angular/build:unit-test
 npx prettier --write .
 ```

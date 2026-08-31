@@ -103,7 +103,7 @@ select {
   cursor: pointer;
 }
 
-// The design's checkbox: a 22px rounded box that fills with accent and shows a check.
+// The design's checkbox: a square $checkbox-size box that fills with accent and shows a check.
 input[type='checkbox'] {
   position: relative;
   appearance: none;
@@ -122,16 +122,26 @@ input[type='checkbox'] {
     border-color $transition-toggle;
 
   // The check is a rotated corner of a box rather than a glyph, so it needs no icon font.
+  //
+  // What has to be centred is the *ink*, not the 5x9 element that carries it. Only the right and
+  // bottom borders are painted, so the visible tick sits in the lower-right of that box; rotating
+  // it 45deg about the box's own centre leaves the tick low and to the right of where the eye
+  // expects it. Hence the two steps: `top/left: 50%` plus `translate(-50%, -50%)` centres the
+  // element box against the checkbox whatever $checkbox-size is, and the extra 1px lifts the ink
+  // back onto the centre. Fixed offsets in px did this by hand and drifted the moment the box or
+  // the border width moved.
   &::after {
     content: '';
     position: absolute;
-    top: 3.5px;
-    left: 6.5px;
+    top: 50%;
+    left: 50%;
     width: 5px;
     height: 9px;
     border: solid $on-accent;
     border-width: 0 2px 2px 0;
-    transform: rotate(45deg) scale(0);
+    // Read right to left: rotate about the element's own centre, then translate in the checkbox's
+    // coordinates. The scale is what the :checked rule animates.
+    transform: translate(-50%, -50%) translateY(-1px) rotate(45deg) scale(0);
     transition: transform $transition-toggle;
   }
 
@@ -140,7 +150,7 @@ input[type='checkbox'] {
     background-color: $primary-green;
 
     &::after {
-      transform: rotate(45deg) scale(1);
+      transform: translate(-50%, -50%) translateY(-1px) rotate(45deg) scale(1);
     }
   }
 
@@ -465,6 +475,18 @@ div.mat-mdc-dialog-surface {
   flex: 1;
   min-height: 0;
   height: auto;
+}
+
+// The admin area is the one chromed view that does not take the reading cap. That cap is a
+// *measure* — it keeps prose from running to 200 characters — and there is no prose in there: six
+// dense data screens, and a log with one long record per row. Capped, a 2560px monitor gave the log
+// message exactly the same 490px a laptop did and two rows in five wrapped.
+//
+// It has to be written here rather than in `admin.component.scss` for the same reason the rule
+// above is: this selector is two classes and `:host` is one, so a component-level `max-width` loses
+// the cascade no matter where it sits in the file.
+.shell.chromed > admin {
+  max-width: none;
 }
 
 // ─── Toasts ─────────────────────────────────────────────────────────────────

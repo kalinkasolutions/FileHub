@@ -26,6 +26,13 @@
     <!-- The listing is a panel: the accent rule around a darker fill is what a folder looks like
          here, and the folder's name is the panel's own heading. -->
     <section class="listing">
+      <!-- The heading *is* the trail. A panel whose title said "Files" while the row under it
+           spelled out where you were said the same thing twice and spent a rule on the repetition,
+           so the crumbs moved up into the title and the row below is gone. The back button keeps
+           its place at the head of the line: it is the trail's last step, not a separate control.
+
+           A trail can be deeper than the panel is wide, so it scrolls sideways; the component keeps
+           the last crumb in view. -->
       <header class="title">
         @if (!pathService.isAtTop()) {
           <button
@@ -37,16 +44,18 @@
             <mat-icon>arrow_back</mat-icon>
           </button>
         }
-        <span class="here" [title]="title()">{{ title() }}</span>
-        <span class="count">{{ count() }}</span>
-      </header>
 
-      <!-- A trail can be deeper than the screen is wide, so it scrolls sideways. At the top there is
-           no trail — a lone "home" crumb under a heading that already says so is a rule and a row of
-           padding spent on nothing. -->
-      @if (!pathService.isAtTop()) {
-        <nav #crumbs class="crumbs" aria-label="Breadcrumb">
-          <button class="crumb" type="button" (click)="pathService.goHome()">home</button>
+        <nav #crumbs class="here" aria-label="Breadcrumb">
+          <!-- At the top of the tree "home" is where you are, so it is the disabled current crumb
+               rather than a link back to the screen already on display. -->
+          <button
+            class="crumb"
+            type="button"
+            [disabled]="pathService.isAtTop()"
+            (click)="pathService.goHome()"
+          >
+            home
+          </button>
           @for (segment of pathService.segments(); track segment.basePathId + ':' + segment.path) {
             <span class="separator" aria-hidden="true">/</span>
             <button
@@ -59,7 +68,9 @@
             </button>
           }
         </nav>
-      }
+
+        <span class="count">{{ count() }}</span>
+      </header>
 
       <!-- Nothing to filter in an empty folder, and the box would be the only thing in it. -->
       @if (entries().length > 0) {

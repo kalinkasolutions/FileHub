@@ -52,13 +52,27 @@
     <mat-icon>mail</mat-icon>
     <span class="label">Email</span>
   </button>
+  <button
+    class="tab"
+    type="button"
+    [class.active]="section() === 'logs'"
+    (click)="show('logs')"
+    aria-label="Log"
+  >
+    <mat-icon>article</mat-icon>
+    <span class="label">Log</span>
+  </button>
 </nav>
 
 <main class="content">
   @switch (section()) {
     @case ('users') {
       @defer {
-        <admin-users (showEmail)="show('email')" (showGroups)="show('groups')" />
+        <admin-users
+          (showEmail)="show('email')"
+          (showGroups)="show('groups')"
+          (showBasePaths)="show('basePaths')"
+        />
       } @placeholder {
         <p class="loading">Loading...</p>
       }
@@ -89,6 +103,15 @@
         <admin-email-settings />
       } @placeholder {
         <p class="loading">Loading...</p>
+      }
+    }
+    <!-- No @placeholder, unlike the sections above. The log screen is the one an admin sits on, and
+         a "Loading..." shown while its chunk downloads is the only thing a reader on a slow
+         connection would see before a screen that then never announces anything again. Nothing is
+         rendered until the chunk lands. -->
+    @case ('logs') {
+      @defer {
+        <admin-logs />
       }
     }
   }

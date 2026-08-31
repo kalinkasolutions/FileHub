@@ -4,9 +4,10 @@ import { BasePathsComponent } from './basepaths/basepaths.component';
 import { GroupsComponent } from './groups/groups.component';
 import { AdminSharesComponent } from './shares/admin-shares.component';
 import { EmailSettingsComponent } from './email/email-settings.component';
+import { LogsComponent } from './logs/logs.component';
 import { UsersComponent } from './users/users.component';
 
-export type AdminSection = 'users' | 'groups' | 'basePaths' | 'shares' | 'email';
+export type AdminSection = 'users' | 'groups' | 'basePaths' | 'shares' | 'email' | 'logs';
 
 /**
  * The section last looked at. A module variable rather than storage: it survives the shell being
@@ -16,19 +17,21 @@ export type AdminSection = 'users' | 'groups' | 'basePaths' | 'shares' | 'email'
 let lastSection: AdminSection = 'users';
 
 /**
- * The admin area: one shell, five sections, no nested routes. The `admin` route is a single
+ * The admin area: one shell, six sections, no nested routes. The `admin` route is a single
  * component and the sections are views of it, which is what lets the tab bar stay put while
  * switching between them.
  *
- * The tab bar sits at the top of the screen rather than at its foot: with five sections a
+ * The tab bar sits at the top of the screen rather than at its foot: with six sections a
  * bottom bar has to wrap, and a wrapped bar pushes the content it belongs to off a phone. The top
  * bar scrolls sideways instead.
  *
  * Everything in here is behind `adminGuard`, and the API checks the `Admin` role on every call it
  * receives besides — a 403 from one of these screens is an answer, not a bug.
  *
- * Each section is `@defer`red: the `admin` route is eager (it is in the initial bundle), and five
- * screens' worth of forms and Material overlays would ride along with it otherwise.
+ * Each section is `@defer`red: the `admin` route is eager (it is in the initial bundle), and six
+ * screens' worth of forms and Material overlays would ride along with it otherwise. Logs matters
+ * most here: it polls while it is on screen, and deferring it is what keeps it from doing so from
+ * the moment the admin area is opened on some other tab.
  */
 @Component({
   selector: 'admin',
@@ -40,6 +43,7 @@ let lastSection: AdminSection = 'users';
     BasePathsComponent,
     AdminSharesComponent,
     EmailSettingsComponent,
+    LogsComponent,
   ],
   templateUrl: 'admin.component.html',
   styleUrl: 'admin.component.scss',

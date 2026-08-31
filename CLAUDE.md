@@ -3,22 +3,26 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 FileHub is a read-only cloud for browsing and sharing files from mounted disks: an ASP.NET Core
-(.NET 10) minimal-API backend that also serves an Angular 21 SPA out of `FileHub.Api/wwwroot`,
-over SQLite, shipped as a single Docker image. `MapFallbackToFile("index.html")` hands every
-non-API path to the client router.
+(.NET 10) minimal-API backend that also serves an Angular 21 SPA out of
+`backend/FileHub.Api/wwwroot`, over SQLite, shipped as a single Docker image.
+`MapFallbackToFile("index.html")` hands every non-API path to the client router.
+
+**The repository has two halves: `backend/` and `frontend/`.** Every .NET project, the solution
+file and `Directory.Build.props` live under `backend/`; nothing .NET is at the root. Paths in this
+document are written from the root, so a project is `backend/FileHub.Api`.
 
 ## Commands
 
 Backend, from the repository root:
 
 ```bash
-dotnet build FileHub.slnx
-dotnet test FileHub.IntegrationTests
-dotnet test FileHub.IntegrationTests --filter PathSandboxTests    # one class
+dotnet build backend/FileHub.slnx
+dotnet test backend/FileHub.IntegrationTests
+dotnet test backend/FileHub.IntegrationTests --filter PathSandboxTests    # one class
 ```
 
 EF Core migrations (SQLite provider). The design-time tools live in `FileHub.Api` but the
-`DbContext` is in `FileHub.Dal`, so both projects have to be named:
+`DbContext` is in `FileHub.Dal`, so both projects have to be named — from `backend/`:
 
 ```bash
 dotnet ef migrations add <Name> --project FileHub.Dal --startup-project FileHub.Api
@@ -33,24 +37,24 @@ Frontend, from `frontend/`:
 ```bash
 npm install
 npm start          # ng serve — for a quick look at a component, not for talking to the API
-npm run build      # outputs to ../FileHub.Api/wwwroot, which is what the API serves
+npm run build      # outputs to ../backend/FileHub.Api/wwwroot, which is what the API serves
 npm run watch      # rebuild into the API's wwwroot on change; this is the dev loop
 npm test           # vitest via @angular/build:unit-test
 ```
 
 **The SPA lives beside the backend projects, not inside `FileHub.Api`.** The build output still
-lands in `FileHub.Api/wwwroot` — that has not changed and cannot, since the API serves it from
-`ContentRoot/wwwroot`. What changed is where the *sources* sit, and the reason is `dotnet watch`:
-it watches each watched file's containing directory recursively, so an SPA inside the API project
-put `node_modules` under the watch. That was ~2500 of the ~2800 directories being watched, and on
+lands in `backend/FileHub.Api/wwwroot` — that has not changed and cannot, since the API serves it
+from `ContentRoot/wwwroot`. What changed is where the *sources* sit, and the reason is `dotnet
+watch`: it watches each watched file's containing directory recursively, so an SPA inside the API
+project put `node_modules` under the watch. That was ~2500 of the ~2800 directories being watched, and on
 Linux it exhausts `fs.inotify.max_user_instances` (128 by default), which fails the watcher
 outright with `The configured user limit on the number of inotify instances has been reached`.
 Do not move it back under a project the SDK globs.
 
 ### The dev loop
 
-`npm run watch` in one terminal, `dotnet run` (from `FileHub.Api`) in another. The API watches
-`wwwroot` with `Westwind.AspNetCore.LiveReload`, so a rebuild reloads the browser. **There is no
+`npm run watch` in one terminal, `dotnet run` (from `backend/FileHub.Api`) in another. The API
+watches `wwwroot` with `Westwind.AspNetCore.LiveReload`, so a rebuild reloads the browser. **There is no
 dev-server proxy and no `environment.apiUrl`** — every request the SPA makes is relative and
 same-origin, which is the only reason the session works in development at all: served from
 `ng serve` on another port, every API call is cross-origin, and no CORS policy is configured to
@@ -58,8 +62,8 @@ let a credentialed one through. If you reach for `ng serve` to work on a screen 
 API, you will find this out the slow way.
 
 The connection string and the key ring default to `./data/` — resolved against the working
-directory, so `FileHub.Api/data/` for a local run — and only `docker-compose.yml` moves them to the
-`/var/srv` volume. A run outside the container therefore never touches `/var/srv`, in any
+directory, so `backend/FileHub.Api/data/` for a local run — and only `docker-compose.yml` moves
+them to the `/var/srv` volume. A run outside the container therefore never touches `/var/srv`, in any
 environment, and `Development` no longer has to override the two paths to arrange that.
 
 ## Architecture
@@ -487,14 +491,136 @@ would make every redeploy sign everybody out.
   ADO.NET connection, so persisting a log line cannot feed back through EF into the logging
   pipeline. The table has no retention — which is why a secret must never be handed to `ILogger`,
   as an argument any more than in the message (Serilog persists the arguments as their own column).
+  **`batchSize: 1`** rather than the sink's default 100: the admin log screen tails this table, and
+  a batch that only flushes when it is full shows nothing for minutes on a quiet install while the
+  screen claims to be following. One `INSERT` per entry is affordable at this volume; the round
+  trip from `ILogger` call to visible row is ~20 ms.
+- **The `Logs` table is the sink's, not ours.** `LogEntry` maps it read-only and
+  `ToTable("Logs", t => t.ExcludeFromMigrations())` is the load-bearing line — without it the next
+  `migrations add` emits a `CreateTable` for a table that already exists, and a later model change
+  emits a `DropTable` that would take the log with it. `EnsureCreated` honours the exclusion too,
+  which is why `LogTestBase` creates the table itself. The two indexes the screen's filters need are
+  created by `Seed.EnsureLogIndexesAsync` as raw DDL, never fatally: they are not ours to describe
+  in the model, but they are ours to keep.
 - **The sink gets an absolute path.** Serilog's SQLite sink resolves a relative path against the
   *binary's* directory while EF resolves the connection string against the working directory, so
   `Data Source=./data/filehub.db` — the Development setting — quietly put the `Logs` table in a
   second database under `bin/`. The container never showed it, because its path is absolute.
 
+### Logging and the audit trail
+
+The application is meant to be **traceable**: every action that changes state, and every refusal a
+credential could have caused, leaves one line that names *who* did it and *what to*. The log is the
+answer to "what happened on this install", so it is written for a person reading it, not for a
+grep of GUIDs.
+
+- **The actor is `IAuditActor`** (`BusinessLogic/Auditing`), resolved per request from the sign-in
+  cookie's own claims by `HttpContextAuditActor`, and rendering as `Admin <admin@example.com>` —
+  the display name for recognition, the address because that is the account's actual identity.
+  `SystemAuditActor` (`"system"`) is the registration for startup seeding and for the tests.
+  **It decides nothing.** Authorization is still threaded from the endpoint as an ordinary
+  argument (`callerIsAdmin`, `callerCanCreateShares`, `callerId`) for exactly the reasons in the
+  access-model section; resolving an actor's *name* ambiently changes no answer, and threading a
+  display name through twenty signatures that have no other use for it would bury the ones that do.
+- `IdentityService` deliberately takes **no** `IAuditActor`: every route on it is anonymous, so
+  there is no principal to name. It names the account the credential or the token resolved to,
+  which it is holding anyway.
+- **`{Property:l}` — the literal specifier — on every string in an audit template.** Serilog wraps
+  a string property in quotes when it renders a message, so a template that supplies its own
+  punctuation gets `""Family""` and `<"kim@example.com">` without it. The rule is: write the
+  punctuation you want, and mark the property `:l`.
+- **Levels carry meaning.** A completed action is `Information`. A wrong password, a refused role,
+  a rejected reset, a grant that could not be saved is `Warning` — those are what an operator
+  filters for, and at `Information` they were indistinguishable from ordinary traffic. `Error` is
+  reserved for something that broke.
+- **`UseSerilogRequestLogging` picks a level per request** (`GetRequestLogLevel` in `Program.cs`)
+  instead of logging everything at `Information`: `Error` for a 5xx or an escaped exception,
+  `Warning` for any 4xx, `Information` for `/api`, `/public-api` and `/og`, and `Debug` for the
+  SPA's own files. One page load is ~30 requests for hashed chunks and icons, and at `Information`
+  those buried the lines that say what somebody actually did — in a table that has no retention.
+- Never hand a secret to `ILogger`. The generated bootstrap password goes to `Console.Out` for this
+  reason, and so do the dev-seed credentials.
+
+### The admin log viewer
+
+`api/admin/logs` reads the sink's table back: `GET` with `minLevel`, `search`, `from`, `to`,
+`afterId` and `take` as query parameters, admin-only. The admin area's sixth section (**Log**) is
+the screen.
+
+- **`minLevel` is a minimum, not an exact match** — "Warning" answers warnings, errors and fatals.
+  It is resolved through `Shared.LogLevels.AtOrAbove` into a set of names for a `WHERE Level IN
+  (...)`, because the column holds the *name*: `Level >= 'Warning'` in SQL compares alphabetically,
+  which puts Debug above Warning and Error below it. An unrecognised name means "do not filter" and
+  never "no levels" — an empty log screen reads as a quiet system.
+- **The timestamp stays a `string` all the way to the comparison.** The sink writes
+  `2026-08-31T14:45:39.027` (ISO, 'T', milliseconds, UTC) while EF's SQLite provider formats a
+  `DateTime` parameter with a space separator and seven decimals, so a range written against a
+  `DateTime` property compares two different shapes. `LogRepository` formats its bounds the sink's
+  way; the format is fixed-width, so lexicographic order is chronological order.
+- **`search` goes through `EF.Functions.Like` with an explicit `ESCAPE`**, not `Contains`: EF
+  translates `Contains` to `instr()`, which is case-sensitive. The term is escaped, because an
+  unescaped `%` matches every row and an unescaped `_` matches any character — and log messages are
+  full of paths and identifiers.
+- **`afterId` narrows the page but not the count.** It is the tail cursor — an id and not a
+  timestamp, because two entries can share a millisecond and a timestamp cursor then repeats one or
+  drops one. "12 new lines" and "4,000 lines match" are two different questions the screen asks at
+  once.
+- **Live is a SignalR push, not a poll.** `LogHub` is mapped at `api/admin/logs/stream` and sends
+  one parameterless `logged` message; the screen answers it with an ordinary `GET` carrying
+  `afterId`. An idle installation therefore costs **zero** requests. Following switches itself off
+  when a date range is set — "the newest lines" and "the lines between these times" are different
+  questions — and the screen shows the connection's own state, because a live view that has quietly
+  stopped being live is worse than one that says so.
+- **The hub carries a signal, not the log**, and that is load-bearing. Pushing the entries would
+  mean evaluating every connected admin's filter in memory — a second implementation of the query
+  that can drift from the SQL one — and a `LogEvent` has no database id yet, because the id comes
+  from the SQLite sink's `INSERT`, so the client would lose the cursor it catches up with.
+- **Reading the log must not ring the bell.** `LogRoutes.IsLogScreenTraffic` is the one rule, applied
+  in two places: `GetRequestLogLevel` drops the log screen's own requests to `Verbose` so they stay
+  out of a table with no retention, and `LogSignalSink` refuses to ring for them. The second is what
+  matters — without it the view feeds itself (fetch → request-logged → ring → push → fetch), and an
+  *idle* screen made about five requests a second, which is worse than the polling this replaced.
+  Both are needed: the level alone fails on an install running at `Debug`.
+- **The path from sink to socket is deliberately broken in three.** `LogSignalSink` only rings;
+  `LogChangeSignal` is a one-slot channel with `DropWrite`, so a burst of two hundred lines is one
+  notification and a ring can neither block nor throw nor recurse; `LogBroadcastService` is the only
+  thing that sends, and pauses 200ms afterwards to coalesce. Sending over SignalR itself logs, so
+  broadcasting from inside `Emit` would be a straight recursion.
+- **Behind nginx this needs the WebSocket upgrade headers** (`Upgrade` / `Connection` and the
+  `$connection_upgrade` map) — `nginx.example.conf` carries them. Without them the handshake is
+  forwarded with the upgrade stripped and the client silently falls back to long-polling.
+- The client buffer is capped (1000 lines) as well as the server page, and the section is
+  `@defer`red — which also keeps the SignalR client out of the initial bundle, and means the hub is
+  not connected from the moment the admin area is opened on another tab.
+- **The screen is the standard admin split**: a Filter panel on the leading edge and the Log beside
+  it, like every other section. **Following lives in the filter**, since it decides what the list
+  shows exactly as the four controls above it do. The tally rides the Log panel's own heading, the
+  way the file browser's listing carries its count.
+- It uses `admin-section-split` like every other section, so its Filter panel is exactly as wide as
+  "Invite an account", "Create a group" and "Add a base path" (450px). It was briefly pinned
+  narrower to buy the message more room, and that was wrong: a filter panel narrower than the form
+  panel on the tab next door reads as a different kind of screen. The width the log needed came from
+  lifting the view's own cap, not from shaving the column beside it — at 1920 the message is 1149px
+  and nothing wraps, against 490px and 79 wrapped rows in 200 before.
+- **There is deliberately no loading state — and there are two of them to remove.** The one in the
+  component, and the `@defer` `@placeholder` in `admin.component.html`, which is what shows while
+  the lazy chunk downloads; the Log case is the only one without a placeholder for that reason. A
+  spinner on every filter keystroke is the only thing a reader on a slow connection would ever see,
+  and a slow request is not worth announcing. The list keeps the rows it has until the new ones
+  land, and the empty message is gated on `!isLoading()` so it can never claim an empty log while
+  the first request is still in flight — the opposite mistake, and the one worth guarding.
+- **A log row is three stacked lines on a phone** — level, then timestamp, then the message, each
+  full width — and one line from 470px up. Three columns at 390px leave the message about fifteen
+  glyphs, which is not a log line. The expand-exception button is absolutely positioned on the small
+  layout so it does not claim a fourth line.
+
+`LogQueryTests` covers the filters; they are all places where the query can be quietly wrong rather
+than loudly broken. `LogSignalTests` covers the coalescing and the loop guard, which live in
+`FileHub.Shared` precisely so they are reachable without referencing `FileHub.Api`.
+
 ### Testing
 
-`FileHub.IntegrationTests` (xUnit, 448 tests) drives the **services**, not the routes: the real service →
+`FileHub.IntegrationTests` (xUnit, 478 tests) drives the **services**, not the routes: the real service →
 repository → EF/Identity stack over a per-test SQLite **in-memory** database (`TestHostBase` takes
 a delegate that registers the slice under test). SQLite rather than the EF in-memory provider,
 because the unique indexes and the `ON DELETE CASCADE` behaviour that share revocation and user
@@ -516,11 +642,13 @@ the public resolve all take `callerIsAdmin` — and `CreateAsync` also `callerCa
 but not that the principal was read, and in particular not that the claims factory put the roles an
 admin only implies onto the cookie the `RequireRole` policy reads), the caller
 identity on the anonymous share routes, `FileDownload`'s zip and
-headers, `ShareLinks`, the rate limiter, and the forwarded-headers configuration. `AdminSeeder` is
+headers, `ShareLinks`, the rate limiter, the forwarded-headers configuration, and the SignalR half
+of the live log (`LogHub`, `LogSignalSink`, `LogBroadcastService` — the rule and the coalescing they
+rest on are covered, the wiring is not). `AdminSeeder` is
 covered, because it is the part of startup that can brick an install; the migration and role half
 in `Seed` is not.
 
-The SPA has **121 vitest specs** (`npm test`), over the things worth pinning without a browser:
+The SPA has **132 vitest specs** (`npm test`), over the things worth pinning without a browser:
 path building, the size and audience formatters, the services against `HttpTestingController`, and
 the guards. They do not cover how anything *looks* — the layout bugs in this codebase have all been
 found by screenshotting a running instance at 360px and 1280px, not by a spec, so do that when
@@ -556,6 +684,28 @@ one wholesale was rejected for exactly that. What it is:
   panel-grid($max)` lays several out and collapses to a column under 470px; the `$max` argument
   exists because a fixed px track also caps a `grid-column: 1 / -1` child, so a screen with one wide
   listing wants the default `1fr` and a row of forms passes `$max-form-width`.
+- **A sticky element inside a scrolling panel has two resting places, and they have to agree.**
+  While the scroll runs it rests against the scrollport's content box; once the scroll runs out it
+  is wherever its containing block puts it. An admin panel's `.buttons` is sticky inside `.body`, so
+  `.body`'s bottom padding sat between the two and the Save button lifted by exactly that much over
+  the last few percent of the scroll. The fix is to leave nothing between them: `:has()` zeroes that
+  padding on a body holding such a form, and the buttons carry it themselves, painted in the panel's
+  fill. Do not put the padding back.
+- **The admin area is the one view exempt from `$max-content-width`.** That cap is a *reading*
+  measure and there is no prose in there — six dense data screens, and a log with one long record
+  per row. Capped, a 2560px monitor gave the log message exactly the same 490px a laptop did. The
+  exemption is written in `styles.scss` as `.shell.chromed > admin`, **not** in the component: the
+  rule it overrides is two classes and `:host` is one, so a component-level `max-width` loses the
+  cascade wherever it sits. Consequently `admin-section-split` caps its *form* track
+  (`minmax($panel-min-width, $max-form-width)`) and gives the listing the rest — proportional tracks
+  turned an SMTP Port field into a 1217px input. Email is the exception that proves it: **both** of
+  its panels are forms, so it sets two capped columns of its own rather than using the split.
+- **`admin-panel` makes a panel's `.body` a shrinkable scroller on a wide screen**, which is right
+  when the body *is* the content — a form, a block of prose. When the body is a fixed header above a
+  long list in the same panel, it loses the flex fight and collapses into a nested scrollport nobody
+  would think to scroll: the log screen's filters did exactly that, showing four labels and none of
+  their inputs. Such a body needs `flex-shrink: 0; min-height: auto; overflow: visible`, so the list
+  is the only thing that scrolls.
 - **Inputs are a ruled line**, not a filled box: a 2px bottom border that turns green on focus, and
   that is the whole focus treatment — no ring, no glow. **Buttons** are square translucent-green
   slabs (`$accent-fill`), with `.secondary` and `.danger` outlined, because only one thing on a
@@ -584,11 +734,25 @@ injects its own structural CSS at runtime, after this stylesheet, and wins an eq
 dialog padding goes through its `--mat-dialog-*` variables for the same reason. `ngx-toastr` is
 themed too — left alone it is the one surface on screen still wearing somebody else's look.
 
-The logo is **`file-hub.svg`**, the wordmark, in the header and above every auth screen. It is live
-text rather than outlines, so it renders in whatever font the viewer has, and it is blue — the one
-non-green thing in the app. Both were true of the original and are left alone deliberately. The
-square "F" mark stays as the favicon and in the mail templates, where a raster is needed.
-`thebeaver.png` is on the 404, where it has always been.
+The logo is **`file-hub.svg`**, the wordmark, in the header and above every auth screen. It is blue
+— the one non-green thing in the app — which was true of the original and is left alone
+deliberately. The square "F" mark stays as the favicon and in the mail templates, where a raster is
+needed. `thebeaver.png` is on the 404, where it has always been.
+
+**The wordmark is outlines, and it has to stay outlines.** It used to be a live `<text>` element set
+in `font-family:'Greater Theory'` with no fallback, which meant the logo was one thing on a machine
+that had the typeface and the browser's default *serif* on every machine that did not — so it looked
+correct to whoever drew it and wrong to everybody else. The glyphs are now `<path>` data and depend
+on no installed font. If you ever regenerate it: the source carries **hand-tuned per-character
+kerning** in the tspan's `dx` list, so do not re-derive letter positions from the font's own metrics
+— recomputing `dx` and kerning by hand drifts a fraction of a pixel per glyph and came out 17% of
+pixels different, visibly wider by the final "b". Measure the live text's positions with
+`getStartPositionOfChar` in a browser that has the font, and plant the outlines there; that carries
+the manual kerning across for free and matched the original's ink bounding box exactly.
+
+Greater Theory is **personal-use only** (brandsemut). The outlines are in the repository, the font
+file is not, and the README says what a commercial fork has to do about it — buy a licence or
+replace `frontend/public/file-hub.svg`. Keep that notice in step with the artwork.
 
 #### Two things that cost a day each
 
@@ -617,6 +781,18 @@ Three guards: `authGuard` (session, else `/login`), `adminGuard` (the `Admin` ro
 signed-in non-admin back to `/` rather than to a sign-in screen that would read as a bug), and
 `passwordChangeGuard` (described above).
 
+**The account screen is one column at every width**, capped at `$max-reading-width` and centred. It
+was two on a desktop, and that was wrong for what it holds: five blocks read top to bottom, half of
+them one field and a button, so a two-track grid pairs a three-line block with a ten-line one and
+zig-zags the reading order across the screen.
+
+**The listing panel's heading is the breadcrumb trail**, not a title: the back button, then
+`home / media / audiobooks / …`, then the tally. It replaced a title that said "Files" over a
+separate crumb row saying where you were — the same thing twice, with a rule spent on the
+repetition. The trail keeps the title's own type size, scrolls sideways without a scrollbar, and the
+component scrolls the last crumb into view whenever the path *or the tally* changes: the tally
+appearing narrows the trail beside it, and a scroll already at the end stops being at the end.
+
 **The file browser has three tabs** — Files, Links, Shared. `AuthService.canCreateShares` is the
 `CreateShares` role off the status call, and the browser hides both the per-row share button and the
 whole **Links** tab without it: losing the role revokes the links, so there is nothing behind that
@@ -632,8 +808,9 @@ aimed at their groups — share `_share-list.scss`, so one list of shares does n
 different things depending on which end of it you stand at; the received list is the same rows with
 `.restricted` on all of them, since nothing aimed at a group is anonymous.
 
-**The admin area is one component with five sections** — Users, Groups, Paths, Links, Email — not
-nested routes, which is what lets the header and the tab bar stay put while the section changes.
+**The admin area is one component with six sections** — Users, Groups, Paths, Links, Email, Log —
+not nested routes, which is what lets the header and the tab bar stay put while the section
+changes.
 The section is remembered in a module variable, so returning to `/admin` reopens the last one.
 Group membership is editable **only from the group side**: there is no `api/admin/users/{id}/groups`
 because the members list is replaced as a whole, so a per-user editor would mean reading every

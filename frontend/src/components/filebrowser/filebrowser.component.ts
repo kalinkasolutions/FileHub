@@ -42,6 +42,9 @@ const pageSize = 50;
  * The file browser: the caller's base paths, one directory at a time below them, and the actions on
  * a row (download, share). The breadcrumb and the back button are `PathService`'s trail, which is
  * also the browser's history — see that service.
+ *
+ * The trail is the listing panel's heading rather than a row under one: the folder's name is the
+ * last crumb, so a separate title said the same thing a second time.
  */
 @Component({
   standalone: true,
@@ -77,8 +80,6 @@ export class FilebrowserComponent {
   public readonly hasFailed = signal(false);
   public readonly search = signal('');
   public readonly shown = signal(pageSize);
-
-  public readonly title = computed(() => this.pathService.current()?.name ?? 'Files');
 
   public readonly filtered = computed(() => {
     const term = this.search().trim().toLowerCase();
@@ -171,9 +172,17 @@ export class FilebrowserComponent {
       onCleanup(() => observer.disconnect());
     });
 
-    // The breadcrumb scrolls sideways; the crumb that matters is the last one, so keep it in view.
+    // The trail scrolls sideways; the crumb that matters is the last one, so keep it in view. It is
+    // in the panel's heading now, which is narrower than the row it replaced — a deep path runs off
+    // the right of it sooner, so this matters more than it did.
+    //
+    // `count()` is read for its width, not its value. It shares the heading with the trail and goes
+    // from empty to "5 items" when the listing lands, which is *after* the navigation that moved the
+    // trail: the tally appearing narrows the trail beside it, and a scroll already at the end stops
+    // being at the end. On a phone that left the folder you are standing in half off the edge.
     afterRenderEffect(() => {
       this.pathService.segments();
+      this.count();
       const element = this.crumbs()?.nativeElement;
 
       if (!element) {

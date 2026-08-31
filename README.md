@@ -134,26 +134,53 @@ runs as, the same as a fresh install.
 
 Needs the .NET 10 SDK and Node 22+.
 
+The repository has two halves: `backend/` holds every .NET project and the solution file,
+`frontend/` holds the SPA.
+
 ```bash
-dotnet run --project FileHub.Api   # https://localhost:5000
-dotnet test
+dotnet run --project backend/FileHub.Api   # http://localhost:5000
+dotnet test backend/FileHub.slnx
 ```
 
 ```bash
 cd frontend
 npm ci
-npm run watch     # rebuilds into ../FileHub.Api/wwwroot; the API live-reloads on it
+npm run watch     # rebuilds into ../backend/FileHub.Api/wwwroot; the API live-reloads on it
 npm test
 ```
 
-The API serves the SPA out of `FileHub.Api/wwwroot`, so `npm run watch` alongside `dotnet run` is
-the whole loop — there is no separate dev server and no proxy to configure. In Development the
-database and key ring land in `FileHub.Api/data`, and SMTP points at `localhost:1025`, where a
-local mail catcher such as Mailpit will show you the invitation and reset mails.
+The API serves the SPA out of `backend/FileHub.Api/wwwroot`, so `npm run watch` alongside
+`dotnet run` is the whole loop — there is no separate dev server and no proxy to configure. In
+Development the database and key ring land in `backend/FileHub.Api/data`, and SMTP points at
+`localhost:1025`, where a local mail catcher such as Mailpit will show you the invitation and reset
+mails.
 
-Database migrations are EF Core migrations in `FileHub.Dal/Migrations`, applied automatically at
-startup.
+Database migrations are EF Core migrations in `backend/FileHub.Dal/Migrations`, applied
+automatically at startup.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE). That covers the source code. The logo does not travel under it — see
+below.
+
+### The logo, and what you have to do if you fork this commercially
+
+The wordmark in `frontend/public/file-hub.svg` is set in **[Greater
+Theory](https://brandsemut.com/product/greater-theory/) by brandsemut**, and the letterforms are
+stored as outlines rather than as live text, so the file renders the same whether or not the viewer
+has the typeface installed.
+
+**Greater Theory is licensed for personal use only.** Its author requires a paid licence for
+promotional or commercial use. Running FileHub for yourself, your household or a hobby project is
+personal use and needs nothing. **If you use FileHub commercially — a business, a paid service, or
+anything else promotional — you must either**
+
+1. buy a commercial licence from <https://brandsemut.com/product/greater-theory/>, or
+2. replace the wordmark with your own.
+
+Replacing it is one file. `frontend/public/file-hub.svg` is the wordmark, used in the app header and
+above every sign-in screen; `frontend/public/filehub.svg` and `filehub.png` are the separate "F"
+mark, used as the favicon and in the mail templates, and are not affected. Drop in your own SVG
+under the same name and rebuild.
+
+The "F" mark itself is this project's own artwork and is covered by the MIT licence above.
