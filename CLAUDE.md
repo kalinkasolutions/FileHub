@@ -32,6 +32,15 @@ Migrations are applied at startup by `Seed.InitializeAsync`; there is no manual 
 step, and a migration that is added but never applied locally will be applied by the next `dotnet
 run` against whatever database the connection string points at.
 
+**A generated migration that adds a constraint to an existing table has to be rewritten by hand.**
+SQLite has no `ALTER TABLE ADD CONSTRAINT`, so EF emulates one by rebuilding the table, and the
+rebuild is bracketed with `PRAGMA foreign_keys = 0`, which cannot run inside a transaction — which
+takes the *whole* migration out of the transaction, so an interrupted upgrade is left half applied
+and has to be unpicked by hand. It is a warning at startup, not an error, and easy to walk past.
+`Groups` is the worked example: its `AddColumn` + `AddForeignKey` pair is one
+`ALTER TABLE "Shares" ADD COLUMN ... REFERENCES ...`, which SQLite does allow as long as the
+column's default is NULL. Same schema, one statement, inside the transaction.
+
 Frontend, from `frontend/`:
 
 ```bash

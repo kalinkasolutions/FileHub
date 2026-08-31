@@ -11,12 +11,6 @@ namespace Dal.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<Guid>(
-                name: "AudienceGroupId",
-                table: "Shares",
-                type: "TEXT",
-                nullable: true);
-
             migrationBuilder.CreateTable(
                 name: "Groups",
                 columns: table => new
@@ -30,6 +24,21 @@ namespace Dal.Migrations
                 {
                     table.PrimaryKey("PK_Groups", x => x.Id);
                 });
+
+            // Hand-written rather than AddColumn + AddForeignKey, because SQLite cannot add a
+            // constraint to an existing table: EF emulates it by rebuilding Shares, and a rebuild
+            // is bracketed with "PRAGMA foreign_keys = 0", which cannot run inside the migration's
+            // transaction. That left the whole migration outside one, so an interrupted upgrade
+            // would need unpicking by hand. SQLite does allow a REFERENCES clause on ADD COLUMN as
+            // long as the default is NULL, which this column's is, so the same schema arrives in
+            // one statement that the transaction covers. The constraint is unnamed, as every
+            // SQLite foreign key written inline is.
+            migrationBuilder.Sql(
+                """
+                ALTER TABLE "Shares"
+                ADD COLUMN "AudienceGroupId" TEXT NULL
+                REFERENCES "Groups" ("Id") ON DELETE CASCADE;
+                """);
 
             migrationBuilder.CreateTable(
                 name: "BasePathGroupAccesses",
@@ -117,14 +126,6 @@ namespace Dal.Migrations
                 table: "Groups",
                 column: "Name",
                 unique: true);
-
-            migrationBuilder.AddForeignKey(
-                name: "FK_Shares_Groups_AudienceGroupId",
-                table: "Shares",
-                column: "AudienceGroupId",
-                principalTable: "Groups",
-                principalColumn: "Id",
-                onDelete: ReferentialAction.Cascade);
         }
 
         /// <inheritdoc />
