@@ -160,4 +160,27 @@ automatically at startup.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE). That covers the source code. The logo does not travel under it — see
+below.
+
+### The logo, and what you have to do if you fork this commercially
+
+The wordmark in `frontend/public/file-hub.svg` is set in **[Greater
+Theory](https://brandsemut.com/product/greater-theory/) by brandsemut**, and the letterforms are
+stored as outlines rather than as live text, so the file renders the same whether or not the viewer
+has the typeface installed.
+
+**Greater Theory is licensed for personal use only.** Its author requires a paid licence for
+promotional or commercial use. Running FileHub for yourself, your household or a hobby project is
+personal use and needs nothing. **If you use FileHub commercially — a business, a paid service, or
+anything else promotional — you must either**
+
+1. buy a commercial licence from <https://brandsemut.com/product/greater-theory/>, or
+2. replace the wordmark with your own.
+
+Replacing it is one file. `frontend/public/file-hub.svg` is the wordmark, used in the app header and
+above every sign-in screen; `frontend/public/filehub.svg` and `filehub.png` are the separate "F"
+mark, used as the favicon and in the mail templates, and are not affected. Drop in your own SVG
+under the same name and rebuild.
+
+The "F" mark itself is this project's own artwork and is covered by the MIT licence above.
