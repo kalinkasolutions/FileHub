@@ -885,4 +885,9 @@ there is one to get wrong — with `read_only`, `tmpfs: /tmp`, `cap_drop: ALL` a
 `no-new-privileges`. A bare `4122:4122` binds `0.0.0.0` and puts the login form on the internet in
 cleartext, around nginx and around TLS.
 
+The port is set as **`ASPNETCORE_HTTP_PORTS=4122`**, in the Dockerfile and again in compose, rather
+than as `ASPNETCORE_URLS`. The aspnet image already sets `ASPNETCORE_HTTP_PORTS=8080`, and a URLS
+that disagrees with it wins but says so on every start ("Overriding HTTP_PORTS ... Binding to
+values defined by URLS instead"). Both bind `http://*:4122`; only one of them is quiet about it.
+
 Commit messages follow conventional commits (`feat:`, `fix:`, `docs:`, `chore:`).

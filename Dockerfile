@@ -56,7 +56,11 @@ RUN printf '{"version":"%s","commitSha":"%s","builtAt":"%s"}\n' \
 # Owned by the unprivileged uid below, so a run *without* a bind mount still works.
 RUN mkdir -p /var/srv && chown -R $APP_UID:$APP_UID /var/srv
 
-ENV ASPNETCORE_URLS=http://+:4122
+# HTTP_PORTS, not URLS: the aspnet image already sets ASPNETCORE_HTTP_PORTS=8080, and a URLS that
+# disagrees with it is honoured but warned about on every start ("Overriding HTTP_PORTS ... Binding
+# to values defined by URLS instead"). Setting the port the image's own way binds the same
+# http://*:4122 with nothing to override.
+ENV ASPNETCORE_HTTP_PORTS=4122
 EXPOSE 4122
 
 # Drop root. APP_UID is Microsoft's, not ours: the aspnet image defines it (1654, with a matching
