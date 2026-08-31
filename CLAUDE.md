@@ -624,6 +624,9 @@ the screen.
   and a slow request is not worth announcing. The list keeps the rows it has until the new ones
   land, and the empty message is gated on `!isLoading()` so it can never claim an empty log while
   the first request is still in flight — the opposite mistake, and the one worth guarding.
+- **The message and the expanded stack trace are selectable**, against the app-wide
+  `user-select: none`. A log line exists to be quoted into a ticket or a search; a trace exists to
+  be pasted somewhere else entirely.
 - **A log row is three stacked lines on a phone** — level, then timestamp, then the message, each
   full width — and one line from 470px up. Three columns at 390px leave the message about fifteen
   glyphs, which is not a log line. The expand-exception button is absolutely positioned on the small
