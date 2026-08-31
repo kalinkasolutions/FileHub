@@ -40,13 +40,21 @@
   }
 }
 
-// The folder you are standing in, in the same monospace column as its contents.
+// The trail, sitting where the panel's title used to. It keeps the title's own type size — this is
+// the heading now, not a sub-line under one — and scrolls sideways without a scrollbar of its own:
+// the component keeps the last crumb in view, and a bar here would read as one more rule.
 .here {
+  @include flex(row);
+  align-items: center;
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-x: auto;
   white-space: nowrap;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 // How much of the folder is on screen. It says "n of m" while the filter is narrowing the list,
@@ -57,29 +65,13 @@
   font-size: $font-size-small;
 }
 
-// The trail scrolls sideways without a scrollbar of its own — the component keeps the last crumb
-// in view, and a bar here would read as one more rule.
-.crumbs {
-  @include flex(row);
-  align-items: center;
-  flex-shrink: 0;
-  overflow-x: auto;
-  padding: $small-padding;
-  border-bottom: 1px solid $border-subtle;
-  font-size: $font-size-small;
-  white-space: nowrap;
-  scrollbar-width: none;
-
-  &::-webkit-scrollbar {
-    display: none;
-  }
-}
-
 .crumb {
+  flex-shrink: 0;
   min-height: 0;
   padding: 0 2px;
   background: transparent;
   color: $text-secondary;
+  // The heading's size, inherited rather than set: the trail replaced a title and reads as one.
   font-size: inherit;
   font-weight: 400;
 
@@ -99,6 +91,7 @@
 }
 
 .separator {
+  flex-shrink: 0;
   padding: 0 2px;
   color: $icon-faint;
 }
