@@ -1,0 +1,215 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+@use '../admin' as *;
+
+:host {
+  @include admin-section;
+  // The filter on the leading edge, the log beside it — the same split, and so the same leading
+  // column width, as "Invite an account", "Create a group" and "Add a base path". A filter panel
+  // narrower than the form panel on the tab next door reads as a different kind of screen, and it
+  // is not one. The listing side is what scales with the monitor.
+  @include admin-section-split;
+}
+
+.panel {
+  @include admin-panel;
+
+  // `admin-panel` makes the body a scroller on a wide screen, which is right when the body *is* the
+  // content. In the log panel it is a fixed header — the explanation and the truncation warning —
+  // above a list that can be a thousand rows. Left shrinkable it loses the fight and collapses to a
+  // nested scrollport nobody would think to scroll. The list is the only thing here that scrolls.
+  @media (min-width: $admin-wide) {
+    > .body {
+      flex-shrink: 0;
+      min-height: auto;
+      overflow: visible;
+    }
+  }
+}
+
+// The log panel's heading carries its own tally, the way the file browser's listing does.
+.title {
+  @include flex(row);
+  align-items: baseline;
+  gap: $small-padding;
+
+  .here {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+// How much of the log is on screen against how much matches the filter — the only sign that the
+// list is a window onto something larger.
+.count {
+  flex-shrink: 0;
+  color: $text-dim;
+  font-size: $font-size-small;
+}
+
+.actions {
+  @include flex(row);
+  align-items: center;
+  gap: $default-padding;
+  flex-wrap: wrap;
+
+  button {
+    flex: 1;
+  }
+}
+
+// The follow toggle is a button, not a switch: it has two states and pressing it changes one to the
+// other, which is what a button is. It only wears the accent while it is actually following *and*
+// the socket is up — a paused or disconnected log that still looked live would be the worst of both.
+.follow {
+  mat-icon {
+    @include icon-size($icon-size-inline);
+  }
+
+  &.live {
+    border-color: $primary-green;
+    color: $primary-green;
+  }
+}
+
+// The live channel's state, shown only when it is not healthy. Muted while it is retrying by
+// itself, the danger colour once it has given up — the difference is whether the reader has to do
+// anything about it.
+.stream {
+  @include flex(row);
+  align-items: center;
+  gap: 4px;
+
+  mat-icon {
+    @include icon-size($icon-size-inline);
+  }
+
+  &.offline {
+    color: $text-danger;
+  }
+}
+
+// The list is the scroller, so the panel's rule and its heading stay put while the log moves under
+// them — the same shape the file browser's listing has.
+.entries {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+// Mobile-first: on a phone an entry is three stacked lines — level, then when, then what happened.
+// Squeezing three columns into 390px leaves the message about fifteen glyphs, and a log line cut to
+// fifteen glyphs is not a log line. The rule further down puts it back on one line as soon as there
+// is width for it.
+//
+// It is dense and monospace, which is the app's one face anyway; above the step-down that means the
+// level and time columns line up all the way down the list.
+.entry {
+  @include flex(column);
+  gap: 0;
+  padding: $small-padding;
+  border-bottom: 1px solid $border-subtle;
+  font-size: $font-size-small;
+  line-height: 1.5;
+  // Anchors the expand button, which is the one thing that does not want a line of its own.
+  position: relative;
+
+  .level {
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .when {
+    color: $text-dim;
+  }
+
+  // The message wraps rather than truncating: a log line is the content, and cutting it to one row
+  // would hide the half that says what happened.
+  .message {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  // Out of the stack entirely on a phone: three lines plus a button on a fourth would make a row of
+  // one entry taller than the thing it describes.
+  .trace {
+    position: absolute;
+    top: $small-padding;
+    right: $small-padding;
+  }
+
+  // Three answers, not six: routine, worth a look, and wrong. Verbose and Debug share the quiet
+  // treatment because they are the same kind of routine.
+  &.quiet .level {
+    color: $icon-faint;
+  }
+
+  &.info .level {
+    color: $text-secondary;
+  }
+
+  &.warning .level {
+    color: $text-danger;
+  }
+
+  // The only rows that colour the whole line. An error is worth finding while scrolling past it,
+  // and the level alone is too small to catch the eye at this density.
+  &.error {
+    background-color: $surface-hover;
+
+    .level,
+    .message {
+      color: $text-error;
+    }
+  }
+}
+
+// The stack trace, under the row it belongs to. Pre-wrapped rather than scrolled sideways: a trace
+// is read top to bottom, and a horizontal scrollbar inside a vertical scroller is a trap.
+.trace-body {
+  padding: $small-padding $small-padding $default-padding;
+  border-bottom: 1px solid $border-subtle;
+  background: $bg-elevated;
+
+  pre {
+    margin: 0;
+    color: $text-secondary;
+    font-family: $font-mono;
+    font-size: $font-size-small;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+}
+
+// From a tablet up the entry is one line again — level, time, message — which is what makes the
+// list read as a log rather than as a stack of three-line blocks.
+@media (min-width: 470px) {
+  .entry {
+    @include flex(row);
+    align-items: baseline;
+    gap: $small-padding;
+    padding: 2px $small-padding;
+
+    .level {
+      flex-shrink: 0;
+      // Reserved rather than natural, so the messages start in one column instead of stepping in
+      // and out with the length of each level name.
+      width: 6.5em;
+    }
+
+    .when {
+      flex-shrink: 0;
+    }
+
+    .message {
+      flex: 1;
+    }
+
+    .trace {
+      position: static;
+      flex-shrink: 0;
+      align-self: center;
+    }
+  }
+}

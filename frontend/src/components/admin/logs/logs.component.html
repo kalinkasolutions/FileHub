@@ -1,0 +1,161 @@
+<!-- The filter on the left, the log beside it — the shape every other admin section has. The
+     controls are their own panel because they are a thing on the screen in their own right, and
+     because a listing this long should not be able to push them out of reach. -->
+<section class="panel">
+  <span class="title">Filter</span>
+
+  <div class="body">
+    <!-- Not a <form>: there is nothing to submit. Each control re-asks on change, which is what
+         makes this feel like a filter rather than a query to run. -->
+    <div class="form-control">
+      <label for="log-level">Level</label>
+      <select
+        id="log-level"
+        name="minLevel"
+        [ngModel]="minLevel()"
+        (ngModelChange)="minLevel.set($event); applyFilter()"
+      >
+        <!-- A minimum, not an exact match: picking Warning must not hide the Error after it. -->
+        <option value="">Everything</option>
+        @for (level of levels; track level) {
+          <option [value]="level">{{ level }} and above</option>
+        }
+      </select>
+    </div>
+
+    <div class="form-control">
+      <label for="log-search">Message contains</label>
+      <input
+        id="log-search"
+        type="search"
+        name="search"
+        placeholder="deleted group…"
+        [ngModel]="search()"
+        (ngModelChange)="search.set($event)"
+        (change)="applyFilter()"
+        (keyup.enter)="applyFilter()"
+      />
+    </div>
+
+    <div class="form-control">
+      <label for="log-from">From</label>
+      <input
+        id="log-from"
+        type="datetime-local"
+        name="from"
+        [ngModel]="from()"
+        (ngModelChange)="from.set($event); applyFilter()"
+      />
+    </div>
+
+    <div class="form-control">
+      <label for="log-to">To</label>
+      <input
+        id="log-to"
+        type="datetime-local"
+        name="to"
+        [ngModel]="to()"
+        (ngModelChange)="to.set($event); applyFilter()"
+      />
+    </div>
+
+    <!-- Following belongs with the filter: it decides what the list shows, exactly like the four
+         controls above it. -->
+    <div class="actions">
+      @if (!hasRange()) {
+        <button
+          type="button"
+          class="secondary follow"
+          [class.live]="isFollowing() && streamState() === 'live'"
+          (click)="toggleFollow()"
+        >
+          <mat-icon>{{ isFollowing() ? 'pause' : 'play_arrow' }}</mat-icon>
+          {{ isFollowing() ? 'Following' : 'Paused' }}
+        </button>
+      }
+
+      @if (isFiltered()) {
+        <button type="button" class="secondary" (click)="clearFilter()">Clear</button>
+      }
+    </div>
+
+    <!-- "Following" and a closed date range are different questions, so the toggle goes away rather
+         than sitting there disabled with no explanation. -->
+    @if (hasRange()) {
+      <p class="hint">Following is off while a date range is set.</p>
+    }
+
+    <!-- The live channel's own health. A view that has quietly stopped being live is worse than one
+         that says so, and only the socket knows. Silent while it is healthy: "Following" already
+         means that. -->
+    @if (!hasRange() && isFollowing() && streamState() !== 'live') {
+      <p class="hint stream" [class.offline]="streamState() === 'offline'">
+        <mat-icon>{{ streamState() === 'offline' ? 'cloud_off' : 'sync' }}</mat-icon>
+        {{ streamState() === 'offline' ? 'Not connected — reload to resume' : 'Reconnecting…' }}
+      </p>
+    }
+  </div>
+</section>
+
+<section class="panel">
+  <header class="title">
+    <span class="here">Log</span>
+    <span class="count">{{ countLabel() }}</span>
+  </header>
+
+  <div class="body">
+    <p class="hint">
+      What this installation has been doing, newest first. The same lines
+      <code>docker compose logs</code> shows, kept in the database — so they survive a restart, and
+      so they can be searched. Nothing here can be edited or deleted from this screen.
+    </p>
+
+    @if (hasMore()) {
+      <p class="hint warn">
+        Only the newest entries are shown. Narrow the filter to reach the rest.
+      </p>
+    }
+  </div>
+
+  <!-- No loading state on purpose. A request that is merely slow is not worth a placeholder here,
+       and one shown on every filter keystroke is the only thing a reader on a slow connection would
+       ever see. The list simply keeps the entries it has until the new ones land; the empty message
+       waits for a request to have actually finished, so it never claims an empty log during the
+       first load. -->
+  @if (entries().length > 0) {
+    <ul class="list entries">
+      @for (entry of entries(); track entry.id) {
+        <li class="entry" [class]="levelClass(entry.level)">
+          <span class="level">{{ entry.level }}</span>
+          <!-- UTC on the wire, drawn in the reader's own zone by the pipe. -->
+          <time class="when" [attr.datetime]="entry.timestamp">
+            {{ entry.timestamp | date: 'yyyy-MM-dd HH:mm:ss' }}
+          </time>
+          <span class="message">{{ entry.message }}</span>
+
+          @if (entry.exception) {
+            <button
+              class="icon-btn quiet trace"
+              type="button"
+              [attr.aria-expanded]="expandedId() === entry.id"
+              aria-label="Show the exception"
+              (click)="toggleException(entry)"
+            >
+              <mat-icon>{{ expandedId() === entry.id ? 'expand_less' : 'expand_more' }}</mat-icon>
+            </button>
+          }
+        </li>
+
+        @if (entry.exception && expandedId() === entry.id) {
+          <li class="trace-body">
+            <pre>{{ entry.exception }}</pre>
+          </li>
+        }
+      }
+    </ul>
+  } @else if (!isLoading()) {
+    <p class="empty">
+      {{ isFiltered() ? 'Nothing in the log matches that.' : 'The log is empty.' }}
+    </p>
+  }
+</section>
