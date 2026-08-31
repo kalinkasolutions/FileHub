@@ -477,6 +477,18 @@ div.mat-mdc-dialog-surface {
   height: auto;
 }
 
+// The admin area is the one chromed view that does not take the reading cap. That cap is a
+// *measure* — it keeps prose from running to 200 characters — and there is no prose in there: six
+// dense data screens, and a log with one long record per row. Capped, a 2560px monitor gave the log
+// message exactly the same 490px a laptop did and two rows in five wrapped.
+//
+// It has to be written here rather than in `admin.component.scss` for the same reason the rule
+// above is: this selector is two classes and `:host` is one, so a component-level `max-width` loses
+// the cascade no matter where it sits in the file.
+.shell.chromed > admin {
+  max-width: none;
+}
+
 // ─── Toasts ─────────────────────────────────────────────────────────────────
 // ngx-toastr ships its own look: rounded corners, its own font stack, a filled colour block and a
 // background-image glyph. Left alone it is the one thing on screen that is not FileHub, so it gets

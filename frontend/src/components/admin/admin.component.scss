@@ -4,6 +4,8 @@
 
 :host {
   @include app-shell;
+  // The width cap this view is exempt from is lifted in `styles.scss`, not here — see the note by
+  // `.shell.chromed > admin`. A `max-width` written at this level cannot win against it.
 }
 
 // The first thing on the screen, above the content. `tab-bar` rules underneath itself and scrolls

@@ -37,11 +37,16 @@ $admin-wide: 960px;
 }
 
 // The shape nearly every admin section has: a form on the leading edge that never needs more than
-// a column of width, and beside it the listing that is the actual screen. Splitting the section
-// 1:2 rather than evenly is what stops a three-field form from taking half the desktop.
+// a column of width, and beside it the listing that is the actual screen.
+//
+// The form track is *capped*, not proportional. It used to be `1fr 2fr`, which was fine while the
+// whole view was capped at 1200px — but the admin area is full width now (see
+// `.shell.chromed > admin` in styles.scss), and a proportional form track turned a Port field into
+// a 1217px input on a 1920px monitor. A form does not get better with width; a listing does. So the
+// form takes one column and the listing takes the rest of the screen, however big that is.
 @mixin admin-section-split {
   @media (min-width: $admin-wide) {
-    grid-template-columns: 1fr 2fr;
+    grid-template-columns: minmax($panel-min-width, $max-form-width) minmax(0, 1fr);
   }
 }
 
