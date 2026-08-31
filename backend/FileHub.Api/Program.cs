@@ -6,6 +6,7 @@ using Dal.Repositories.BasePaths;
 using Dal.Repositories.Email;
 using Dal.Repositories.Groups;
 using Dal.Repositories.Identity;
+using Dal.Repositories.Logs;
 using Dal.Repositories.Shares;
 using Entities.Account;
 using FileHub;
@@ -21,15 +22,19 @@ using FileHub.BusinessLogic.Services.Email;
 using FileHub.BusinessLogic.Services.Files;
 using FileHub.BusinessLogic.Services.Groups;
 using FileHub.BusinessLogic.Services.Identity;
+using FileHub.BusinessLogic.Services.Logs;
 using FileHub.BusinessLogic.Services.Shares;
 using FileHub.Endpoints;
+using FileHub.Realtime;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
 using Serilog;
 using Serilog.Events;
+using Shared;
 using Westwind.AspNetCore.LiveReload;
 
 // The SPA build output. A checkout that has not run `npm run build` yet has no wwwroot at all, and
@@ -53,6 +58,11 @@ var connectionString = builder.Configuration.GetConnectionString("FileHub")
 var logDbPath = Path.GetFullPath(new SqliteConnectionStringBuilder(connectionString).DataSource);
 Directory.CreateDirectory(Path.GetDirectoryName(logDbPath)!);
 var minimumLevel = ParseLogLevel(builder.Configuration["Logging:LogLevel:Default"]);
+
+// Created here rather than resolved from DI because a Serilog sink needs it, and the logger is
+// configured before there is a container to resolve anything from. The same instance is registered
+// below, so the sink and the broadcaster are talking about one doorbell and not two.
+var logChangeSignal = new LogChangeSignal();
 builder.Host.UseSerilog((context, configuration) => configuration
     .MinimumLevel.Is(minimumLevel)
     .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
@@ -60,7 +70,18 @@ builder.Host.UseSerilog((context, configuration) => configuration
     .MinimumLevel.Override("Microsoft.Hosting.Lifetime", LogEventLevel.Information)
     .Enrich.FromLogContext()
     .WriteTo.Console()
-    .WriteTo.SQLite(logDbPath, tableName: "Logs", storeTimestampInUtc: true));
+    // batchSize 1 rather than the sink's default 100. The admin log screen tails this table, and a
+    // batch that only flushes when it is full means a quiet install shows nothing for minutes while
+    // "Following" claims otherwise. One INSERT per entry is a write this application can afford:
+    // the volume is a handful of lines per request, not a stream.
+    .WriteTo.SQLite(logDbPath, tableName: "Logs", storeTimestampInUtc: true, batchSize: 1)
+    // Writes nothing; rings the doorbell so the admin log screen is told a line exists instead of
+    // asking every couple of seconds whether one does. See LogChangeSignal.
+    .WriteTo.Sink(new LogSignalSink(logChangeSignal)));
+
+builder.Services.AddSingleton(logChangeSignal);
+builder.Services.AddSignalR();
+builder.Services.AddHostedService<LogBroadcastService>();
 
 builder.Services.AddDbContext<FileHubContext>(options => options.UseSqlite(connectionString));
 builder.Services.AddHttpContextAccessor();
@@ -193,6 +214,7 @@ builder.Services.AddScoped<IUserAdminRepository, UserAdminRepository>();
 builder.Services.AddScoped<IBasePathRepository, BasePathRepository>();
 builder.Services.AddScoped<IGroupRepository, GroupRepository>();
 builder.Services.AddScoped<IShareRepository, ShareRepository>();
+builder.Services.AddScoped<ILogRepository, LogRepository>();
 
 builder.Services.AddScoped<IEmailSettingsProvider, EmailSettingsProvider>();
 builder.Services.AddScoped<IEmailService, EmailService>();
@@ -205,6 +227,7 @@ builder.Services.AddScoped<IBasePathService, BasePathService>();
 builder.Services.AddScoped<IGroupService, GroupService>();
 builder.Services.AddScoped<IFileService, FileService>();
 builder.Services.AddScoped<IShareService, ShareService>();
+builder.Services.AddScoped<ILogService, LogService>();
 
 var webRootPath = Path.Combine(builder.Environment.ContentRootPath, "wwwroot");
 
@@ -230,7 +253,15 @@ if (app.Environment.IsDevelopment())
 // at 429 for everybody). This is the Go build's TrustedProxies list, back as configuration.
 app.UseForwardedHeaders(BuildForwardedHeadersOptions(builder.Configuration));
 
-app.UseSerilogRequestLogging();
+// One line per request. The level is chosen per request rather than left at the default
+// Information for everything: the Logs table has no retention, and a single page load is ~30
+// requests for hashed JS chunks, fonts and icons — at Information those bury the entries that say
+// what somebody actually did, both in the admin log screen and in `docker compose logs`.
+//
+// So: a failure is always Error, a slow or 4xx request is Warning, an /api call is Information, and
+// a static asset that was served is Debug — present if the minimum level is turned down to look for
+// it, invisible otherwise.
+app.UseSerilogRequestLogging(options => options.GetLevel = GetRequestLogLevel);
 
 app.UseDefaultFiles();
 app.UseStaticFiles();
@@ -253,6 +284,12 @@ app.MapAuthEndpoint();
 app.MapAccountEndpoint();
 app.MapAdminUserEndpoint();
 app.MapAdminRoleEndpoint();
+app.MapAdminLogEndpoint();
+
+// Under /api on purpose. MustChangePasswordMiddleware lets through anything that is not /api —
+// that carve-out is for the SPA's own files — so a hub mapped outside it would be reachable by an
+// account still sitting on a password somebody else chose.
+app.MapHub<LogHub>("api/admin/logs/stream");
 app.MapEmailSettingEndpoint();
 app.MapBasePathEndpoint();
 app.MapGroupEndpoint();
@@ -321,6 +358,50 @@ static ForwardedHeadersOptions BuildForwardedHeadersOptions(IConfiguration confi
     }
 
     return options;
+}
+
+// What one request is worth in the log. See the note at UseSerilogRequestLogging.
+//
+// `elapsed` is milliseconds and `exception` is whatever escaped the pipeline. Note that a download
+// is deliberately not "slow": FileDownload turns Kestrel's minimum data rate off so a large file
+// over a slow line can take as long as it takes, and every one of those would otherwise be a
+// warning. The threshold is only consulted for requests that are not downloads.
+static LogEventLevel GetRequestLogLevel(HttpContext context, double elapsed, Exception? exception)
+{
+    if (exception != null || context.Response.StatusCode >= StatusCodes.Status500InternalServerError)
+    {
+        return LogEventLevel.Error;
+    }
+
+    // A refused or missing request is the interesting half of a log: a run of 401s or 404s is what
+    // a scraper on a leaked share link looks like.
+    if (context.Response.StatusCode >= StatusCodes.Status400BadRequest)
+    {
+        return LogEventLevel.Warning;
+    }
+
+    var path = context.Request.Path;
+
+    // The admin log screen reading the log. Not worth a line of its own — it changes nothing, and
+    // an admin leaving the screen open would otherwise fill the table with the record of them
+    // watching it. LogSignalSink drops these too, which is what stops the live view from feeding
+    // itself; this only keeps them out of the table. See LogRoutes.
+    if (LogRoutes.IsLogScreenTraffic(path))
+    {
+        return LogEventLevel.Verbose;
+    }
+
+    // The application's own surface. `og/` and `public-api/` are in here too: they are anonymous,
+    // which makes them the ones worth being able to read.
+    if (path.StartsWithSegments("/api")
+        || path.StartsWithSegments("/public-api")
+        || path.StartsWithSegments("/og"))
+    {
+        return LogEventLevel.Information;
+    }
+
+    // Everything else is the SPA's own files and the fallback to index.html.
+    return LogEventLevel.Debug;
 }
 
 // Maps a Microsoft-style log level name (as used in the Logging:LogLevel config section) to the

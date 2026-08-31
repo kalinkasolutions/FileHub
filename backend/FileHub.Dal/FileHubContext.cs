@@ -2,6 +2,7 @@ using Entities;
 using Entities.Account;
 using Entities.Email;
 using Entities.Groups;
+using Entities.Logs;
 using Entities.Paths;
 using Entities.Shares;
 using Microsoft.AspNetCore.Identity;
@@ -23,6 +24,12 @@ public class FileHubContext : IdentityDbContext<FileHubUser, IdentityRole<Guid>,
     public DbSet<GroupMembership> GroupMemberships { get; set; }
     public DbSet<Share> Shares { get; set; }
     public DbSet<EmailSetting> EmailSettings { get; set; }
+
+    /// <summary>
+    /// The Serilog SQLite sink's own table, mapped read-only so the admin log screen can query it
+    /// with the same LINQ everything else uses. See <see cref="LogEntry"/> and the mapping below.
+    /// </summary>
+    public DbSet<LogEntry> Logs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -122,6 +129,25 @@ public class FileHubContext : IdentityDbContext<FileHubUser, IdentityRole<Guid>,
                 .WithMany(g => g.Shares)
                 .HasForeignKey(s => s.AudienceGroupId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<LogEntry>(entity =>
+        {
+            // The sink's table, not ours. ExcludeFromMigrations is the load-bearing line: without
+            // it the next `migrations add` emits a CreateTable for a table the sink already made,
+            // and applying it fails on an existing install — or, worse, a later model change emits
+            // a DropTable and takes the log with it.
+            entity.ToTable("Logs", t => t.ExcludeFromMigrations());
+
+            // The sink's column names, which are not this project's conventions; spelled out so a
+            // rename on our side cannot silently stop matching the table.
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id");
+            entity.Property(x => x.Timestamp).HasColumnName("Timestamp");
+            entity.Property(x => x.Level).HasColumnName("Level");
+            entity.Property(x => x.Exception).HasColumnName("Exception");
+            entity.Property(x => x.RenderedMessage).HasColumnName("RenderedMessage");
+            entity.Property(x => x.Properties).HasColumnName("Properties");
         });
 
         builder.Entity<EmailSetting>(entity =>

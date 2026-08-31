@@ -1,5 +1,6 @@
 using Dal;
 using Dal.Extensions;
+using Dal.Repositories.Logs;
 using Entities.Account;
 using FileHub.BusinessLogic.Services.Admin;
 using Microsoft.AspNetCore.Identity;
@@ -24,6 +25,7 @@ public static class Seed
         var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger(nameof(Seed));
 
         await MigrateAsync(services, logger);
+        await EnsureLogIndexesAsync(services, logger);
         await EnsureRolesAsync(services, logger);
 
         // Before the admin seeding, not after: DevSeed creates an admin, so EnsureAdminAsync then
@@ -53,6 +55,27 @@ public static class Seed
         }
 
         await db.Database.MigrateAsync();
+    }
+
+    /// <summary>
+    /// Indexes the admin log screen's filters need on the Serilog sink's table. Not a migration:
+    /// the table is the sink's and is excluded from the EF model's migrations, so nothing else
+    /// would ever create these. Idempotent, and a no-op if the sink has not made its table yet.
+    /// </summary>
+    private static async Task EnsureLogIndexesAsync(IServiceProvider services, ILogger logger)
+    {
+        var logRepository = services.GetRequiredService<ILogRepository>();
+
+        try
+        {
+            await logRepository.EnsureIndexesAsync();
+        }
+        catch (Exception exception)
+        {
+            // Never fatal. These only make the log screen fast; an install that starts without them
+            // works, and refusing to boot over a diagnostic index would be the wrong trade.
+            logger.LogWarning(exception, "Could not create the indexes on the Logs table; the admin log screen will be slower");
+        }
     }
 
     private static async Task EnsureRolesAsync(IServiceProvider services, ILogger logger)
