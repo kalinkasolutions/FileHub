@@ -68,6 +68,14 @@ $admin-wide: 960px;
       overflow-y: auto;
     }
 
+    // The scrollport's bottom padding has to be zero for the sticky buttons below to hold still, so
+    // the buttons carry that padding themselves instead — see the note there. Scoped with `:has()`
+    // to a body that actually holds such a form: a panel whose body is prose, or a listing, still
+    // wants its own bottom padding.
+    > .body:has(> form > .buttons) {
+      padding-bottom: 0;
+    }
+
     // The action the panel exists for — Save, Add, Send an invitation — rides the bottom of its
     // own scrollport rather than sitting at the end of a long form where it scrolls out of reach.
     // Sticky rather than a footer outside the scroller because the button has to stay inside the
@@ -75,13 +83,17 @@ $admin-wide: 960px;
     //
     // Only a panel's own form. A drawer's buttons belong to the row they were opened from and
     // scroll with it.
+    //
+    // A sticky box has *two* resting places and they have to be made to agree, or the button jumps
+    // at one end of the scroll. While scrolling it rests against the scrollport's content box; once
+    // the scroll runs out it is wherever its containing block — the <form> — puts it, and the form
+    // ends at that same content box. So the fix is to leave nothing between them: the body's
+    // bottom padding goes to zero (above) and reappears as this element's own `padding-bottom`,
+    // painted in the panel's fill. With the padding still on the body the two disagreed by exactly
+    // that much, and the button lifted 1em over the last few percent of the scroll.
     > .body > form > .buttons {
       position: sticky;
-      // A sticky element comes to rest against the scrollport's *content* box, so at `bottom: 0`
-      // the body's own bottom padding is a strip below the button that the form goes on scrolling
-      // through. Sticking that much lower and taking the same amount back as padding puts the
-      // button where it was and paints the strip in the panel's fill.
-      bottom: -$default-padding;
+      bottom: 0;
       padding-top: $small-padding;
       padding-bottom: $default-padding;
       background-color: $surface;
