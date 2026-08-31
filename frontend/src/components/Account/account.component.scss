@@ -1,19 +1,18 @@
 @use 'variables' as *;
 @use 'mixins' as *;
 
-// Two 50% columns need two readable panels plus the gap between them; under this the screen goes
-// back to one column, because half of 900px is already narrower than the form width the auth
-// screens use.
-$account-wide: 900px;
-
 :host {
   @include app-shell;
 }
 
-// One block per cell, two cells to a row. Each block is still a panel of its own — flush blocks
-// with a hairline between them would put two 5px accent rules back to back and read as a 10px
-// seam. `align-items: start` keeps every panel at its natural height: stretched to match its
-// neighbour, a short block is mostly empty box.
+// One column at every width. Each block is still a panel of its own — flush blocks with a hairline
+// between them would put two 5px accent rules back to back and read as a 10px seam.
+//
+// Deliberately not two columns on a desktop. The five blocks are read top to bottom and half of
+// them are one field and a button, so a two-track grid pairs a three-line block with a ten-line one
+// and leaves the short cell mostly empty box — and the reading order zig-zags across the screen
+// instead of running down it. `$max-reading-width` is what keeps the single column from stretching
+// a one-field form the whole width of a monitor.
 .blocks {
   @include flex(column);
   gap: $default-margin;
@@ -24,12 +23,11 @@ $account-wide: 900px;
   overflow-y: auto;
   padding: $screen-padding;
 
-  @media (min-width: $account-wide) {
-    display: grid;
-    // `minmax(0, 1fr)` rather than `1fr`: a track's default minimum is its content, so a block
-    // holding something that cannot shrink — the recovery-code grid, a long address — would push
-    // its column past half and take the even split with it.
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: start;
+  // The column itself is capped and centred; without this every block runs edge to edge on a wide
+  // screen, which is the one thing a single column gets wrong that two columns did not.
+  > * {
+    width: 100%;
+    max-width: $max-reading-width;
+    margin-inline: auto;
   }
 }
