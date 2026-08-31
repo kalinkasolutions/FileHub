@@ -1,7 +1,7 @@
 # ---- Stage 1: build the Angular SPA ----
-# angular.json's outputPath is ../FileHub.Api/wwwroot, so `npm run build` (from /app/frontend)
-# emits the compiled SPA to /app/FileHub.Api/wwwroot — the same layout as the repository, which is
-# what keeps the one output path true both here and on a developer's machine.
+# angular.json's outputPath is ../backend/FileHub.Api/wwwroot, so `npm run build` (from
+# /app/frontend) emits the compiled SPA to /app/backend/FileHub.Api/wwwroot — the same layout as the
+# repository, which is what keeps the one output path true both here and on a developer's machine.
 FROM node:22-alpine AS client_build_env
 WORKDIR /app/frontend
 
@@ -19,16 +19,16 @@ WORKDIR /src
 # Copy just the project files first so `restore` is cached unless a .csproj changes.
 # These are the six projects FileHub.Api pulls in transitively; the test project is not
 # part of the published app, so it is deliberately not restored here.
-COPY FileHub.Api/FileHub.Api.csproj FileHub.Api/
-COPY FileHub.BusinessLogic/FileHub.BusinessLogic.csproj FileHub.BusinessLogic/
-COPY FileHub.Dal/FileHub.Dal.csproj FileHub.Dal/
-COPY FileHub.Dtos/FileHub.Dtos.csproj FileHub.Dtos/
-COPY FileHub.Entities/FileHub.Entities.csproj FileHub.Entities/
-COPY FileHub.Shared/FileHub.Shared.csproj FileHub.Shared/
-COPY Directory.Build.props ./
+COPY backend/FileHub.Api/FileHub.Api.csproj FileHub.Api/
+COPY backend/FileHub.BusinessLogic/FileHub.BusinessLogic.csproj FileHub.BusinessLogic/
+COPY backend/FileHub.Dal/FileHub.Dal.csproj FileHub.Dal/
+COPY backend/FileHub.Dtos/FileHub.Dtos.csproj FileHub.Dtos/
+COPY backend/FileHub.Entities/FileHub.Entities.csproj FileHub.Entities/
+COPY backend/FileHub.Shared/FileHub.Shared.csproj FileHub.Shared/
+COPY backend/Directory.Build.props ./
 RUN dotnet restore FileHub.Api/FileHub.Api.csproj --disable-parallel
 
-COPY . .
+COPY backend/ .
 RUN dotnet publish FileHub.Api/FileHub.Api.csproj -c Release -o /app/out --no-restore
 
 # ---- Stage 3: runtime image ----
@@ -38,7 +38,7 @@ WORKDIR /app
 COPY --from=dotnet_build_env /app/out ./
 # The SPA is excluded from publish in the csproj, so copy the built wwwroot in directly.
 # UseStaticFiles()/MapFallbackToFile serve it from ContentRoot/wwwroot at runtime.
-COPY --from=client_build_env /app/FileHub.Api/wwwroot ./wwwroot
+COPY --from=client_build_env /app/backend/FileHub.Api/wwwroot ./wwwroot
 
 # What release this image is. The publish workflow passes the release tag, commit and build time;
 # a plain `docker build` leaves the defaults, and the SPA then shows a development build.

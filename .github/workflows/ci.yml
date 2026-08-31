@@ -14,8 +14,8 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - run: dotnet build FileHub.slnx -c Release
-      - run: dotnet test FileHub.slnx -c Release --no-build
+      - run: dotnet build backend/FileHub.slnx -c Release
+      - run: dotnet test backend/FileHub.slnx -c Release --no-build
 
   frontend:
     runs-on: ubuntu-latest

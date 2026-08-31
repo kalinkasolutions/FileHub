@@ -3,22 +3,26 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 FileHub is a read-only cloud for browsing and sharing files from mounted disks: an ASP.NET Core
-(.NET 10) minimal-API backend that also serves an Angular 21 SPA out of `FileHub.Api/wwwroot`,
-over SQLite, shipped as a single Docker image. `MapFallbackToFile("index.html")` hands every
-non-API path to the client router.
+(.NET 10) minimal-API backend that also serves an Angular 21 SPA out of
+`backend/FileHub.Api/wwwroot`, over SQLite, shipped as a single Docker image.
+`MapFallbackToFile("index.html")` hands every non-API path to the client router.
+
+**The repository has two halves: `backend/` and `frontend/`.** Every .NET project, the solution
+file and `Directory.Build.props` live under `backend/`; nothing .NET is at the root. Paths in this
+document are written from the root, so a project is `backend/FileHub.Api`.
 
 ## Commands
 
 Backend, from the repository root:
 
 ```bash
-dotnet build FileHub.slnx
-dotnet test FileHub.IntegrationTests
-dotnet test FileHub.IntegrationTests --filter PathSandboxTests    # one class
+dotnet build backend/FileHub.slnx
+dotnet test backend/FileHub.IntegrationTests
+dotnet test backend/FileHub.IntegrationTests --filter PathSandboxTests    # one class
 ```
 
 EF Core migrations (SQLite provider). The design-time tools live in `FileHub.Api` but the
-`DbContext` is in `FileHub.Dal`, so both projects have to be named:
+`DbContext` is in `FileHub.Dal`, so both projects have to be named — from `backend/`:
 
 ```bash
 dotnet ef migrations add <Name> --project FileHub.Dal --startup-project FileHub.Api
@@ -33,24 +37,24 @@ Frontend, from `frontend/`:
 ```bash
 npm install
 npm start          # ng serve — for a quick look at a component, not for talking to the API
-npm run build      # outputs to ../FileHub.Api/wwwroot, which is what the API serves
+npm run build      # outputs to ../backend/FileHub.Api/wwwroot, which is what the API serves
 npm run watch      # rebuild into the API's wwwroot on change; this is the dev loop
 npm test           # vitest via @angular/build:unit-test
 ```
 
 **The SPA lives beside the backend projects, not inside `FileHub.Api`.** The build output still
-lands in `FileHub.Api/wwwroot` — that has not changed and cannot, since the API serves it from
-`ContentRoot/wwwroot`. What changed is where the *sources* sit, and the reason is `dotnet watch`:
-it watches each watched file's containing directory recursively, so an SPA inside the API project
-put `node_modules` under the watch. That was ~2500 of the ~2800 directories being watched, and on
+lands in `backend/FileHub.Api/wwwroot` — that has not changed and cannot, since the API serves it
+from `ContentRoot/wwwroot`. What changed is where the *sources* sit, and the reason is `dotnet
+watch`: it watches each watched file's containing directory recursively, so an SPA inside the API
+project put `node_modules` under the watch. That was ~2500 of the ~2800 directories being watched, and on
 Linux it exhausts `fs.inotify.max_user_instances` (128 by default), which fails the watcher
 outright with `The configured user limit on the number of inotify instances has been reached`.
 Do not move it back under a project the SDK globs.
 
 ### The dev loop
 
-`npm run watch` in one terminal, `dotnet run` (from `FileHub.Api`) in another. The API watches
-`wwwroot` with `Westwind.AspNetCore.LiveReload`, so a rebuild reloads the browser. **There is no
+`npm run watch` in one terminal, `dotnet run` (from `backend/FileHub.Api`) in another. The API
+watches `wwwroot` with `Westwind.AspNetCore.LiveReload`, so a rebuild reloads the browser. **There is no
 dev-server proxy and no `environment.apiUrl`** — every request the SPA makes is relative and
 same-origin, which is the only reason the session works in development at all: served from
 `ng serve` on another port, every API call is cross-origin, and no CORS policy is configured to
@@ -58,8 +62,8 @@ let a credentialed one through. If you reach for `ng serve` to work on a screen 
 API, you will find this out the slow way.
 
 The connection string and the key ring default to `./data/` — resolved against the working
-directory, so `FileHub.Api/data/` for a local run — and only `docker-compose.yml` moves them to the
-`/var/srv` volume. A run outside the container therefore never touches `/var/srv`, in any
+directory, so `backend/FileHub.Api/data/` for a local run — and only `docker-compose.yml` moves
+them to the `/var/srv` volume. A run outside the container therefore never touches `/var/srv`, in any
 environment, and `Development` no longer has to override the two paths to arrange that.
 
 ## Architecture

@@ -134,25 +134,29 @@ runs as, the same as a fresh install.
 
 Needs the .NET 10 SDK and Node 22+.
 
+The repository has two halves: `backend/` holds every .NET project and the solution file,
+`frontend/` holds the SPA.
+
 ```bash
-dotnet run --project FileHub.Api   # https://localhost:5000
-dotnet test
+dotnet run --project backend/FileHub.Api   # http://localhost:5000
+dotnet test backend/FileHub.slnx
 ```
 
 ```bash
 cd frontend
 npm ci
-npm run watch     # rebuilds into ../FileHub.Api/wwwroot; the API live-reloads on it
+npm run watch     # rebuilds into ../backend/FileHub.Api/wwwroot; the API live-reloads on it
 npm test
 ```
 
-The API serves the SPA out of `FileHub.Api/wwwroot`, so `npm run watch` alongside `dotnet run` is
-the whole loop — there is no separate dev server and no proxy to configure. In Development the
-database and key ring land in `FileHub.Api/data`, and SMTP points at `localhost:1025`, where a
-local mail catcher such as Mailpit will show you the invitation and reset mails.
+The API serves the SPA out of `backend/FileHub.Api/wwwroot`, so `npm run watch` alongside
+`dotnet run` is the whole loop — there is no separate dev server and no proxy to configure. In
+Development the database and key ring land in `backend/FileHub.Api/data`, and SMTP points at
+`localhost:1025`, where a local mail catcher such as Mailpit will show you the invitation and reset
+mails.
 
-Database migrations are EF Core migrations in `FileHub.Dal/Migrations`, applied automatically at
-startup.
+Database migrations are EF Core migrations in `backend/FileHub.Dal/Migrations`, applied
+automatically at startup.
 
 ## License
 
