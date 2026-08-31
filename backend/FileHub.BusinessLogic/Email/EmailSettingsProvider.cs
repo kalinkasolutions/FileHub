@@ -89,7 +89,7 @@ public sealed class EmailSettingsProvider : IEmailSettingsProvider
 
         m_repository.Add(setting);
         await m_repository.SaveChangesAsync();
-        m_logger.LogInformation("Seeded the email settings from configuration (host \"{SmtpHost}\")", setting.SmtpHost);
+        m_logger.LogInformation("Seeded the email settings from configuration (host \"{SmtpHost:l}\")", setting.SmtpHost);
         return setting;
     }
 

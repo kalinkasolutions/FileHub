@@ -3,6 +3,7 @@ using Dal.Repositories.Account;
 using Dtos.Account;
 using Entities.Account;
 using FileHub.BusinessLogic.Email;
+using FileHub.BusinessLogic.Auditing;
 using FileHub.BusinessLogic.Validation;
 using Microsoft.Extensions.Logging;
 using Shared;
@@ -19,16 +20,19 @@ public sealed class AccountService : IAccountService
     private const string IncorrectPassword = "Your current password is incorrect.";
 
     private readonly ILogger<AccountService> m_logger;
+    private readonly IAuditActor m_auditActor;
     private readonly IAccountRepository m_accountRepository;
     private readonly IEmailService m_emailService;
 
     public AccountService(
         ILogger<AccountService> logger,
+        IAuditActor auditActor,
         IAccountRepository accountRepository,
         IEmailService emailService
     )
     {
         m_logger = logger;
+        m_auditActor = auditActor;
         m_accountRepository = accountRepository;
         m_emailService = emailService;
     }
@@ -69,11 +73,13 @@ public sealed class AccountService : IAccountService
         if (result.HasError)
         {
             m_logger.LogInformation(
-                "User {UserId} could not change display name to \"{Username}\": {Error}", userId, username, result.ErrorMessage);
+                "{Actor:l} could not change display name to \"{Username:l}\": {Error:l}",
+                m_auditActor.Describe(), username, result.ErrorMessage);
             return result.MapError<AccountDto>();
         }
 
-        m_logger.LogInformation("User {UserId} changed display name to \"{Username}\"", userId, username);
+        m_logger.LogInformation(
+            "{Actor:l} changed display name to \"{Username:l}\"", m_auditActor.Describe(), username);
         return OperationResult<AccountDto>.Success(await ToDtoAsync(user));
     }
 
@@ -95,7 +101,7 @@ public sealed class AccountService : IAccountService
         // generic "Incorrect password." mixed in with new-password rule violations.
         if (!await m_accountRepository.CheckPasswordAsync(user, dto.CurrentPassword))
         {
-            m_logger.LogInformation("User {UserId} gave the wrong current password when changing password", userId);
+            m_logger.LogWarning("{Actor:l} gave the wrong current password when changing password", m_auditActor.Describe());
             return OperationResult<Empty>.BadRequest(IncorrectPassword);
         }
 
@@ -104,7 +110,7 @@ public sealed class AccountService : IAccountService
         // clears MustChangePassword and keeps using the credential that was printed in the log.
         if (string.Equals(dto.NewPassword, dto.CurrentPassword, StringComparison.Ordinal))
         {
-            m_logger.LogInformation("User {UserId} tried to change their password to the one they already have", userId);
+            m_logger.LogInformation("{Actor:l} tried to change their password to the one they already have", m_auditActor.Describe());
             return OperationResult<Empty>.BadRequest(
                 "Your new password must be different from your current one.");
         }
@@ -125,7 +131,7 @@ public sealed class AccountService : IAccountService
 
         // Changing the password rotates the security stamp, which signs out this user's other
         // sessions; the endpoint refreshes the caller's own cookie so they stay signed in here.
-        m_logger.LogInformation("User {UserId} changed their password", userId);
+        m_logger.LogInformation("{Actor:l} changed their password", m_auditActor.Describe());
         return OperationResult<Empty>.Success();
     }
 
@@ -145,7 +151,7 @@ public sealed class AccountService : IAccountService
 
         if (!await m_accountRepository.CheckPasswordAsync(user, dto.CurrentPassword))
         {
-            m_logger.LogInformation("User {UserId} gave the wrong password when changing email", userId);
+            m_logger.LogWarning("{Actor:l} gave the wrong password when changing email", m_auditActor.Describe());
             return OperationResult<Empty>.BadRequest(IncorrectPassword);
         }
 
@@ -169,11 +175,13 @@ public sealed class AccountService : IAccountService
         {
             // Nothing changed yet, so this is worth reporting: without the mail the user has no way to
             // complete the change.
-            m_logger.LogWarning("Email change confirmation could not be sent to {Email} for user {UserId}", email, userId);
+            m_logger.LogWarning(
+                "Email change confirmation for {Actor:l} could not be sent to {Email:l}",
+                m_auditActor.Describe(), email);
             return mailResult;
         }
 
-        m_logger.LogInformation("User {UserId} requested an email change to {Email}", userId, email);
+        m_logger.LogInformation("{Actor:l} requested an email change to {Email:l}", m_auditActor.Describe(), email);
         return OperationResult<Empty>.Success();
     }
 
@@ -186,7 +194,7 @@ public sealed class AccountService : IAccountService
         }
 
         await m_accountRepository.UpdateSecurityStampAsync(user);
-        m_logger.LogInformation("User {UserId} signed out all sessions", userId);
+        m_logger.LogInformation("{Actor:l} signed out all sessions", m_auditActor.Describe());
         return OperationResult<Empty>.Success();
     }
 
@@ -209,7 +217,7 @@ public sealed class AccountService : IAccountService
         // recovery codes that come with it. Turning 2FA off has asked for the password all along.
         if (!await m_accountRepository.CheckPasswordAsync(user, dto.CurrentPassword))
         {
-            m_logger.LogInformation("User {UserId} gave the wrong password when starting 2FA setup", userId);
+            m_logger.LogWarning("{Actor:l} gave the wrong password when starting 2FA setup", m_auditActor.Describe());
             return OperationResult<TwoFactorSetupDto>.BadRequest(IncorrectPassword);
         }
 
@@ -252,7 +260,7 @@ public sealed class AccountService : IAccountService
         // this is the step that hands out the recovery codes, so it asks for the password too.
         if (!await m_accountRepository.CheckPasswordAsync(user, dto.CurrentPassword))
         {
-            m_logger.LogInformation("User {UserId} gave the wrong password when enabling 2FA", userId);
+            m_logger.LogWarning("{Actor:l} gave the wrong password when enabling 2FA", m_auditActor.Describe());
             return OperationResult<RecoveryCodesDto>.BadRequest(IncorrectPassword);
         }
 
@@ -270,7 +278,7 @@ public sealed class AccountService : IAccountService
 
         if (!await m_accountRepository.VerifyAuthenticatorCodeAsync(user, StripSeparators(dto.Code)))
         {
-            m_logger.LogInformation("User {UserId} submitted an invalid authenticator code while enabling 2FA", userId);
+            m_logger.LogWarning("{Actor:l} submitted an invalid authenticator code while enabling 2FA", m_auditActor.Describe());
             return OperationResult<RecoveryCodesDto>.BadRequest(
                 "That code isn't valid. Check your device's clock and try the next code.");
         }
@@ -282,7 +290,7 @@ public sealed class AccountService : IAccountService
         }
 
         var codes = await m_accountRepository.GenerateRecoveryCodesAsync(user, RecoveryCodeCount);
-        m_logger.LogInformation("User {UserId} enabled two-factor authentication", userId);
+        m_logger.LogInformation("{Actor:l} enabled two-factor authentication", m_auditActor.Describe());
 
         return OperationResult<RecoveryCodesDto>.Success(new RecoveryCodesDto { Codes = codes });
     }
@@ -303,7 +311,7 @@ public sealed class AccountService : IAccountService
 
         if (!await m_accountRepository.CheckPasswordAsync(user, dto.CurrentPassword))
         {
-            m_logger.LogInformation("User {UserId} gave the wrong password when disabling 2FA", userId);
+            m_logger.LogWarning("{Actor:l} gave the wrong password when disabling 2FA", m_auditActor.Describe());
             return OperationResult<Empty>.BadRequest(IncorrectPassword);
         }
 
@@ -322,7 +330,7 @@ public sealed class AccountService : IAccountService
         // codes from an authenticator entry the user may have removed months ago.
         await m_accountRepository.ResetAuthenticatorKeyAsync(user);
 
-        m_logger.LogInformation("User {UserId} disabled two-factor authentication", userId);
+        m_logger.LogInformation("{Actor:l} disabled two-factor authentication", m_auditActor.Describe());
         return OperationResult<Empty>.Success();
     }
 
@@ -345,7 +353,7 @@ public sealed class AccountService : IAccountService
         // and "sign out everywhere", so minting a set is a credential issue like any other.
         if (!await m_accountRepository.CheckPasswordAsync(user, dto.CurrentPassword))
         {
-            m_logger.LogInformation("User {UserId} gave the wrong password when regenerating recovery codes", userId);
+            m_logger.LogWarning("{Actor:l} gave the wrong password when regenerating recovery codes", m_auditActor.Describe());
             return OperationResult<RecoveryCodesDto>.BadRequest(IncorrectPassword);
         }
 
@@ -356,7 +364,7 @@ public sealed class AccountService : IAccountService
         }
 
         var codes = await m_accountRepository.GenerateRecoveryCodesAsync(user, RecoveryCodeCount);
-        m_logger.LogInformation("User {UserId} regenerated their recovery codes", userId);
+        m_logger.LogInformation("{Actor:l} regenerated their recovery codes", m_auditActor.Describe());
 
         return OperationResult<RecoveryCodesDto>.Success(new RecoveryCodesDto { Codes = codes });
     }

@@ -1,6 +1,7 @@
 using Dal.Repositories.BasePaths;
 using Dtos.Files;
 using Entities.Paths;
+using FileHub.BusinessLogic.Auditing;
 using FileHub.BusinessLogic.Authorization;
 using FileHub.BusinessLogic.Validation;
 using Microsoft.Extensions.Logging;
@@ -11,14 +12,17 @@ namespace FileHub.BusinessLogic.Services.Files;
 public sealed class FileService : IFileService
 {
     private readonly ILogger<FileService> m_logger;
+    private readonly IAuditActor m_auditActor;
     private readonly IBasePathRepository m_basePathRepository;
 
     public FileService(
         ILogger<FileService> logger,
+        IAuditActor auditActor,
         IBasePathRepository basePathRepository
     )
     {
         m_logger = logger;
+        m_auditActor = auditActor;
         m_basePathRepository = basePathRepository;
     }
 
@@ -34,7 +38,7 @@ public sealed class FileService : IFileService
                 // A base path whose mount is gone is skipped rather than fatal — one unplugged disk
                 // must not take the whole browser down.
                 m_logger.LogWarning(
-                    "Base path {BasePathId} points at {Path}, which is not a readable directory",
+                    "Base path {BasePathId} points at {Path:l}, which is not a readable directory",
                     basePath.Id, basePath.Path);
                 continue;
             }
@@ -124,7 +128,9 @@ public sealed class FileService : IFileService
             IsDirectory = isDirectory
         };
 
-        m_logger.LogInformation("User {UserId} downloads {Path}", userId, fullPath);
+        m_logger.LogInformation(
+            "{Actor:l} downloaded {Kind:l} {Path:l}",
+            m_auditActor.Describe(), isDirectory ? "directory" : "file", fullPath);
         return OperationResult<ResolvedFile>.Success(resolved);
     }
 
@@ -193,12 +199,12 @@ public sealed class FileService : IFileService
         }
         catch (IOException exception)
         {
-            m_logger.LogDebug(exception, "Skipping unreadable entry {Path}", fullPath);
+            m_logger.LogDebug(exception, "Skipping unreadable entry {Path:l}", fullPath);
             return null;
         }
         catch (UnauthorizedAccessException exception)
         {
-            m_logger.LogDebug(exception, "Skipping unreadable entry {Path}", fullPath);
+            m_logger.LogDebug(exception, "Skipping unreadable entry {Path:l}", fullPath);
             return null;
         }
     }
@@ -213,12 +219,12 @@ public sealed class FileService : IFileService
         }
         catch (IOException exception)
         {
-            m_logger.LogWarning(exception, "Failed to list {Path}", directoryPath);
+            m_logger.LogWarning(exception, "Failed to list {Path:l}", directoryPath);
             return [];
         }
         catch (UnauthorizedAccessException exception)
         {
-            m_logger.LogWarning(exception, "Failed to list {Path}", directoryPath);
+            m_logger.LogWarning(exception, "Failed to list {Path:l}", directoryPath);
             return [];
         }
     }
@@ -251,7 +257,9 @@ public sealed class FileService : IFileService
     /// </summary>
     private OperationResult<T> NotGranted<T>(Guid userId, Guid basePathId)
     {
-        m_logger.LogWarning("User {UserId} has no access to base path {BasePathId}", userId, basePathId);
+        m_logger.LogWarning(
+            "{Actor:l} (user {UserId}) has no access to base path {BasePathId}",
+            m_auditActor.Describe(), userId, basePathId);
         return OperationResult<T>.NotFound("Base path not found");
     }
 

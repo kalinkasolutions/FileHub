@@ -3,6 +3,7 @@ using Dal.Repositories.Groups;
 using Dal.Repositories.Shares;
 using Dtos.Groups;
 using Entities.Groups;
+using FileHub.BusinessLogic.Auditing;
 using FileHub.BusinessLogic.Validation;
 using Microsoft.Extensions.Logging;
 using Shared;
@@ -12,18 +13,21 @@ namespace FileHub.BusinessLogic.Services.Groups;
 public sealed class GroupService : IGroupService
 {
     private readonly ILogger<GroupService> m_logger;
+    private readonly IAuditActor m_auditActor;
     private readonly IGroupRepository m_groupRepository;
     private readonly IBasePathRepository m_basePathRepository;
     private readonly IShareRepository m_shareRepository;
 
     public GroupService(
         ILogger<GroupService> logger,
+        IAuditActor auditActor,
         IGroupRepository groupRepository,
         IBasePathRepository basePathRepository,
         IShareRepository shareRepository
     )
     {
         m_logger = logger;
+        m_auditActor = auditActor;
         m_groupRepository = groupRepository;
         m_basePathRepository = basePathRepository;
         m_shareRepository = shareRepository;
@@ -55,7 +59,9 @@ public sealed class GroupService : IGroupService
 
         // An empty group grants nothing to nobody, so creating one is not by itself a change in
         // what anyone can read.
-        m_logger.LogInformation("Created group {GroupId} \"{Name}\"", group.Id, group.Name);
+        m_logger.LogInformation(
+            "{Actor:l} created group \"{Name:l}\" ({GroupId})",
+            m_auditActor.Describe(), group.Name, group.Id);
         return OperationResult<GroupDto>.Success(MapNewGroup(group));
     }
 
@@ -79,10 +85,13 @@ public sealed class GroupService : IGroupService
             return nameResult.MapError<GroupDto>();
         }
 
+        var previousName = group.Name;
         group.Name = nameResult.Value;
         await m_groupRepository.SaveChangesAsync();
 
-        m_logger.LogInformation("Renamed group {GroupId} to \"{Name}\"", group.Id, group.Name);
+        m_logger.LogInformation(
+            "{Actor:l} renamed group {GroupId} from \"{OldName:l}\" to \"{Name:l}\"",
+            m_auditActor.Describe(), group.Id, previousName, group.Name);
 
         var memberCount = (await m_groupRepository.GetMemberIdsAsync(id)).Count;
         var basePathCount = (await m_groupRepository.GetBasePathIdsAsync(id)).Count;
@@ -115,8 +124,8 @@ public sealed class GroupService : IGroupService
         await m_groupRepository.SaveChangesAsync();
 
         m_logger.LogInformation(
-            "Deleted group {GroupId} \"{Name}\"; {ShareCount} link(s) revoked with it",
-            id, group.Name, revoked);
+            "{Actor:l} deleted group \"{Name:l}\" ({GroupId}); {ShareCount} link(s) revoked with it",
+            m_auditActor.Describe(), group.Name, id, revoked);
         return OperationResult<Empty>.Success();
     }
 
@@ -159,8 +168,9 @@ public sealed class GroupService : IGroupService
         await m_groupRepository.SaveChangesAsync();
 
         m_logger.LogInformation(
-            "Group {GroupId} now has {MemberCount} member(s); {ShareCount} link(s) revoked with it",
-            id, userIds.Count, revoked);
+            "{Actor:l} set the members of group \"{Name:l}\" ({GroupId}) to {MemberCount} account(s); "
+            + "{ShareCount} link(s) revoked with it",
+            m_auditActor.Describe(), group.Name, id, userIds.Count, revoked);
         return OperationResult<Empty>.Success();
     }
 
@@ -201,8 +211,9 @@ public sealed class GroupService : IGroupService
         await m_groupRepository.SaveChangesAsync();
 
         m_logger.LogInformation(
-            "Group {GroupId} is now granted {Count} base path(s); {ShareCount} link(s) revoked with it",
-            id, basePathIds.Count, revoked);
+            "{Actor:l} granted group \"{Name:l}\" ({GroupId}) {Count} base path(s); "
+            + "{ShareCount} link(s) revoked with it",
+            m_auditActor.Describe(), group.Name, id, basePathIds.Count, revoked);
         return OperationResult<Empty>.Success();
     }
 

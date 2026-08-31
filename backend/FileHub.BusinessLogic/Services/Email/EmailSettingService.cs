@@ -2,6 +2,7 @@ using Dal.Repositories.Email;
 using Dtos.Email;
 using Entities.Email;
 using FileHub.BusinessLogic.Email;
+using FileHub.BusinessLogic.Auditing;
 using FileHub.BusinessLogic.Validation;
 using Microsoft.Extensions.Logging;
 using Shared;
@@ -14,18 +15,21 @@ public sealed class EmailSettingService : IEmailSettingService
     private readonly IEmailSettingsProvider m_settingsProvider;
     private readonly IEmailService m_emailService;
     private readonly ILogger<EmailSettingService> m_logger;
+    private readonly IAuditActor m_auditActor;
 
     public EmailSettingService(
         IEmailSettingRepository repository,
         IEmailSettingsProvider settingsProvider,
         IEmailService emailService,
-        ILogger<EmailSettingService> logger
+        ILogger<EmailSettingService> logger,
+        IAuditActor auditActor
     )
     {
         m_repository = repository;
         m_settingsProvider = settingsProvider;
         m_emailService = emailService;
         m_logger = logger;
+        m_auditActor = auditActor;
     }
 
     public async Task<OperationResult<EmailSettingDto>> GetAsync()
@@ -84,12 +88,18 @@ public sealed class EmailSettingService : IEmailSettingService
         if (passwordCleared)
         {
             m_logger.LogWarning(
-                "The stored SMTP password was cleared: host \"{SmtpHost}\" port {Port} transport {Transport} "
-                + "user \"{Username}\" no longer match what it was saved for", setting.SmtpHost, setting.Port,
+                "{Actor:l} changed where mail is sent, so the stored SMTP password was cleared: host \"{SmtpHost:l}\" "
+                + "port {Port} transport {Transport:l} user \"{Username:l}\" no longer match what it was saved for",
+                m_auditActor.Describe(), setting.SmtpHost, setting.Port,
                 setting.SecureSocketOptions, setting.Username);
         }
 
-        m_logger.LogInformation("Email settings updated: host \"{SmtpHost}\" port {Port}", setting.SmtpHost, setting.Port);
+        // The host, port, transport and username, and never the password: Serilog persists a
+        // template's arguments as their own column, so a secret handed to ILogger lands in the Logs
+        // table for the life of the install.
+        m_logger.LogInformation(
+            "{Actor:l} saved the SMTP settings: host \"{SmtpHost:l}\" port {Port} transport {Transport:l} user \"{Username:l}\"",
+            m_auditActor.Describe(), setting.SmtpHost, setting.Port, setting.SecureSocketOptions, setting.Username);
 
         var result = ToDto(setting);
         result.PasswordCleared = passwordCleared;
@@ -104,7 +114,22 @@ public sealed class EmailSettingService : IEmailSettingService
             return validation;
         }
 
-        return await m_emailService.SendTestMailAsync(dto.Recipient.Trim());
+        var recipient = dto.Recipient.Trim();
+        var result = await m_emailService.SendTestMailAsync(recipient);
+
+        // Both outcomes are worth a line: this is the one route that proves the mail settings work,
+        // and "I pressed the button and nothing arrived" is the question it exists to answer.
+        if (result.HasError)
+        {
+            m_logger.LogWarning(
+                "{Actor:l} sent a test email to {Recipient:l}, which failed: {Error:l}",
+                m_auditActor.Describe(), recipient, result.ErrorMessage);
+            return result;
+        }
+
+        m_logger.LogInformation(
+            "{Actor:l} sent a test email to {Recipient:l}", m_auditActor.Describe(), recipient);
+        return result;
     }
 
     private static EmailSettingDto ToDto(EmailSetting setting) => new()

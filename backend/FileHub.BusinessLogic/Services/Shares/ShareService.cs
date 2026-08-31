@@ -4,6 +4,7 @@ using Dal.Repositories.Shares;
 using Dtos.Shares;
 using Entities.Groups;
 using Entities.Shares;
+using FileHub.BusinessLogic.Auditing;
 using FileHub.BusinessLogic.Authorization;
 using FileHub.BusinessLogic.Validation;
 using Microsoft.Extensions.Logging;
@@ -14,18 +15,21 @@ namespace FileHub.BusinessLogic.Services.Shares;
 public sealed class ShareService : IShareService
 {
     private readonly ILogger<ShareService> m_logger;
+    private readonly IAuditActor m_auditActor;
     private readonly IShareRepository m_shareRepository;
     private readonly IBasePathRepository m_basePathRepository;
     private readonly IGroupRepository m_groupRepository;
 
     public ShareService(
         ILogger<ShareService> logger,
+        IAuditActor auditActor,
         IShareRepository shareRepository,
         IBasePathRepository basePathRepository,
         IGroupRepository groupRepository
     )
     {
         m_logger = logger;
+        m_auditActor = auditActor;
         m_shareRepository = shareRepository;
         m_basePathRepository = basePathRepository;
         m_groupRepository = groupRepository;
@@ -47,7 +51,7 @@ public sealed class ShareService : IShareService
         if (!callerIsAdmin && !callerCanCreateShares)
         {
             m_logger.LogWarning(
-                "User {UserId} tried to create a link without the {Role} role", userId, Roles.CreateShares);
+                "{Actor:l} tried to create a link without the {Role:l} role", m_auditActor.Describe(), Roles.CreateShares);
             return OperationResult<ShareDto>.Forbidden(CreateRefused);
         }
 
@@ -70,7 +74,7 @@ public sealed class ShareService : IShareService
         {
             if (!callerIsAdmin)
             {
-                m_logger.LogWarning("User {UserId} tried to aim a link at a group", userId);
+                m_logger.LogWarning("{Actor:l} tried to aim a link at a group without being an admin", m_auditActor.Describe());
                 return OperationResult<ShareDto>.BadRequest(AudienceRefused);
             }
 
@@ -127,7 +131,8 @@ public sealed class ShareService : IShareService
         await m_shareRepository.SaveChangesAsync();
 
         m_logger.LogInformation(
-            "User {UserId} shared {Path} as {ShareId} ({Size} bytes)", userId, fullPath, share.Id, size);
+            "{Actor:l} shared {Path:l} as link {ShareId} ({Size} bytes), audience {Audience:l}",
+            m_auditActor.Describe(), fullPath, share.Id, size, audienceGroup?.Name ?? "anyone with the URL");
 
         return OperationResult<ShareDto>.Success(
             MapShare(share, basePath.Name, isDirectory, audienceGroup?.Name));
@@ -175,7 +180,8 @@ public sealed class ShareService : IShareService
         m_shareRepository.Remove(share);
         await m_shareRepository.SaveChangesAsync();
 
-        m_logger.LogInformation("User {UserId} revoked share {ShareId}", callerId, shareId);
+        m_logger.LogInformation(
+            "{Actor:l} revoked link {ShareId} to {Path:l}", m_auditActor.Describe(), shareId, share.RelativePath);
         return OperationResult<Empty>.Success();
     }
 
@@ -240,10 +246,17 @@ public sealed class ShareService : IShareService
         // limit hold when several anonymous callers arrive at once, all having read the same count.
         if (!await m_shareRepository.TryRegisterDownloadAsync(shareId, callerId, callerIsAdmin))
         {
-            m_logger.LogInformation("Share {ShareId} was not downloaded: unknown or at its limit", shareId);
+            m_logger.LogInformation(
+                "{Actor:l} was refused link {ShareId}: unknown, out of audience, or at its limit",
+                m_auditActor.Describe(), shareId);
             return OperationResult<Empty>.NotFound(PublicFailure);
         }
 
+        // A redemption is the whole point of a share link, and the one event on an anonymous route
+        // that changes stored state — so it gets a line of its own rather than being visible only as
+        // the request log's "GET /public-api/share/{id}/download". The actor is "anonymous" for a
+        // link with no audience, which is the normal case and is worth seeing spelled out.
+        m_logger.LogInformation("{Actor:l} downloaded link {ShareId}", m_auditActor.Describe(), shareId);
         return OperationResult<Empty>.Success();
     }
 

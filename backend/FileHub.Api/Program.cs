@@ -9,8 +9,10 @@ using Dal.Repositories.Identity;
 using Dal.Repositories.Shares;
 using Entities.Account;
 using FileHub;
+using FileHub.Auditing;
 using FileHub.Authorization;
 using FileHub.BusinessLogic;
+using FileHub.BusinessLogic.Auditing;
 using FileHub.BusinessLogic.Email;
 using FileHub.BusinessLogic.Services.Account;
 using FileHub.BusinessLogic.Services.Admin;
@@ -179,6 +181,10 @@ builder.Services.AddRateLimiter(options =>
 builder.Services.Configure<AdminOptions>(builder.Configuration.GetSection(AdminOptions.SectionName));
 builder.Services.Configure<AppOptions>(builder.Configuration.GetSection(AppOptions.SectionName));
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
+
+// Who the audit lines name. Scoped, because it is a fact about the request in hand; read from the
+// cookie's claims, so it costs no query. It decides nothing — see IAuditActor.
+builder.Services.AddScoped<IAuditActor, HttpContextAuditActor>();
 
 builder.Services.AddScoped<IEmailSettingRepository, EmailSettingRepository>();
 builder.Services.AddScoped<IIdentityRepository, IdentityRepository>();

@@ -96,7 +96,7 @@ public static class AdminSeeder
         }
 
         logger.LogWarning(
-            "This installation had no administrator left. The existing account <{Email}> holds the configured "
+            "This installation had no administrator left. The existing account <{Email:l}> holds the configured "
             + "admin address, so it was given the Admin role back, re-enabled and confirmed. Its password is "
             + "unchanged — sign in with it, or use \"forgot password\".", user.Email);
 
@@ -139,7 +139,7 @@ public static class AdminSeeder
         if (!generated)
         {
             logger.LogWarning(
-                "Created the initial admin account <{Email}> with the configured bootstrap password. "
+                "Created the initial admin account <{Email:l}> with the configured bootstrap password. "
                 + "It must be changed at first sign-in.", email);
 
             return OperationResult<Empty>.Success();
@@ -147,7 +147,7 @@ public static class AdminSeeder
 
         // The log line names the account but never the password: see credentialOutput.
         logger.LogWarning(
-            "Created the initial admin account <{Email}> with a generated password. It is printed on the "
+            "Created the initial admin account <{Email:l}> with a generated password. It is printed on the "
             + "container's console output (docker compose logs) and nowhere else, and must be changed at "
             + "first sign-in.", email);
 

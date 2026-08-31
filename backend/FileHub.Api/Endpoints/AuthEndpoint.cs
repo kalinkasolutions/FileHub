@@ -1,6 +1,7 @@
 using Dtos.Auth;
 using Entities.Account;
 using FileHub.BusinessLogic.Services.Identity;
+using FileHub.BusinessLogic.Auditing;
 using FileHub.Extensions;
 using Microsoft.AspNetCore.Identity;
 using Shared;
@@ -159,13 +160,19 @@ public static class AuthEndpoint
     }
 
     private static async Task<IResult> LogoutAsync(
-        SignInManager<FileHubUser> signInManager, HttpContext httpContext, ILoggerFactory loggerFactory)
+        SignInManager<FileHubUser> signInManager,
+        ILoggerFactory loggerFactory,
+        IAuditActor auditActor)
     {
         var logger = loggerFactory.CreateLogger(LogCategory);
-        // Logout isn't behind RequireAuthorization, so the principal may carry no id — sign out regardless.
-        httpContext.User.TryGetUserId(out var userId);
+
+        // Named before the sign-out, not after: SignOutAsync replaces the principal on the context
+        // the actor reads, so afterwards the line would say "anonymous" and name nobody. Logout is
+        // not behind RequireAuthorization either, so that may be the honest answer anyway.
+        var actor = auditActor.Describe();
+
         await signInManager.SignOutAsync();
-        logger.LogInformation("User {UserId} logged out", userId);
+        logger.LogInformation("{Actor:l} signed out", actor);
         return Results.Ok();
     }
 }

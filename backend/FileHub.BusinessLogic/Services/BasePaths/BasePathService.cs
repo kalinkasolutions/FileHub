@@ -3,6 +3,7 @@ using Dal.Repositories.Groups;
 using Dal.Repositories.Shares;
 using Dtos.BasePaths;
 using Entities.Paths;
+using FileHub.BusinessLogic.Auditing;
 using FileHub.BusinessLogic.Validation;
 using Microsoft.Extensions.Logging;
 using Shared;
@@ -12,18 +13,21 @@ namespace FileHub.BusinessLogic.Services.BasePaths;
 public sealed class BasePathService : IBasePathService
 {
     private readonly ILogger<BasePathService> m_logger;
+    private readonly IAuditActor m_auditActor;
     private readonly IBasePathRepository m_basePathRepository;
     private readonly IGroupRepository m_groupRepository;
     private readonly IShareRepository m_shareRepository;
 
     public BasePathService(
         ILogger<BasePathService> logger,
+        IAuditActor auditActor,
         IBasePathRepository basePathRepository,
         IGroupRepository groupRepository,
         IShareRepository shareRepository
     )
     {
         m_logger = logger;
+        m_auditActor = auditActor;
         m_basePathRepository = basePathRepository;
         m_groupRepository = groupRepository;
         m_shareRepository = shareRepository;
@@ -61,7 +65,9 @@ public sealed class BasePathService : IBasePathService
 
         // Nobody can see it yet: a base path is invisible until it is granted, so creating one is
         // not by itself a change in what anyone — including the admin who created it — can read.
-        m_logger.LogInformation("Created base path {BasePathId} at {Path}", basePath.Id, basePath.Path);
+        m_logger.LogInformation(
+            "{Actor:l} created base path \"{Name:l}\" ({BasePathId}) at {Path:l}",
+            m_auditActor.Describe(), basePath.Name, basePath.Id, basePath.Path);
         return OperationResult<BasePathDto>.Success(MapBasePath(basePath));
     }
 
@@ -94,11 +100,14 @@ public sealed class BasePathService : IBasePathService
         // Repointing a base path silently repoints every link into it, because a share stores
         // (base path, relative path) and is re-resolved on every hit. That is the intended
         // behaviour — the alternative, a link that keeps serving the old directory, is worse.
+        var previousPath = basePath.Path;
         basePath.Path = path;
         basePath.Name = ResolveName(dto.Name, path);
         await m_basePathRepository.SaveChangesAsync();
 
-        m_logger.LogInformation("Updated base path {BasePathId} to {Path}", basePath.Id, basePath.Path);
+        m_logger.LogInformation(
+            "{Actor:l} repointed base path \"{Name:l}\" ({BasePathId}) from {OldPath:l} to {Path:l}",
+            m_auditActor.Describe(), basePath.Name, basePath.Id, previousPath, basePath.Path);
         return OperationResult<BasePathDto>.Success(MapBasePath(basePath));
     }
 
@@ -115,7 +124,9 @@ public sealed class BasePathService : IBasePathService
         m_basePathRepository.Remove(basePath);
         await m_basePathRepository.SaveChangesAsync();
 
-        m_logger.LogInformation("Deleted base path {BasePathId} at {Path}", id, basePath.Path);
+        m_logger.LogInformation(
+            "{Actor:l} deleted base path \"{Name:l}\" ({BasePathId}) at {Path:l}; its grants and links went with it",
+            m_auditActor.Describe(), basePath.Name, id, basePath.Path);
         return OperationResult<Empty>.Success();
     }
 
@@ -167,8 +178,9 @@ public sealed class BasePathService : IBasePathService
         await m_basePathRepository.SaveChangesAsync();
 
         m_logger.LogInformation(
-            "Base path {BasePathId} is now granted to {UserCount} user(s); {ShareCount} link(s) revoked with it",
-            basePathId, userIds.Count, revoked);
+            "{Actor:l} granted base path \"{Name:l}\" ({BasePathId}) to {UserCount} user(s); "
+            + "{ShareCount} link(s) revoked with it",
+            m_auditActor.Describe(), basePath.Name, basePathId, userIds.Count, revoked);
         return OperationResult<Empty>.Success();
     }
 
@@ -210,8 +222,9 @@ public sealed class BasePathService : IBasePathService
         await m_basePathRepository.SaveChangesAsync();
 
         m_logger.LogInformation(
-            "Base path {BasePathId} is now granted to {GroupCount} group(s); {ShareCount} link(s) revoked with it",
-            basePathId, groupIds.Count, revoked);
+            "{Actor:l} granted base path \"{Name:l}\" ({BasePathId}) to {GroupCount} group(s); "
+            + "{ShareCount} link(s) revoked with it",
+            m_auditActor.Describe(), basePath.Name, basePathId, groupIds.Count, revoked);
         return OperationResult<Empty>.Success();
     }
 
@@ -255,8 +268,8 @@ public sealed class BasePathService : IBasePathService
         await m_basePathRepository.SaveChangesAsync();
 
         m_logger.LogInformation(
-            "User {UserId} is now granted {Count} base path(s); {ShareCount} link(s) revoked with it",
-            userId, basePathIds.Count, revoked);
+            "{Actor:l} granted user {UserId} {Count} base path(s); {ShareCount} link(s) revoked with it",
+            m_auditActor.Describe(), userId, basePathIds.Count, revoked);
         return OperationResult<Empty>.Success();
     }
 

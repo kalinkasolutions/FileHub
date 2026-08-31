@@ -107,7 +107,7 @@ public sealed class EmailService : IEmailService
         // forgot-password route, whose whole contract is that it always succeeds.
         if (!MailboxAddress.TryParse(recipient, out var to))
         {
-            m_logger.LogWarning("Cannot send \"{Subject}\": {Recipient} is not a usable address", subject, recipient);
+            m_logger.LogWarning("Cannot send \"{Subject:l}\": {Recipient:l} is not a usable address", subject, recipient);
             return OperationResult<Empty>.BadRequest($"\"{recipient}\" is not an address email can be sent to.");
         }
 
@@ -116,7 +116,7 @@ public sealed class EmailService : IEmailService
         {
             // Connecting to an empty host only buys a socket error a minute later, and the admin
             // needs to be told what is actually missing.
-            m_logger.LogError("Cannot send \"{Subject}\": no SMTP host is configured", subject);
+            m_logger.LogError("Cannot send \"{Subject:l}\": no SMTP host is configured", subject);
             return OperationResult<Empty>.BadGateway(
                 "Email is not configured: no SMTP host is set. Set one under the admin email settings.");
         }
@@ -127,7 +127,7 @@ public sealed class EmailService : IEmailService
         if (!MailboxAddress.TryParse(settings.FromAddress, out var from))
         {
             m_logger.LogError(
-                "Cannot send \"{Subject}\": the configured sender address \"{FromAddress}\" is not usable",
+                "Cannot send \"{Subject:l}\": the configured sender address \"{FromAddress}\" is not usable",
                 subject, settings.FromAddress);
 
             return OperationResult<Empty>.BadGateway(
@@ -155,7 +155,7 @@ public sealed class EmailService : IEmailService
         try
         {
             m_logger.LogInformation(
-                "Sending email \"{Subject}\" to {Recipient} via {SmtpHost}:{Port}",
+                "Sending email \"{Subject:l}\" to {Recipient:l} via {SmtpHost:l}:{Port}",
                 subject, recipient, settings.SmtpHost, settings.Port);
 
             using var smtp = new SmtpClient();
@@ -167,12 +167,12 @@ public sealed class EmailService : IEmailService
 
             await smtp.SendAsync(email);
             await smtp.DisconnectAsync(true);
-            m_logger.LogInformation("Sent email \"{Subject}\" to {Recipient}", subject, recipient);
+            m_logger.LogInformation("Sent email \"{Subject:l}\" to {Recipient:l}", subject, recipient);
             return OperationResult<Empty>.Success();
         }
         catch (Exception e)
         {
-            m_logger.LogError(e, "Failed to send email to {Recipient}", recipient);
+            m_logger.LogError(e, "Failed to send email to {Recipient:l}", recipient);
             return OperationResult<Empty>.BadGateway("The email could not be sent.");
         }
     }

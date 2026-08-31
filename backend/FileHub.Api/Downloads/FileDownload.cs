@@ -132,6 +132,6 @@ public static class FileDownload
     /// </summary>
     private static void LogAborted(ILogger logger, Exception exception, string directoryPath)
     {
-        logger.LogWarning(exception, "Aborted building the zip for {Path}", directoryPath);
+        logger.LogWarning(exception, "Aborted building the zip for {Path:l}", directoryPath);
     }
 }

@@ -4,6 +4,7 @@ using Dal.Repositories.Shares;
 using Dtos.Admin;
 using Entities.Account;
 using FileHub.BusinessLogic.Email;
+using FileHub.BusinessLogic.Auditing;
 using FileHub.BusinessLogic.Validation;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
@@ -34,6 +35,7 @@ public sealed class UserAdminService : IUserAdminService
     private static readonly SemaphoreSlim s_adminMutationLock = new(1, 1);
 
     private readonly ILogger<UserAdminService> m_logger;
+    private readonly IAuditActor m_auditActor;
     private readonly IUserAdminRepository m_userAdminRepository;
     private readonly IShareRepository m_shareRepository;
     private readonly UserManager<FileHubUser> m_userManager;
@@ -41,6 +43,7 @@ public sealed class UserAdminService : IUserAdminService
 
     public UserAdminService(
         ILogger<UserAdminService> logger,
+        IAuditActor auditActor,
         IUserAdminRepository userAdminRepository,
         IShareRepository shareRepository,
         UserManager<FileHubUser> userManager,
@@ -48,6 +51,7 @@ public sealed class UserAdminService : IUserAdminService
     )
     {
         m_logger = logger;
+        m_auditActor = auditActor;
         m_userAdminRepository = userAdminRepository;
         m_shareRepository = shareRepository;
         m_userManager = userManager;
@@ -105,7 +109,9 @@ public sealed class UserAdminService : IUserAdminService
         var created = await m_userManager.CreateAsync(user);
         if (!created.Succeeded)
         {
-            m_logger.LogInformation("Inviting <{Email}> failed: {Error}", email, created.ToErrorString());
+            m_logger.LogWarning(
+                "{Actor:l} could not invite <{Email:l}>: {Error:l}",
+                m_auditActor.Describe(), email, created.ToErrorString());
             return OperationResult<InviteResultDto>.BadRequest(created.ToErrorString());
         }
 
@@ -115,7 +121,9 @@ public sealed class UserAdminService : IUserAdminService
             // A roleless account can sign in and reach nothing; don't leave one lying around for an
             // admin to puzzle over.
             await m_userManager.DeleteAsync(user);
-            m_logger.LogError("Assigning roles to the new account <{Email}> failed: {Error}", email, roled.ToErrorString());
+            m_logger.LogError(
+                "{Actor:l} invited <{Email:l}> but the roles could not be assigned, so the account was removed again: {Error:l}",
+                m_auditActor.Describe(), email, roled.ToErrorString());
             return OperationResult<InviteResultDto>.Error("The account could not be given its roles.");
         }
 
@@ -127,12 +135,13 @@ public sealed class UserAdminService : IUserAdminService
             // The account is real either way. A failed delivery is an SMTP problem the admin fixes
             // and then resends from, not a reason to unwind a created account.
             m_logger.LogWarning(
-                "Invited user {UserId} <{Email}> but the invitation email could not be sent: {Error}",
+                "Invited user {UserId} <{Email:l}> but the invitation email could not be sent: {Error:l}",
                 user.Id, email, mail.ErrorMessage);
         }
 
         m_logger.LogInformation(
-            "Invited user {UserId} <{Email}> with roles {Roles}", user.Id, email, string.Join(", ", roles.Value));
+            "{Actor:l} invited \"{Username:l}\" <{Email:l}> ({UserId}) with roles {Roles:l}",
+            m_auditActor.Describe(), user.UserName, email, user.Id, string.Join(", ", roles.Value));
 
         return OperationResult<InviteResultDto>.Success(new InviteResultDto
         {
@@ -163,11 +172,13 @@ public sealed class UserAdminService : IUserAdminService
             // Unlike the invite itself, sending the mail *is* the whole operation here, so a
             // delivery failure is the result.
             m_logger.LogWarning(
-                "Could not re-send the invitation for user {UserId}: {Error}", user.Id, mail.ErrorMessage);
+                "Could not re-send the invitation for user {UserId}: {Error:l}", user.Id, mail.ErrorMessage);
             return mail;
         }
 
-        m_logger.LogInformation("Re-sent the invitation for user {UserId}", user.Id);
+        m_logger.LogInformation(
+            "{Actor:l} re-sent the invitation to \"{Username:l}\" <{Email:l}> ({UserId})",
+            m_auditActor.Describe(), user.UserName, user.Email, user.Id);
         return OperationResult<Empty>.Success();
     }
 
@@ -253,8 +264,8 @@ public sealed class UserAdminService : IUserAdminService
             if (revoked > 0)
             {
                 m_logger.LogInformation(
-                    "Revoked {Count} share link(s) of user {UserId}, who can no longer create them",
-                    revoked, user.Id);
+                    "{Actor:l} revoked {Count} share link(s) of \"{Username:l}\" ({UserId}), who may no longer create them",
+                    m_auditActor.Describe(), revoked, user.UserName, user.Id);
             }
         }
 
@@ -287,7 +298,7 @@ public sealed class UserAdminService : IUserAdminService
             if (!stamped.Succeeded)
             {
                 m_logger.LogError(
-                    "Changed the roles of user {UserId} but could not rotate their security stamp: {Error}",
+                    "Changed the roles of user {UserId} but could not rotate their security stamp: {Error:l}",
                     user.Id, stamped.ToErrorString());
 
                 return OperationResult<Empty>.Error(
@@ -296,7 +307,8 @@ public sealed class UserAdminService : IUserAdminService
         }
 
         m_logger.LogInformation(
-            "Updated user {UserId}: name \"{Username}\", roles {Roles}", user.Id, username, string.Join(", ", roles.Value));
+            "{Actor:l} updated user {UserId}: name \"{Username:l}\", roles {Roles:l}",
+            m_auditActor.Describe(), user.Id, username, string.Join(", ", roles.Value));
 
         return OperationResult<Empty>.Success();
     }
@@ -384,11 +396,13 @@ public sealed class UserAdminService : IUserAdminService
         var deleted = await m_userManager.DeleteAsync(user);
         if (!deleted.Succeeded)
         {
-            m_logger.LogError("Deleting user {UserId} failed: {Error}", user.Id, deleted.ToErrorString());
+            m_logger.LogError("Deleting user {UserId} failed: {Error:l}", user.Id, deleted.ToErrorString());
             return OperationResult<Empty>.Error("The account could not be deleted.");
         }
 
-        m_logger.LogInformation("Deleted user {UserId} <{Email}>", user.Id, user.Email);
+        m_logger.LogInformation(
+            "{Actor:l} deleted user \"{Username:l}\" <{Email:l}> ({UserId}); their grants and links went with it",
+            m_auditActor.Describe(), user.UserName, user.Email, user.Id);
         return OperationResult<Empty>.Success();
     }
 
@@ -418,14 +432,16 @@ public sealed class UserAdminService : IUserAdminService
         if (!stamped.Succeeded)
         {
             m_logger.LogError(
-                "Disabled user {UserId} but could not rotate their security stamp: {Error}",
+                "Disabled user {UserId} but could not rotate their security stamp: {Error:l}",
                 user.Id, stamped.ToErrorString());
 
             return OperationResult<Empty>.Error(
                 "The account was disabled, but its existing sessions could not be ended. Try again.");
         }
 
-        m_logger.LogInformation("Disabled user {UserId}", user.Id);
+        m_logger.LogInformation(
+            "{Actor:l} disabled \"{Username:l}\" <{Email:l}> ({UserId}) and ended their sessions",
+            m_auditActor.Describe(), user.UserName, user.Email, user.Id);
         return OperationResult<Empty>.Success();
     }
 
@@ -441,7 +457,9 @@ public sealed class UserAdminService : IUserAdminService
         // snaps back after a single further mistake.
         await m_userManager.ResetAccessFailedCountAsync(user);
 
-        m_logger.LogInformation("Enabled user {UserId}", user.Id);
+        m_logger.LogInformation(
+            "{Actor:l} re-enabled \"{Username:l}\" <{Email:l}> ({UserId})",
+            m_auditActor.Describe(), user.UserName, user.Email, user.Id);
         return OperationResult<Empty>.Success();
     }
 

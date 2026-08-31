@@ -67,7 +67,7 @@ public sealed class IdentityService : IIdentityService
             // answer in ~2 ms where a known one took ~55 ms. The address itself is deliberately not
             // logged — it is anonymous, unbounded input and the log table has no retention.
             m_identityRepository.VerifyDummyPassword(loginDto.Password);
-            m_logger.LogInformation("Failed login attempt for an address with no account");
+            m_logger.LogWarning("Failed sign-in: no account holds that address");
             return OperationResult<LoginResultDto>.BadRequest(BadCredentials);
         }
 
@@ -75,7 +75,8 @@ public sealed class IdentityService : IIdentityService
 
         if (outcome == SignInOutcome.Success)
         {
-            m_logger.LogInformation("User {UserId} ({Username}) logged in", user.Id, user.UserName);
+            m_logger.LogInformation(
+                "\"{Username:l}\" <{Email:l}> ({UserId}) signed in", user.UserName, user.Email, user.Id);
             return OperationResult<LoginResultDto>.Success(
                 new LoginResultDto { MustChangePassword = user.MustChangePassword });
         }
@@ -84,13 +85,15 @@ public sealed class IdentityService : IIdentityService
         {
             // The password was right but no cookie is issued yet: the user id is parked in the
             // two-factor cookie, and login-2fa finishes the sign-in from there.
-            m_logger.LogInformation("User {UserId} passed the password step and needs a two-factor code", user.Id);
+            m_logger.LogInformation(
+                "\"{Username:l}\" <{Email:l}> passed the password step and needs a two-factor code",
+                user.UserName, user.Email);
             return OperationResult<LoginResultDto>.Success(new LoginResultDto { RequiresTwoFactor = true });
         }
 
         if (outcome == SignInOutcome.Failed)
         {
-            m_logger.LogInformation("Failed login attempt for user {UserId}", user.Id);
+            m_logger.LogWarning("Failed sign-in for <{Email:l}>: wrong password", user.Email);
             return OperationResult<LoginResultDto>.BadRequest(BadCredentials);
         }
 
@@ -104,20 +107,21 @@ public sealed class IdentityService : IIdentityService
         {
             // Nothing counted this attempt: the sign-in was refused before it reached the password.
             await m_identityRepository.AccessFailedAsync(user);
-            m_logger.LogInformation("Failed login attempt for user {UserId}", user.Id);
+            m_logger.LogWarning("Failed sign-in for <{Email:l}>: wrong password", user.Email);
             return OperationResult<LoginResultDto>.BadRequest(BadCredentials);
         }
 
         if (outcome == SignInOutcome.LockedOut)
         {
-            m_logger.LogInformation("Login attempt for locked-out user {UserId}", user.Id);
+            m_logger.LogWarning("Sign-in refused for <{Email:l}>: the account is locked out", user.Email);
             return OperationResult<LoginResultDto>.BadRequest("Too many failed attempts. Please try again later.");
         }
 
         // The caller has just proven they hold the password, so naming the reason tells them nothing
         // they could not find out by other means — and without it a user whose account was created but
         // never activated has no idea what to do next.
-        m_logger.LogInformation("User {UserId} tried to log in with an unconfirmed email address", user.Id);
+        m_logger.LogWarning(
+            "Sign-in refused for <{Email:l}>: the invitation was never accepted", user.Email);
         return OperationResult<LoginResultDto>.BadRequest(
             "This account has not been activated yet. Follow the invitation link you were sent.");
     }
@@ -159,7 +163,7 @@ public sealed class IdentityService : IIdentityService
         if (confirmResult.HasError)
         {
             m_logger.LogInformation(
-                "Invitation for user {UserId} was rejected: {Error}", user.Id, confirmResult.ErrorMessage);
+                "Invitation for user {UserId} was rejected: {Error:l}", user.Id, confirmResult.ErrorMessage);
             return OperationResult<Empty>.BadRequest(BadInvite);
         }
 
@@ -170,7 +174,7 @@ public sealed class IdentityService : IIdentityService
             // none: put the address back to unconfirmed so the account stays visibly invited and the
             // link — which confirming did not spend, only the password would have — still works.
             m_logger.LogWarning(
-                "Invitation for user {UserId} could not set a password: {Error}", user.Id, passwordResult.ErrorMessage);
+                "Invitation for user {UserId} could not set a password: {Error:l}", user.Id, passwordResult.ErrorMessage);
             await m_identityRepository.SetEmailUnconfirmedAsync(user);
             return passwordResult;
         }
@@ -183,7 +187,9 @@ public sealed class IdentityService : IIdentityService
             return clearResult;
         }
 
-        m_logger.LogInformation("User {UserId} accepted their invitation and set a password", user.Id);
+        m_logger.LogInformation(
+            "\"{Username:l}\" <{Email:l}> ({UserId}) accepted their invitation and set a password",
+            user.UserName, user.Email, user.Id);
         return OperationResult<Empty>.Success();
     }
 
@@ -215,13 +221,15 @@ public sealed class IdentityService : IIdentityService
             // account, and "Email 'x@y.com' is already taken." confirms an address does too. Same
             // reply as an unknown id, with the reason kept in the log.
             m_logger.LogInformation(
-                "Email change for user {UserId} was rejected: {Error}", user.Id, result.ErrorMessage);
+                "Email change for user {UserId} was rejected: {Error:l}", user.Id, result.ErrorMessage);
             return OperationResult<Empty>.BadRequest(BadLink);
         }
 
         // The token is bound to this address, so redeeming it also proves the address — the account
         // comes out confirmed even if it never was before.
-        m_logger.LogInformation("User {UserId} changed their email address to {Email}", user.Id, email);
+        m_logger.LogInformation(
+            "\"{Username:l}\" ({UserId}) confirmed their new email address {Email:l}",
+            user.UserName, user.Id, email);
         return result;
     }
 
@@ -247,7 +255,9 @@ public sealed class IdentityService : IIdentityService
         var token = await m_identityRepository.GeneratePasswordResetTokenAsync(user);
         SendResetMailInBackground(user.Email!, user.Id, token);
 
-        m_logger.LogInformation("Password reset requested for user {UserId}", user.Id);
+        m_logger.LogInformation(
+            "Password reset requested for \"{Username:l}\" <{Email:l}> ({UserId})",
+            user.UserName, user.Email, user.Id);
         return OperationResult<Empty>.Success();
     }
 
@@ -275,7 +285,7 @@ public sealed class IdentityService : IIdentityService
                 if (mailResult.HasError)
                 {
                     m_logger.LogWarning(
-                        "Password reset email for user {UserId} could not be sent: {Error}",
+                        "Password reset email for user {UserId} could not be sent: {Error:l}",
                         userId, mailResult.ErrorMessage);
                 }
             }
@@ -306,7 +316,8 @@ public sealed class IdentityService : IIdentityService
             // Identity's own "Invalid token." would come back only for an address that has an account,
             // so passing it through told an anonymous caller exactly which addresses do. The password
             // rules were already checked by the DTO, so nothing a legitimate user needs is lost here.
-            m_logger.LogInformation("Password reset for user {UserId} was rejected: {Error}", user.Id, result.ErrorMessage);
+            m_logger.LogWarning(
+                "Password reset for <{Email:l}> was rejected: {Error:l}", user.Email, result.ErrorMessage);
             return OperationResult<Empty>.BadRequest(BadResetLink);
         }
 
@@ -318,7 +329,9 @@ public sealed class IdentityService : IIdentityService
             return clearResult;
         }
 
-        m_logger.LogInformation("Reset password for user {UserId}", user.Id);
+        m_logger.LogInformation(
+            "\"{Username:l}\" <{Email:l}> ({UserId}) reset their password from a mail link",
+            user.UserName, user.Email, user.Id);
         return OperationResult<Empty>.Success();
     }
 
@@ -344,7 +357,7 @@ public sealed class IdentityService : IIdentityService
         if (result.HasError)
         {
             m_logger.LogInformation(
-                "User {UserId} could not take the display name \"{Username}\" while accepting their invitation: {Error}",
+                "User {UserId} could not take the display name \"{Username:l}\" while accepting their invitation: {Error:l}",
                 user.Id, username, result.ErrorMessage);
         }
     }

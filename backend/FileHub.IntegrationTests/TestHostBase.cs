@@ -1,5 +1,6 @@
 using Dal;
 using Entities.Account;
+using FileHub.BusinessLogic.Auditing;
 using FileHub.BusinessLogic.Email;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.Sqlite;
@@ -65,6 +66,11 @@ public abstract class TestHostBase : IDisposable
 
         Email = new FakeEmailService();
         services.AddSingleton<IEmailService>(Email);
+
+        // These tests call the services directly, so there is no request and no principal to name
+        // as the actor in an audit line. Registered before the delegate runs, so a fixture that
+        // wants to assert on who a line names can replace it.
+        services.AddSingleton<IAuditActor, SystemAuditActor>();
 
         configureServices(services);
 

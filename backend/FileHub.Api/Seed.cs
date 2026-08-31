@@ -44,7 +44,7 @@ public static class Seed
         if (pending.Count > 0)
         {
             logger.LogInformation(
-                "Applying {Count} pending database migration(s): {Migrations}",
+                "Applying {Count} pending database migration(s): {Migrations:l}",
                 pending.Count, string.Join(", ", pending));
         }
         else
@@ -73,7 +73,7 @@ public static class Seed
                 throw new InvalidOperationException($"Could not create the {role} role: {result.ToErrorString()}");
             }
 
-            logger.LogInformation("Created role {Role}", role);
+            logger.LogInformation("Created role {Role:l}", role);
         }
     }
 
