@@ -3,85 +3,72 @@
 
   <div class="body">
     <p class="hint">
-      There is no sign-up page: inviting an account here is the only way one comes into existence.
-      The invitation is what sets its first password, and it arrives by email — so
-      <button class="link" type="button" (click)="showEmail.emit()">set up email</button>
-      before inviting anyone.
+      They pick their own password from the emailed link, so
+      <button class="link" type="button" (click)="showEmail.emit()">set up email</button> first.
     </p>
 
-    <button class="secondary" type="button" (click)="toggleInvite()">
-      <mat-icon>{{ inviteOpen() ? 'close' : 'person_add' }}</mat-icon>
-      {{ inviteOpen() ? 'Cancel invitation' : 'Invite an account' }}
-    </button>
+    <form (ngSubmit)="invite()" #inviteForm="ngForm">
+      <div class="form-control">
+        <label for="invite-username">Name</label>
+        <input
+          id="invite-username"
+          type="text"
+          name="inviteUsername"
+          [(ngModel)]="inviteUsername"
+          placeholder="How they are shown in FileHub"
+          autocomplete="off"
+          required
+        />
+      </div>
 
-    @if (inviteOpen()) {
-      <form (ngSubmit)="invite()" #inviteForm="ngForm">
-        <div class="form-control">
-          <label for="invite-username">Name</label>
+      <div class="form-control">
+        <label for="invite-email">Email</label>
+        <input
+          id="invite-email"
+          type="email"
+          name="inviteEmail"
+          [(ngModel)]="inviteEmail"
+          placeholder="them@example.com"
+          autocomplete="off"
+          required
+        />
+        <span class="hint">They sign in with this.</span>
+      </div>
+
+      <span class="label">Roles</span>
+      @for (role of roles(); track role.name) {
+        <label class="check">
           <input
-            id="invite-username"
-            type="text"
-            name="inviteUsername"
-            [(ngModel)]="inviteUsername"
-            placeholder="How they are shown in FileHub"
-            autocomplete="off"
-            required
+            type="checkbox"
+            [checked]="hasInviteRole(role.name) || role.name === userRole"
+            [disabled]="role.name === userRole"
+            (change)="toggleInviteRole(role.name, $any($event.target).checked)"
           />
-        </div>
+          <span class="text">
+            <span>{{ role.name }}</span>
+            @if (role.name === userRole) {
+              <span class="hint">Always granted.</span>
+            }
+            @if (role.name === adminRole) {
+              <span class="hint">Every base path, and every other role.</span>
+            }
+            @if (role.name === createSharesRole) {
+              <span class="hint">May publish share links.</span>
+            }
+          </span>
+        </label>
+      }
 
-        <div class="form-control">
-          <label for="invite-email">Email</label>
-          <input
-            id="invite-email"
-            type="email"
-            name="inviteEmail"
-            [(ngModel)]="inviteEmail"
-            placeholder="them@example.com"
-            autocomplete="off"
-            required
-          />
-          <span class="hint">This is what they sign in with, and where the invitation goes.</span>
-        </div>
+      <p class="hint">
+        A non-admin sees nothing until assigned to a
+        <button class="link" type="button" (click)="showGroups.emit()">group</button> or a
+        <button class="link" type="button" (click)="showBasePaths.emit()">base path</button>.
+      </p>
 
-        <span class="label">Roles</span>
-        @for (role of roles(); track role.name) {
-          <label class="check">
-            <input
-              type="checkbox"
-              [checked]="hasInviteRole(role.name) || role.name === userRole"
-              [disabled]="role.name === userRole"
-              (change)="toggleInviteRole(role.name, $any($event.target).checked)"
-            />
-            <span class="text">
-              <span>{{ role.name }}</span>
-              @if (role.name === userRole) {
-                <span class="hint">Always granted — an account without it can see nothing.</span>
-              }
-              @if (role.name === adminRole) {
-                <span class="hint">
-                  Sees every base path without being granted one, and holds every other role.
-                </span>
-              }
-              @if (role.name === createSharesRole) {
-                <span class="hint"
-                  >May publish share links. Browsing a disk does not include it.</span
-                >
-              }
-            </span>
-          </label>
-        }
-
-        <p class="hint">
-          A new account that is not an admin sees nothing until it is granted a base path — from its
-          <strong>Base paths</strong> action below, or by putting it in a group under
-          <button class="link" type="button" (click)="showGroups.emit()">Groups</button>.
-        </p>
-
-        <div class="buttons">
-          <button type="submit" [disabled]="inviteForm.invalid || busy()">Send invitation</button>
-        </div>
-      </form>
-    }
+      <div class="buttons">
+        <button type="submit" [disabled]="inviteForm.invalid || busy()">Send invitation</button>
+      </div>
+    </form>
   </div>
 </section>
 

@@ -48,6 +48,8 @@ export class UsersComponent implements OnInit {
   public readonly showEmail = output<void>();
   /** Same idea for the pointer at group membership, which is not editable from this screen. */
   public readonly showGroups = output<void>();
+  /** And for the base-path grants, which are the other way an account is given something to see. */
+  public readonly showBasePaths = output<void>();
 
   public readonly users = this.userService.users;
   public readonly roles = this.roleService.roles;
@@ -64,7 +66,6 @@ export class UsersComponent implements OnInit {
 
   public readonly busy = signal(false);
 
-  public readonly inviteOpen = signal(false);
   public readonly inviteUsername = signal('');
   public readonly inviteEmail = signal('');
   public readonly inviteRoles = signal<string[]>([Roles.User]);
@@ -132,10 +133,6 @@ export class UsersComponent implements OnInit {
   }
 
   // ─── Inviting ─────────────────────────────────────────────────────────────
-
-  public toggleInvite(): void {
-    this.inviteOpen.update((open) => !open);
-  }
 
   public toggleInviteRole(role: string, checked: boolean): void {
     this.inviteRoles.update((roles) => toggleRole(roles, role, checked));
@@ -332,7 +329,6 @@ export class UsersComponent implements OnInit {
     this.inviteUsername.set('');
     this.inviteEmail.set('');
     this.inviteRoles.set([Roles.User]);
-    this.inviteOpen.set(false);
 
     this.userService.load().subscribe({
       next: (users) => {

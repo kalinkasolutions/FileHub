@@ -68,7 +68,11 @@
   @switch (section()) {
     @case ('users') {
       @defer {
-        <admin-users (showEmail)="show('email')" (showGroups)="show('groups')" />
+        <admin-users
+          (showEmail)="show('email')"
+          (showGroups)="show('groups')"
+          (showBasePaths)="show('basePaths')"
+        />
       } @placeholder {
         <p class="loading">Loading...</p>
       }
