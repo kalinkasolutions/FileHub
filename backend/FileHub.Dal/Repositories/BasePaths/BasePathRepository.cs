@@ -12,13 +12,31 @@ public sealed class BasePathRepository : IBasePathRepository
         m_context = context;
     }
 
-    public Task<List<BasePath>> GetAllAsync() =>
-        m_context.BasePaths
-            .Include(p => p.Access)
-            .Include(p => p.GroupAccess)
+    public async Task<List<BasePathWithCounts>> GetAllAsync()
+    {
+        // Both counts projected in the one query, the way the group list does it. Including the two
+        // grant collections instead joined them against each other — twelve users and three groups
+        // is thirty-six rows for one base path — and EF says so as MultipleCollectionIncludeWarning.
+        var rows = await m_context.BasePaths
             .OrderBy(p => p.Name)
             .ThenBy(p => p.Path)
+            .Select(p => new
+            {
+                BasePath = p,
+                UserCount = p.Access.Count,
+                GroupCount = p.GroupAccess.Count
+            })
             .ToListAsync();
+
+        return rows
+            .Select(r => new BasePathWithCounts
+            {
+                BasePath = r.BasePath,
+                UserCount = r.UserCount,
+                GroupCount = r.GroupCount
+            })
+            .ToList();
+    }
 
     public Task<BasePath?> GetAsync(Guid id) =>
         m_context.BasePaths.FirstOrDefaultAsync(p => p.Id == id);
@@ -72,6 +90,20 @@ public sealed class BasePathRepository : IBasePathRepository
             .AsNoTracking()
             .Where(u => userIds.Contains(u.Id))
             .Select(u => u.Id)
+            .ToListAsync();
+    }
+
+    public async Task<List<Guid>> FilterExistingIdsAsync(IReadOnlyCollection<Guid> basePathIds)
+    {
+        if (basePathIds.Count == 0)
+        {
+            return [];
+        }
+
+        return await m_context.BasePaths
+            .AsNoTracking()
+            .Where(p => basePathIds.Contains(p.Id))
+            .Select(p => p.Id)
             .ToListAsync();
     }
 

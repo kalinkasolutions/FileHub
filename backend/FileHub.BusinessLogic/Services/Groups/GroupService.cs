@@ -199,8 +199,9 @@ public sealed class GroupService : IGroupService
             return OperationResult<Empty>.NotFound(NotFoundMessage);
         }
 
-        var known = (await m_basePathRepository.GetAllAsync()).Select(p => p.Id).ToHashSet();
-        var basePathIds = (dto.BasePathIds ?? []).Where(known.Contains).ToList();
+        // A stale base path id would fail on the foreign key at save time and take the whole grant
+        // change down with it — same treatment as a stale id in every other grant screen.
+        var basePathIds = await m_basePathRepository.FilterExistingIdsAsync(dto.BasePathIds ?? []);
 
         // The membership is unchanged, so the members are read as they stand and the base paths
         // after the change are the pending list.

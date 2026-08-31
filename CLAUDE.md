@@ -496,6 +496,12 @@ would make every redeploy sign everybody out.
   `FindByEmailAsync`; never `FindByNameAsync`.
 - Entities implementing `IBaseEntity` get `CreatedAt`/`LastUpdatedAt` set in
   `SaveChanges[Async]` — do not set them by hand.
+- **Two collection `Include`s on one query is a mistake, not a preference.** EF joins the two
+  collections against each other, so a base path with twelve users and three groups comes back as
+  thirty-six rows — `MultipleCollectionIncludeWarning` says so at startup. Both admin lists that
+  want counts project them instead (`GroupWithCounts`, `BasePathWithCounts`), which is one query
+  that reads no grant rows at all. `AsSplitQuery` would silence the warning and still load every
+  row; a projection is the answer when the caller only wants a number.
 - Serilog writes to the console and to a `Logs` table in the same SQLite file, through its own
   ADO.NET connection, so persisting a log line cannot feed back through EF into the logging
   pipeline. The table has no retention — which is why a secret must never be handed to `ILogger`,
