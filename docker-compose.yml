@@ -27,7 +27,8 @@ services:
       # the container (/srv/storage), not the host path.
       - ./mnt/storage:/srv/storage:ro
     environment:
-      - ASPNETCORE_URLS=http://+:4122
+      # The port, set the image's own way. ASPNETCORE_URLS here overrides it and warns every start.
+      - ASPNETCORE_HTTP_PORTS=4122
       # Both must stay under /var/srv, which is the volume above.
       - ConnectionStrings__FileHub=${CONNECTION_STRING:-Data Source=/var/srv/filehub.db}
       - DataProtection__KeyPath=${DATA_PROTECTION_KEY_PATH:-/var/srv/keys}

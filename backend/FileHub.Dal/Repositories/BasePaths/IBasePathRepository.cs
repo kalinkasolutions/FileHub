@@ -4,7 +4,8 @@ namespace Dal.Repositories.BasePaths;
 
 public interface IBasePathRepository
 {
-    Task<List<BasePath>> GetAllAsync();
+    /// <summary>Every base path, in name order, each with the number of users and groups granted it.</summary>
+    Task<List<BasePathWithCounts>> GetAllAsync();
 
     Task<BasePath?> GetAsync(Guid id);
 
@@ -43,6 +44,12 @@ public interface IBasePathRepository
     /// reject the others at save time, taking the whole grant change down with them.
     /// </summary>
     Task<List<Guid>> FilterExistingUserIdsAsync(IReadOnlyCollection<Guid> userIds);
+
+    /// <summary>
+    /// Of the given ids, the ones that are real base paths — the counterpart of
+    /// <see cref="FilterExistingUserIdsAsync"/> for the other end of the same grant tables.
+    /// </summary>
+    Task<List<Guid>> FilterExistingIdsAsync(IReadOnlyCollection<Guid> basePathIds);
 
     Task<List<Guid>> GetBasePathIdsAsync(Guid userId);
 

@@ -32,6 +32,15 @@ Migrations are applied at startup by `Seed.InitializeAsync`; there is no manual 
 step, and a migration that is added but never applied locally will be applied by the next `dotnet
 run` against whatever database the connection string points at.
 
+**A generated migration that adds a constraint to an existing table has to be rewritten by hand.**
+SQLite has no `ALTER TABLE ADD CONSTRAINT`, so EF emulates one by rebuilding the table, and the
+rebuild is bracketed with `PRAGMA foreign_keys = 0`, which cannot run inside a transaction — which
+takes the *whole* migration out of the transaction, so an interrupted upgrade is left half applied
+and has to be unpicked by hand. It is a warning at startup, not an error, and easy to walk past.
+`Groups` is the worked example: its `AddColumn` + `AddForeignKey` pair is one
+`ALTER TABLE "Shares" ADD COLUMN ... REFERENCES ...`, which SQLite does allow as long as the
+column's default is NULL. Same schema, one statement, inside the transaction.
+
 Frontend, from `frontend/`:
 
 ```bash
@@ -487,6 +496,12 @@ would make every redeploy sign everybody out.
   `FindByEmailAsync`; never `FindByNameAsync`.
 - Entities implementing `IBaseEntity` get `CreatedAt`/`LastUpdatedAt` set in
   `SaveChanges[Async]` — do not set them by hand.
+- **Two collection `Include`s on one query is a mistake, not a preference.** EF joins the two
+  collections against each other, so a base path with twelve users and three groups comes back as
+  thirty-six rows — `MultipleCollectionIncludeWarning` says so at startup. Both admin lists that
+  want counts project them instead (`GroupWithCounts`, `BasePathWithCounts`), which is one query
+  that reads no grant rows at all. `AsSplitQuery` would silence the warning and still load every
+  row; a projection is the answer when the caller only wants a number.
 - Serilog writes to the console and to a `Logs` table in the same SQLite file, through its own
   ADO.NET connection, so persisting a log line cannot feed back through EF into the logging
   pipeline. The table has no retention — which is why a secret must never be handed to `ILogger`,
@@ -609,6 +624,9 @@ the screen.
   and a slow request is not worth announcing. The list keeps the rows it has until the new ones
   land, and the empty message is gated on `!isLoading()` so it can never claim an empty log while
   the first request is still in flight — the opposite mistake, and the one worth guarding.
+- **The message and the expanded stack trace are selectable**, against the app-wide
+  `user-select: none`. A log line exists to be quoted into a ticket or a search; a trace exists to
+  be pasted somewhere else entirely.
 - **A log row is three stacked lines on a phone** — level, then timestamp, then the message, each
   full width — and one line from 470px up. Three columns at 390px leave the message about fifteen
   glyphs, which is not a log line. The expand-exception button is absolutely positioned on the small
@@ -866,5 +884,10 @@ publishes on **`127.0.0.1:4122:4122`** — same number both sides, so
 there is one to get wrong — with `read_only`, `tmpfs: /tmp`, `cap_drop: ALL` and
 `no-new-privileges`. A bare `4122:4122` binds `0.0.0.0` and puts the login form on the internet in
 cleartext, around nginx and around TLS.
+
+The port is set as **`ASPNETCORE_HTTP_PORTS=4122`**, in the Dockerfile and again in compose, rather
+than as `ASPNETCORE_URLS`. The aspnet image already sets `ASPNETCORE_HTTP_PORTS=8080`, and a URLS
+that disagrees with it wins but says so on every start ("Overriding HTTP_PORTS ... Binding to
+values defined by URLS instead"). Both bind `http://*:4122`; only one of them is quiet about it.
 
 Commit messages follow conventional commits (`feat:`, `fix:`, `docs:`, `chore:`).

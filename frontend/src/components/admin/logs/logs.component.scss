@@ -128,6 +128,9 @@
   .message {
     min-width: 0;
     overflow-wrap: anywhere;
+    // styles.scss turns selection off app-wide. A log line is there to be quoted — into a ticket,
+    // a search, a message to whoever asked what happened — so this one is selectable.
+    user-select: text;
   }
 
   // Out of the stack entirely on a phone: three lines plus a button on a fourth would make a row of
@@ -179,6 +182,9 @@
     line-height: 1.5;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
+    // Selectable for the same reason the message is, and more so: a trace is pasted somewhere else
+    // to be read.
+    user-select: text;
   }
 }
 

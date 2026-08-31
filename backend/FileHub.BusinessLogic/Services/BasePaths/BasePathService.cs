@@ -36,7 +36,8 @@ public sealed class BasePathService : IBasePathService
     public async Task<OperationResult<List<BasePathDto>>> GetAllAsync()
     {
         var basePaths = await m_basePathRepository.GetAllAsync();
-        return OperationResult<List<BasePathDto>>.Success(basePaths.Select(MapBasePath).ToList());
+        return OperationResult<List<BasePathDto>>.Success(
+            basePaths.Select(p => MapBasePath(p.BasePath, p.UserCount, p.GroupCount)).ToList());
     }
 
     public async Task<OperationResult<BasePathDto>> CreateAsync(SaveBasePathDto dto)
@@ -68,7 +69,7 @@ public sealed class BasePathService : IBasePathService
         m_logger.LogInformation(
             "{Actor:l} created base path \"{Name:l}\" ({BasePathId}) at {Path:l}",
             m_auditActor.Describe(), basePath.Name, basePath.Id, basePath.Path);
-        return OperationResult<BasePathDto>.Success(MapBasePath(basePath));
+        return OperationResult<BasePathDto>.Success(MapBasePath(basePath, userCount: 0, groupCount: 0));
     }
 
     public async Task<OperationResult<BasePathDto>> UpdateAsync(Guid id, SaveBasePathDto dto)
@@ -108,7 +109,13 @@ public sealed class BasePathService : IBasePathService
         m_logger.LogInformation(
             "{Actor:l} repointed base path \"{Name:l}\" ({BasePathId}) from {OldPath:l} to {Path:l}",
             m_auditActor.Describe(), basePath.Name, basePath.Id, previousPath, basePath.Path);
-        return OperationResult<BasePathDto>.Success(MapBasePath(basePath));
+
+        // The counts are read rather than taken off the entity: nothing loaded the grant
+        // collections here, so they were both 0 and the admin list — which replaces its row with
+        // this answer — lost the grant chip on every rename until the next reload.
+        var userIds = await m_basePathRepository.GetUserIdsAsync(id);
+        var groupIds = await m_basePathRepository.GetGroupIdsAsync(id);
+        return OperationResult<BasePathDto>.Success(MapBasePath(basePath, userIds.Count, groupIds.Count));
     }
 
     public async Task<OperationResult<Empty>> DeleteAsync(Guid id)
@@ -256,8 +263,7 @@ public sealed class BasePathService : IBasePathService
 
         // An id that matches no base path would fail on the foreign key at save time; drop it here
         // so a stale id in the admin UI does not take the whole grant list down with it.
-        var known = (await m_basePathRepository.GetAllAsync()).Select(p => p.Id).ToHashSet();
-        var basePathIds = requested.Where(known.Contains).ToList();
+        var basePathIds = await m_basePathRepository.FilterExistingIdsAsync(requested);
 
         // Same revocation as SetUsersAsync, from the other end of the same table — both screens
         // edit the same grants, so both have to take the links with them. A base path the user
@@ -325,13 +331,13 @@ public sealed class BasePathService : IBasePathService
         return directoryName.Length > 0 ? directoryName : path;
     }
 
-    private static BasePathDto MapBasePath(BasePath basePath) => new()
+    private static BasePathDto MapBasePath(BasePath basePath, int userCount, int groupCount) => new()
     {
         Id = basePath.Id,
         Path = basePath.Path,
         Name = basePath.Name,
         CreatedAt = basePath.CreatedAt,
-        UserCount = basePath.Access.Count,
-        GroupCount = basePath.GroupAccess.Count
+        UserCount = userCount,
+        GroupCount = groupCount
     };
 }
