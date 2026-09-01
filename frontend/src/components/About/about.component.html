@@ -1,0 +1,105 @@
+<div class="blocks">
+  <!-- Which copy is running. The first thing anyone reporting a problem is asked for, which is why
+       it leads and why the commit is here at all. -->
+  <section class="block">
+    <h2>This build</h2>
+
+    @if (version(); as version) {
+      <div class="rows">
+        <div class="row">
+          <span class="label">Version</span>
+          <span class="value">{{ version.version }}</span>
+        </div>
+
+        @if (version.builtAt) {
+          <div class="row">
+            <span class="label">Built</span>
+            <span class="value">{{ version.builtAt | date: 'medium' }}</span>
+          </div>
+        }
+
+        @if (shortSha(); as sha) {
+          <div class="row">
+            <span class="label">Commit</span>
+            <a class="value sha" [href]="commitUrl()" target="_blank" rel="noopener noreferrer">
+              {{ sha }}
+            </a>
+          </div>
+        }
+      </div>
+
+      <p class="hint">The release this copy was built from. Quote it when reporting a problem.</p>
+    } @else if (loaded()) {
+      <div class="rows">
+        <div class="row">
+          <span class="label">Version</span>
+          <span class="value">development build</span>
+        </div>
+      </div>
+
+      <p class="hint">
+        This build did not come from a release, so it carries no version. Only an image built by the
+        release workflow does.
+      </p>
+    } @else {
+      <p class="hint">Reading the version…</p>
+    }
+  </section>
+
+  <section class="block">
+    <h2>Project</h2>
+
+    <div class="rows">
+      <div class="row">
+        <span class="label">Source</span>
+        <a class="value" [href]="repositoryUrl" target="_blank" rel="noopener noreferrer">
+          github.com/kalinkasolutions/FileHub
+        </a>
+      </div>
+
+      <div class="row">
+        <span class="label">Image</span>
+        <a class="value" [href]="imageUrl" target="_blank" rel="noopener noreferrer">
+          kalinkasolutions/filehub
+        </a>
+      </div>
+
+      <div class="row">
+        <span class="label">Licence</span>
+        <a class="value" [href]="licenseUrl" target="_blank" rel="noopener noreferrer">MIT</a>
+      </div>
+    </div>
+
+    <p class="hint">
+      A read-only cloud for browsing and sharing files from mounted disks. .NET 10 and Angular 21
+      over SQLite, in one container.
+    </p>
+  </section>
+
+  <!-- The wordmark is the one part of this app that is not MIT, and a fork that does not know it
+       is a fork in breach. It is on this screen rather than in the README alone for that reason. -->
+  <section class="block">
+    <h2>Typeface</h2>
+
+    <div class="rows">
+      <div class="row">
+        <span class="label">Wordmark</span>
+        <a class="value" [href]="typefaceUrl" target="_blank" rel="noopener noreferrer">
+          Greater Theory, by brandsemut
+        </a>
+      </div>
+
+      <div class="row">
+        <span class="label">Everything else</span>
+        <span class="value">the system monospace face</span>
+      </div>
+    </div>
+
+    <p class="hint">
+      Greater Theory is licensed for personal use only, and the logo is stored as outlines rather
+      than as live text, so the font itself is not shipped. Running FileHub for yourself is personal
+      use. Using it commercially means buying a licence for the typeface — or replacing
+      <code>frontend/public/file-hub.svg</code> with your own wordmark, which is the whole of it.
+    </p>
+  </section>
+</div>

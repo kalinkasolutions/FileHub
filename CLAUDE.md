@@ -679,7 +679,7 @@ rest on are covered, the wiring is not). `AdminSeeder` is
 covered, because it is the part of startup that can brick an install; the migration and role half
 in `Seed` is not.
 
-The SPA has **132 vitest specs** (`npm test`), over the things worth pinning without a browser:
+The SPA has **136 vitest specs** (`npm test`), over the things worth pinning without a browser:
 path building, the size and audience formatters, the services against `HttpTestingController`, and
 the guards. They do not cover how anything *looks* — the layout bugs in this codebase have all been
 found by screenshotting a running instance at 360px and 1280px, not by a spec, so do that when
@@ -858,11 +858,31 @@ first thing every visit needs. The screens reached from a mail link (`accept-inv
 `reset-password`, `confirm-email-change`, plus `change-password` and `account`) are `loadComponent`
 routes and stay out of the initial bundle. `share/:id` and `404` carry **no guards** — the share
 landing is the one screen a stranger sees, and it must look the same to a signed-in visitor.
-`data.chrome` (`none` / `anonymous` / default) is what a route asks of the app shell.
+`data.chrome` (`none` / `anonymous` / default) is what a route asks of the app shell. `about` is a
+`loadComponent` route too, and behind the session like everything else: what it shows is harmless,
+but which commit a copy runs is a fact about the installation rather than about the project, and
+there is no reason to hand it to a stranger at the sign-in form.
 
 Three guards: `authGuard` (session, else `/login`), `adminGuard` (the `Admin` role; sends a
 signed-in non-admin back to `/` rather than to a sign-in screen that would read as a bug), and
 `passwordChangeGuard` (described above).
+
+**The header's nav is `directories`, `account`, `admin`, then the two icon controls** — the `?` to
+the about screen and sign-out. Admin is last of the words because most accounts on an installation
+never see it, and the two glyphs are together at the end because both act on the app rather than on
+what you are looking at. An icon that is a destination marks "you are here" with the accent rather
+than the underline the word links use.
+
+**The about screen (`/about`) is the one place the build says what it is.** The release tag, build
+time and commit come from `wwwroot/version.json`, which the *Dockerfile* writes after the SPA is
+copied in — so it is never part of an `npm run build`, and a local run has none. `VersionService`
+fetches it once, treats a 404 or an empty tag as "development build" rather than an error, and
+carries `skipLoadingOverlay` because nobody asked for the request. (The file 404s rather than
+falling back to `index.html`: `MapFallbackToFile` routes on `{*path:nonfile}`.) The rest of the
+screen — repository, image, MIT, and the wordmark's personal-use-only licence — is constants,
+because it is a fact about the project. **Keep it in step with the README**, which is the document
+it mirrors, and in particular keep the typeface block: a commercial fork that never reads the
+README is a fork in breach.
 
 **The account screen is one column at every width**, capped at `$max-reading-width` and centred. It
 was two on a desktop, and that was wrong for what it holds: five blocks read top to bottom, half of

@@ -93,6 +93,17 @@ nav {
   }
 }
 
+// The two controls at the end of the nav are glyphs rather than words, so the one that is a
+// destination says "you are here" with the accent instead of the underline the links use — and it
+// carries no underline at all, which on an icon reads as a rule under the box.
+.icon-btn {
+  text-decoration: none;
+
+  &.active {
+    color: $primary-green;
+  }
+}
+
 @media (min-width: 700px) {
   :host {
     column-gap: $default-margin;
