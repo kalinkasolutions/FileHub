@@ -50,6 +50,9 @@ export class HeaderComponent {
     if (url.startsWith('/account')) {
       return 'Account';
     }
+    if (url.startsWith('/about')) {
+      return 'About';
+    }
     return 'Files';
   });
 

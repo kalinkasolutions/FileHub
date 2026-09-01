@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, Signal, inject, signal } from '@angular/core';
 import { IGroup, ISaveGroup, sortGroups } from '@models/IGroup';
-import { Observable, switchMap, tap } from 'rxjs';
+import { Observable, finalize, switchMap, tap } from 'rxjs';
 
 const url = '/api/admin/groups';
 
@@ -18,12 +18,28 @@ const url = '/api/admin/groups';
 export class AdminGroupService {
   private readonly http = inject(HttpClient);
 
+  private readonly settled = signal(false);
   private readonly state = signal<IGroup[]>([]);
 
   public readonly groups: Signal<IGroup[]> = this.state.asReadonly();
 
+  /**
+   * True once the first read settled, however it settled. Every message that says there are no
+   * groups — a section's own empty line, and a grant editor's "there is nothing to tick" — is gated
+   * on it, because the loading overlay is raised for writes only: ungated, such a message claims
+   * the installation has none for as long as the request takes.
+   *
+   * It belongs here rather than on each screen for the same reason the list does. Several sections
+   * read this one collection, and a flag per screen would drop back to false every time a tab was
+   * reopened onto rows that are already in hand.
+   */
+  public readonly loaded: Signal<boolean> = this.settled.asReadonly();
+
   public load(): Observable<IGroup[]> {
-    return this.http.get<IGroup[]>(url).pipe(tap((groups) => this.state.set(sortGroups(groups))));
+    return this.http.get<IGroup[]>(url).pipe(
+      tap((groups) => this.state.set(sortGroups(groups))),
+      finalize(() => this.settled.set(true)),
+    );
   }
 
   public create(group: ISaveGroup): Observable<IGroup> {

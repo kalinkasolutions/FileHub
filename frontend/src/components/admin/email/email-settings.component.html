@@ -7,7 +7,7 @@
       that does not arrive leaves an account nobody can sign in to.
     </p>
 
-    @if (!configured()) {
+    @if (loaded() && !configured()) {
       <p class="hint warn">No SMTP host is set, so FileHub sends nothing at all.</p>
     }
 
@@ -41,106 +41,111 @@
   <span class="title">SMTP settings</span>
 
   <div class="body">
-    <form (ngSubmit)="save()" #settingsForm="ngForm">
-      <div class="form-control">
-        <label for="smtp-host">Host</label>
-        <input
-          id="smtp-host"
-          type="text"
-          name="smtpHost"
-          [(ngModel)]="smtpHost"
-          placeholder="smtp.example.com"
-          autocomplete="off"
-          required
-        />
-      </div>
+    <!-- Nothing until the read settles. This form is filled *by* that read, so drawn early it
+         invites an admin to type into boxes the response is about to overwrite — and the
+         overlay that used to cover the gap is raised for writes only now. -->
+    @if (loaded()) {
+      <form (ngSubmit)="save()" #settingsForm="ngForm">
+        <div class="form-control">
+          <label for="smtp-host">Host</label>
+          <input
+            id="smtp-host"
+            type="text"
+            name="smtpHost"
+            [(ngModel)]="smtpHost"
+            placeholder="smtp.example.com"
+            autocomplete="off"
+            required
+          />
+        </div>
 
-      <div class="form-control">
-        <label for="smtp-port">Port</label>
-        <input
-          id="smtp-port"
-          type="number"
-          name="port"
-          [(ngModel)]="port"
-          min="1"
-          max="65535"
-          required
-        />
-      </div>
+        <div class="form-control">
+          <label for="smtp-port">Port</label>
+          <input
+            id="smtp-port"
+            type="number"
+            name="port"
+            [(ngModel)]="port"
+            min="1"
+            max="65535"
+            required
+          />
+        </div>
 
-      <div class="form-control">
-        <label for="smtp-security">Encryption</label>
-        <select id="smtp-security" name="security" [(ngModel)]="security">
-          @for (option of options; track option.value) {
-            <option [value]="option.value">{{ option.label }}</option>
-          }
-        </select>
-      </div>
+        <div class="form-control">
+          <label for="smtp-security">Encryption</label>
+          <select id="smtp-security" name="security" [(ngModel)]="security">
+            @for (option of options; track option.value) {
+              <option [value]="option.value">{{ option.label }}</option>
+            }
+          </select>
+        </div>
 
-      <div class="form-control">
-        <label for="smtp-username">Username <span class="optional">optional</span></label>
-        <input
-          id="smtp-username"
-          type="text"
-          name="username"
-          [(ngModel)]="username"
-          autocomplete="off"
-        />
-      </div>
+        <div class="form-control">
+          <label for="smtp-username">Username <span class="optional">optional</span></label>
+          <input
+            id="smtp-username"
+            type="text"
+            name="username"
+            [(ngModel)]="username"
+            autocomplete="off"
+          />
+        </div>
 
-      <div class="form-control">
-        <label for="smtp-password">Password</label>
-        <input
-          id="smtp-password"
-          type="password"
-          name="password"
-          [(ngModel)]="password"
-          [placeholder]="passwordHint()"
-          autocomplete="new-password"
-        />
-        <span class="hint">
-          @if (passwordCleared()) {
-            The stored password was cleared: this save changed where mail is sent, and FileHub will
-            not forward a saved secret to a new server. Enter the password for the new one.
-          } @else if (hasPassword()) {
-            A password is stored. FileHub cannot show it — leave this empty to keep it, or type a
-            new one to replace it.
-          } @else {
-            No password is stored yet. Leaving this empty keeps it that way.
-          }
-        </span>
-      </div>
+        <div class="form-control">
+          <label for="smtp-password">Password</label>
+          <input
+            id="smtp-password"
+            type="password"
+            name="password"
+            [(ngModel)]="password"
+            [placeholder]="passwordHint()"
+            autocomplete="new-password"
+          />
+          <span class="hint">
+            @if (passwordCleared()) {
+              The stored password was cleared: this save changed where mail is sent, and FileHub
+              will not forward a saved secret to a new server. Enter the password for the new one.
+            } @else if (hasPassword()) {
+              A password is stored. FileHub cannot show it — leave this empty to keep it, or type a
+              new one to replace it.
+            } @else {
+              No password is stored yet. Leaving this empty keeps it that way.
+            }
+          </span>
+        </div>
 
-      <div class="form-control">
-        <label for="from-address">From address</label>
-        <input
-          id="from-address"
-          type="email"
-          name="fromAddress"
-          [(ngModel)]="fromAddress"
-          placeholder="filehub@example.com"
-          autocomplete="off"
-          required
-        />
-      </div>
+        <div class="form-control">
+          <label for="from-address">From address</label>
+          <input
+            id="from-address"
+            type="email"
+            name="fromAddress"
+            [(ngModel)]="fromAddress"
+            placeholder="filehub@example.com"
+            autocomplete="off"
+            required
+          />
+        </div>
 
-      <div class="form-control">
-        <label for="from-name">From name <span class="optional">optional</span></label>
-        <input
-          id="from-name"
-          type="text"
-          name="fromName"
-          [(ngModel)]="fromName"
-          placeholder="FileHub"
-          autocomplete="off"
-        />
-      </div>
+        <div class="form-control">
+          <label for="from-name">From name <span class="optional">optional</span></label>
+          <input
+            id="from-name"
+            type="text"
+            name="fromName"
+            [(ngModel)]="fromName"
+            placeholder="FileHub"
+            autocomplete="off"
+          />
+        </div>
 
-      <div class="buttons">
-        <button type="submit" [disabled]="settingsForm.invalid || saving()">
-          {{ saving() ? 'Saving...' : 'Save settings' }}
-        </button>
-      </div>
-    </form>
+        <div class="buttons">
+          <button type="submit" [disabled]="settingsForm.invalid || saving()">
+            {{ saving() ? 'Saving...' : 'Save settings' }}
+          </button>
+        </div>
+      </form>
+    }
   </div>
 </section>

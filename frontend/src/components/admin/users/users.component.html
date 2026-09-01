@@ -92,7 +92,7 @@
     </div>
   }
 
-  @if (users().length === 0) {
+  @if (loaded() && users().length === 0) {
     <p class="empty">No accounts yet.</p>
   }
 
@@ -235,6 +235,7 @@
             [granted]="accessGranted()"
             [busy]="busy()"
             emptyText="There are no base paths yet. Add one under Paths."
+            [optionsLoaded]="basePathsLoaded()"
             [note]="accessNote"
             (save)="saveAccess($event)"
             (cancel)="closeAccess()"

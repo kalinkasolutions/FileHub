@@ -627,10 +627,22 @@ the screen.
 - **The message and the expanded stack trace are selectable**, against the app-wide
   `user-select: none`. A log line exists to be quoted into a ticket or a search; a trace exists to
   be pasted somewhere else entirely.
-- **A log row is three stacked lines on a phone** — level, then timestamp, then the message, each
-  full width — and one line from 470px up. Three columns at 390px leave the message about fifteen
-  glyphs, which is not a log line. The expand-exception button is absolutely positioned on the small
-  layout so it does not claim a fourth line.
+- **A log row is three stacked lines** — level, then timestamp, then the message, each full width —
+  and one line once there is room for one. Three columns at 390px leave the message about fifteen
+  glyphs, which is not a log line. The expand-exception button is absolutely positioned on the
+  stacked layout so it does not claim a fourth line.
+- **Which of the two it is comes from a `@container` query on `.entries`, not a media query.** The
+  window's width does not answer this: at `$admin-wide` the section becomes a 450px filter column
+  plus the log, so the *list* is at its narrowest — 468px at a 960px viewport, 324px at 700px where
+  the auto-fit grid puts the two panels side by side — exactly where a media query would call the
+  screen wide. Laid out on the window, a row was three comfortable lines on a phone and a one-line
+  row with a 180px message on a laptop. The threshold is 640px of the list's own width: the level
+  column, the timestamp and the padding around them cost ~280px before the message starts. A
+  browser without container queries keeps the stacked rows, which work at any width.
+- **Warning is orange (`$text-warning`) and error is the red.** Warning used to be `$text-danger`,
+  the same red at 81% alpha — so the two levels an operator scans for were the two hardest to tell
+  apart. The orange is the danger red turned to 26° on the wheel at the same saturation and
+  lightness, so it belongs to the same palette rather than arriving from somewhere else.
 
 `LogQueryTests` covers the filters; they are all places where the query can be quietly wrong rather
 than loudly broken. `LogSignalTests` covers the coalescing and the loop guard, which live in
@@ -660,13 +672,14 @@ the public resolve all take `callerIsAdmin` — and `CreateAsync` also `callerCa
 but not that the principal was read, and in particular not that the claims factory put the roles an
 admin only implies onto the cookie the `RequireRole` policy reads), the caller
 identity on the anonymous share routes, `FileDownload`'s zip and
-headers, `ShareLinks`, the rate limiter, the forwarded-headers configuration, and the SignalR half
-of the live log (`LogHub`, `LogSignalSink`, `LogBroadcastService` — the rule and the coalescing they
+headers, `ShareLinks`, the rate limiter, the forwarded-headers configuration, the service worker
+(`AppUpdateService`, `ngsw-config.json` — checked by driving a real browser, not by a spec), and
+the SignalR half of the live log (`LogHub`, `LogSignalSink`, `LogBroadcastService` — the rule and the coalescing they
 rest on are covered, the wiring is not). `AdminSeeder` is
 covered, because it is the part of startup that can brick an install; the migration and role half
 in `Seed` is not.
 
-The SPA has **132 vitest specs** (`npm test`), over the things worth pinning without a browser:
+The SPA has **138 vitest specs** (`npm test`), over the things worth pinning without a browser:
 path building, the size and audience formatters, the services against `HttpTestingController`, and
 the guards. They do not cover how anything *looks* — the layout bugs in this codebase have all been
 found by screenshotting a running instance at 360px and 1280px, not by a spec, so do that when
@@ -772,6 +785,58 @@ Greater Theory is **personal-use only** (brandsemut). The outlines are in the re
 file is not, and the README says what a commercial fork has to do about it — buy a licence or
 replace `frontend/public/file-hub.svg`. Keep that notice in step with the artwork.
 
+#### It is an installable PWA
+
+`manifest.webmanifest` + `@angular/service-worker`, wired in `app.config.ts` and configured by
+`ngsw-config.json`. The worker is built into the **production configuration only** (`angular.json`),
+and `provideServiceWorker` is gated on `!isDevMode()` besides — a cached shell in front of
+`npm run watch` is the one thing that would make live reload lie about what it is showing.
+
+- **There are no `dataGroups`, and there must not be.** The worker caches the shell and the static
+  assets; it never caches an API response. Every screen in this app is a view onto a disk that
+  changes underneath it, and a listing served from a cache is a listing of files that may not be
+  there. Offline the shell comes up and the session check fails, which lands on the sign-in screen —
+  the honest answer for a file server with no network.
+- **`navigationUrls` excludes `/api/**`, `/public-api/**` and `/og/**`** on top of the default
+  "anything with a dot". Downloads go out through a synthetic `<a download>`, which is not a
+  navigation and was never at risk, but the `og/share/{id}` page *is* a real document under this
+  origin and the worker would otherwise answer it with `index.html`. Verified end to end: a
+  controlled page still downloads real bytes, and `og/share` still returns the server's HTML.
+- **`version.json` is not in the hash table**, because the Dockerfile writes it *after* the SPA is
+  copied in. That was already the reason for the ordering — see the comment there — and it is now
+  load-bearing: in the manifest it would be cached, or fail its hash check, the moment the release
+  build rewrote it.
+- **The Google Fonts icon face is deliberately not cached.** An asset group for it would have the
+  worker `fetch` a cross-origin URL, and a service worker's fetches are subject to the CSP on
+  *its own* script response — which behind `nginx.example.conf` is `connect-src 'self'`. It would
+  fail silently, and making it work means widening the CSP for a file the browser's own HTTP cache
+  already keeps for a year. If you add it back, widen `connect-src` in the same commit.
+- `thebeaver.png` is excluded from the lazy asset group: 240KB that only the 404 page ever shows.
+- **`AppUpdateService` turns `VERSION_READY` into a toast that reloads on tap**, rather than
+  reloading by itself. An installed copy otherwise runs its cached bundle until every tab is
+  closed, which on a phone's home screen is weeks — and FileHub is deployed by pulling a new image,
+  so that bundle is talking to an API that has moved. It is not automatic because a reload in the
+  middle of the mail settings loses what the admin was typing. The tap runs `activateUpdate()`
+  before the reload, so the page that comes back is certainly the new build.
+- **It also polls every six hours, and that is what makes the notice reach the case it was written
+  for.** The worker asks the server for a new version when it *starts*, which is once per page
+  load — and an installed copy is resumed rather than reloaded, which is the whole point of
+  installing it. Without a `checkForUpdate()` of its own the toast only ever appeared on a cold
+  start, exactly where the reload had already happened. No stabilisation guard is needed because
+  the first tick is six hours out; a failed check is swallowed, since the next one tries again.
+
+**The icons are generated from the wordmark**, not drawn: `public/icons/icon.svg` frames
+`file-hub.svg` on `$bg-page` at 84% width, and `icon-maskable.svg` does the same at 66% so the
+artwork stays inside a maskable icon's central 80% safe zone. Both nest the original `<g>` with its
+own viewBox rather than copying any coordinates — the hand-tuned kerning is carried across by
+reference, which is the only way it survives. The PNGs beside them are rasterised from those two
+files at the sizes the manifest lists; regenerate with any rasteriser if the wordmark changes.
+The two SVGs are sources, not assets: `angular.json` ignores `icons/*.svg` so they stay in the
+repository without being served and swept into the worker's lazy asset group.
+
+Note that this puts the licensed wordmark on the launcher icon as well as in the header, so the
+README's note about a commercial fork covers `public/icons/` too.
+
 #### Two things that cost a day each
 
 **A rule in `app.component.scss` cannot reach the routed view.** The router renders that component
@@ -793,11 +858,31 @@ first thing every visit needs. The screens reached from a mail link (`accept-inv
 `reset-password`, `confirm-email-change`, plus `change-password` and `account`) are `loadComponent`
 routes and stay out of the initial bundle. `share/:id` and `404` carry **no guards** — the share
 landing is the one screen a stranger sees, and it must look the same to a signed-in visitor.
-`data.chrome` (`none` / `anonymous` / default) is what a route asks of the app shell.
+`data.chrome` (`none` / `anonymous` / default) is what a route asks of the app shell. `about` is a
+`loadComponent` route too, and behind the session like everything else: what it shows is harmless,
+but which commit a copy runs is a fact about the installation rather than about the project, and
+there is no reason to hand it to a stranger at the sign-in form.
 
 Three guards: `authGuard` (session, else `/login`), `adminGuard` (the `Admin` role; sends a
 signed-in non-admin back to `/` rather than to a sign-in screen that would read as a bug), and
 `passwordChangeGuard` (described above).
+
+**The header's nav is `directories`, `account`, `admin`, then the two icon controls** — the `?` to
+the about screen and sign-out. Admin is last of the words because most accounts on an installation
+never see it, and the two glyphs are together at the end because both act on the app rather than on
+what you are looking at. An icon that is a destination marks "you are here" with the accent rather
+than the underline the word links use.
+
+**The about screen (`/about`) is the one place the build says what it is.** The release tag, build
+time and commit come from `wwwroot/version.json`, which the *Dockerfile* writes after the SPA is
+copied in — so it is never part of an `npm run build`, and a local run has none. `VersionService`
+fetches it once, treats a 404 or an empty tag as "development build" rather than an error, and
+carries `skipLoadingOverlay` because nobody asked for the request. (The file 404s rather than
+falling back to `index.html`: `MapFallbackToFile` routes on `{*path:nonfile}`.) The rest of the
+screen — repository, image, MIT, and the wordmark's personal-use-only licence — is constants,
+because it is a fact about the project. **Keep it in step with the README**, which is the document
+it mirrors, and in particular keep the typeface block: a commercial fork that never reads the
+README is a fork in breach.
 
 **The account screen is one column at every width**, capped at `$max-reading-width` and centred. It
 was two on a desktop, and that was wrong for what it holds: five blocks read top to bottom, half of
@@ -850,6 +935,33 @@ The account screen's two-factor block carries the current password through the w
 require it, as `2fa/disable` always did. Enrolling with a session cookie alone let anyone holding a
 borrowed cookie pair their own authenticator and keep recovery codes that survive both a password
 change and *sign out everywhere*.
+
+**The full-screen overlay is raised for writes only.** `loadingInterceptor` lets every GET through
+and blocks the screen for POST/PUT/PATCH/DELETE — a save the user must not press twice, and must
+not navigate away from mid-flight. Raised on every request, as it was, it put *two* loading
+indicators on screen at once wherever a screen has one of its own: opening a folder drew "Loading…"
+in the listing panel and a blocking modal spinner over the top of it. A read is what a screen was
+opened to do, so the screen is the right place to say it is doing it. `skipLoadingOverlay` is still
+there for a write nobody is waiting on.
+
+That change is what makes the empty messages load-bearing: **an admin list's "No accounts yet." is
+gated on a `loaded` signal**, because the overlay used to cover the gap and nothing does now. Same
+rule the log screen already had, for the same reason — a list that claims the installation has none
+of something while the request is still in flight is worse than one that shows nothing yet.
+
+**That flag lives on the service, beside the list it describes**, set from `finalize` so it flips
+however the read settled — a `loaded` that only turns true on success leaves a *failed* read looking
+like a running one, and the message hidden for the session. On the service rather than in each
+component because the list is: three sections read the base paths, and a per-component flag went
+back to false every time a tab was reopened onto rows already in hand. It also covers the *second*
+list a screen reads — `admin-access-list` takes `optionsLoaded`, because a grant editor drawn early
+told an admin to go and create base paths the installation already had.
+
+**The one screen a read *fills* is Email, and it is gated whole.** Every other admin read paints a
+list, so the honest thing is to keep showing nothing; the SMTP form's fields are set from the
+response, so drawn early it invites an admin to type into boxes `apply()` is about to overwrite, and
+`configured()` is false until the host arrives — flashing "No SMTP host is set, so FileHub sends
+nothing at all." on an install that has one. Both hang off the same `loaded()`.
 
 API failures are turned into a message with `apiErrorMessage(error, fallback)`, which reads
 ProblemDetails `detail` and ValidationProblemDetails `errors` before falling back. A 401 clears the

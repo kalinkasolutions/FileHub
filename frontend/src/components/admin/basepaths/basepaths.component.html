@@ -44,7 +44,7 @@
 <section class="panel">
   <span class="title">Base paths</span>
 
-  @if (basePaths().length === 0) {
+  @if (loaded() && basePaths().length === 0) {
     <p class="empty">No base paths yet. Nothing can be browsed until there is one.</p>
   }
 
@@ -141,6 +141,7 @@
             [options]="accessOptions()"
             [granted]="accessGranted()"
             [emptyText]="accessEmptyText()"
+            [optionsLoaded]="accessOptionsLoaded()"
             [note]="accessNote()"
             [busy]="busy()"
             (save)="saveAccess($event)"

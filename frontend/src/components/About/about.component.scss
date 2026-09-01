@@ -1,0 +1,53 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
+:host {
+  @include app-shell;
+}
+
+// One column at every width, capped and centred — the same shape the account screen has, and for
+// the same reason: three short blocks read top to bottom, and a second track would pair a
+// three-line block with a ten-line one.
+.blocks {
+  @include flex(column);
+  gap: $default-margin;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: $screen-padding;
+
+  > * {
+    width: 100%;
+    max-width: $max-reading-width;
+    margin-inline: auto;
+  }
+}
+
+.block {
+  @include account-section;
+}
+
+// A sha is read character by character to compare it with another one, so it keeps the mono face
+// at the row's own size rather than the value's.
+.sha {
+  font-size: $font-size-small;
+  letter-spacing: 0.05em;
+}
+
+// The right-hand side of a row is a link often enough here that it is worth saying once: a value
+// that goes somewhere looks like the values that do not, and is a link only on hover. It is not
+// right-aligned by hand — the row's own `space-between` puts it on the trailing edge when it fits,
+// and a value long enough to wrap onto its own line then starts under its label instead of ending
+// in mid-air.
+a.value {
+  color: $link-primary;
+
+  @include hover {
+    color: $link-hover;
+  }
+}
+
+code {
+  font-size: $font-size-small;
+  overflow-wrap: anywhere;
+}

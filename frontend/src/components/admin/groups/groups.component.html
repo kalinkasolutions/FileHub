@@ -33,7 +33,7 @@
 <section class="panel">
   <span class="title">Groups</span>
 
-  @if (groups().length === 0) {
+  @if (loaded() && groups().length === 0) {
     <p class="empty">No groups yet. Base paths can still be granted to accounts one by one.</p>
   }
 
@@ -121,6 +121,7 @@
             [options]="accessOptions()"
             [granted]="accessGranted()"
             [emptyText]="accessEmptyText()"
+            [optionsLoaded]="accessOptionsLoaded()"
             [note]="accessNote()"
             [busy]="busy()"
             (save)="saveAccess($event)"

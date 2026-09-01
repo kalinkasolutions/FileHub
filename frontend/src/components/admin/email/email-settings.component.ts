@@ -49,6 +49,15 @@ export class EmailSettingsComponent implements OnInit {
   public readonly saving = signal(false);
   public readonly sending = signal(false);
 
+  /**
+   * True once the first read settled, however it settled. Both panels are gated on it, because the
+   * overlay used to cover this screen while the settings arrived and no longer does: the form is
+   * the one admin screen whose fields are *filled* by a read, so drawn early it invites an admin to
+   * type into boxes `apply` is about to overwrite — and `configured()` is false until the host
+   * lands, so the "nothing is configured" warning would flash on an install that is.
+   */
+  public readonly loaded = signal(false);
+
   /** Prefilled with the signed-in admin's own address — the usual place to send a test. */
   public readonly recipient = signal(this.authService.status()?.email ?? '');
 
@@ -60,11 +69,14 @@ export class EmailSettingsComponent implements OnInit {
   public readonly passwordHint = computed(() => passwordPlaceholder(this.hasPassword()));
 
   public ngOnInit(): void {
-    this.emailService.get().subscribe({
-      next: (settings) => this.apply(settings),
-      error: (error: unknown) =>
-        this.toastr.error(apiErrorMessage(error, 'Could not load the email settings')),
-    });
+    this.emailService
+      .get()
+      .pipe(finalize(() => this.loaded.set(true)))
+      .subscribe({
+        next: (settings) => this.apply(settings),
+        error: (error: unknown) =>
+          this.toastr.error(apiErrorMessage(error, 'Could not load the email settings')),
+      });
   }
 
   public save(): void {

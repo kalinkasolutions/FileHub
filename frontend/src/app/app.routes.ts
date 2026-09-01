@@ -78,6 +78,14 @@ export const routes: Routes = [
     component: AdminComponent,
     canActivate: [authGuard, passwordChangeGuard, adminGuard],
   },
+  {
+    // Behind the session like every other screen. What it shows is harmless in itself, but the
+    // commit a copy is running is a fact about the installation, not about the project, and there
+    // is no reason to hand it to a stranger at the sign-in form.
+    path: 'about',
+    canActivate: [authGuard, passwordChangeGuard],
+    loadComponent: () => import('@components/About/about.component').then((m) => m.AboutComponent),
+  },
   { path: 'share/:id', component: PublicShareComponent, data: { chrome: 'anonymous' } },
   // A real destination, not a fallback: an expired or used-up share link redirects a browser here.
   { path: '404', component: NotFoundComponent },

@@ -22,9 +22,7 @@
           "builder": "@angular/build:application",
           "options": {
             "stylePreprocessorOptions": {
-              "includePaths": [
-                "src"
-              ]
+              "includePaths": ["src"]
             },
             "outputPath": {
               "base": "../backend/FileHub.Api/wwwroot",
@@ -36,16 +34,12 @@
             "assets": [
               {
                 "glob": "**/*",
-                "input": "public"
+                "input": "public",
+                "ignore": ["icons/*.svg"]
               }
             ],
-            "styles": [
-              "src/styles.scss"
-            ],
-            "allowedCommonJsDependencies": [
-              "qrcode",
-              "dijkstrajs"
-            ]
+            "styles": ["src/styles.scss"],
+            "allowedCommonJsDependencies": ["qrcode", "dijkstrajs"]
           },
           "configurations": {
             "production": {
@@ -61,7 +55,8 @@
                   "maximumError": "8kB"
                 }
               ],
-              "outputHashing": "all"
+              "outputHashing": "all",
+              "serviceWorker": "ngsw-config.json"
             },
             "development": {
               "optimization": false,

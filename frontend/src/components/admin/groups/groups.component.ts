@@ -52,6 +52,9 @@ export class GroupsComponent implements OnInit {
   public readonly newName = signal('');
   public readonly busy = signal(false);
 
+  /** Gated on by the empty message — see {@link AdminGroupService.loaded}. */
+  public readonly loaded = this.groupService.loaded;
+
   /** The row being renamed, or null. Only one row is ever open. */
   public readonly editingId = signal<string | null>(null);
   public readonly editName = signal('');
@@ -79,6 +82,11 @@ export class GroupsComponent implements OnInit {
 
   public readonly accessOptions = computed<IAccessOption[]>(() =>
     this.accessKind() === 'members' ? this.userOptions() : this.basePathOptions(),
+  );
+
+  /** Whichever of the two lists the open editor is ticking has been read at least once. */
+  public readonly accessOptionsLoaded = computed(() =>
+    this.accessKind() === 'members' ? this.userService.loaded() : this.basePathService.loaded(),
   );
 
   public readonly accessHeading = computed(() => {

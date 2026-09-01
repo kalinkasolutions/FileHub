@@ -10,11 +10,26 @@
   <nav>
     <a class="nav" routerLink="/" [class.active]="section() === 'Files'">directories</a>
 
+    <a class="nav" routerLink="/account" [class.active]="section() === 'Account'">account</a>
+
+    <!-- Last, and so nearest the sign-out control: the one link most of the accounts on an
+         installation never see, and the one that leaves the ordinary run of the app. -->
     @if (isAdmin()) {
       <a class="nav" routerLink="/admin" [class.active]="section() === 'Admin'">admin</a>
     }
 
-    <a class="nav" routerLink="/account" [class.active]="section() === 'Account'">account</a>
+    <!-- Not a word in the row of destinations: what release this is, and who the logo belongs to,
+         is asked once and then never again. It sits with the sign-out control because both act on
+         the app itself rather than on what you are looking at. -->
+    <a
+      class="icon-btn quiet"
+      routerLink="/about"
+      [class.active]="section() === 'About'"
+      title="About FileHub"
+      aria-label="About FileHub"
+    >
+      <mat-icon>help</mat-icon>
+    </a>
 
     <button
       class="icon-btn quiet"

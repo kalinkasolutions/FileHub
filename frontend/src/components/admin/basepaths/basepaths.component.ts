@@ -45,6 +45,9 @@ export class BasePathsComponent implements OnInit {
   public readonly newName = signal('');
   public readonly busy = signal(false);
 
+  /** Gated on by the empty message — see {@link BasePathService.loaded}. */
+  public readonly loaded = this.basePathService.loaded;
+
   /** The row being renamed / repointed, or null. Only one row is ever open. */
   public readonly editingId = signal<string | null>(null);
   public readonly editPath = signal('');
@@ -75,6 +78,11 @@ export class BasePathsComponent implements OnInit {
 
   public readonly accessOptions = computed<IAccessOption[]>(() =>
     this.accessKind() === 'users' ? this.userOptions() : this.groupOptions(),
+  );
+
+  /** Whichever of the two lists the open editor is ticking has been read at least once. */
+  public readonly accessOptionsLoaded = computed(() =>
+    this.accessKind() === 'users' ? this.userService.loaded() : this.groupService.loaded(),
   );
 
   public readonly accessHeading = computed(() => {

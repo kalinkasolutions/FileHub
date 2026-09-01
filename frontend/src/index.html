@@ -5,9 +5,27 @@
     <title>FileHub</title>
     <base href="/" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#0d0c0c" />
+    <!-- $bg-page, which is what the app actually paints behind everything. It was #0d0c0c, a
+         colour nothing else in the app uses, so the phone's status bar and the install splash were
+         a shade the app never shows. The manifest carries the same value twice more. -->
+    <meta name="theme-color" content="#333333" />
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
-    <link rel="apple-touch-icon" href="filehub.png" />
+
+    <!-- Installable: the manifest names the icons, the ground colour and the standalone display,
+         and Angular's service worker (production builds only) is what makes the shell load
+         without a round trip. -->
+    <link rel="manifest" href="manifest.webmanifest" />
+
+    <!-- The standard name for what Apple's prefix once meant on its own. Chrome logs the bare
+         `apple-` form as deprecated, and both have to be here: Safari still reads only its own. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+
+    <!-- iOS reads none of the manifest's display or icon fields; these three are its version of
+         them. The touch icon is the same 180px raster the manifest lists. -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="FileHub" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="apple-touch-icon" href="icons/icon-180.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <!-- The icon axes are pinned to a single instance (20px optical size, 300 weight, unfilled)
