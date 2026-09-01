@@ -65,6 +65,10 @@ export class UsersComponent implements OnInit {
   public readonly signedInAs = computed(() => this.authService.status()?.userId ?? '');
 
   public readonly busy = signal(false);
+  /** Gated on by the empty message — see {@link AdminUserService.loaded}. */
+  public readonly loaded = this.userService.loaded;
+  /** The same, for the grant editor's own list of base paths, which is a second read. */
+  public readonly basePathsLoaded = this.basePathService.loaded;
 
   public readonly inviteUsername = signal('');
   public readonly inviteEmail = signal('');

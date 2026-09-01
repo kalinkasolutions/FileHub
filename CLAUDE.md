@@ -679,7 +679,7 @@ rest on are covered, the wiring is not). `AdminSeeder` is
 covered, because it is the part of startup that can brick an install; the migration and role half
 in `Seed` is not.
 
-The SPA has **136 vitest specs** (`npm test`), over the things worth pinning without a browser:
+The SPA has **138 vitest specs** (`npm test`), over the things worth pinning without a browser:
 path building, the size and audience formatters, the services against `HttpTestingController`, and
 the guards. They do not cover how anything *looks* — the layout bugs in this codebase have all been
 found by screenshotting a running instance at 360px and 1280px, not by a spec, so do that when
@@ -935,6 +935,33 @@ The account screen's two-factor block carries the current password through the w
 require it, as `2fa/disable` always did. Enrolling with a session cookie alone let anyone holding a
 borrowed cookie pair their own authenticator and keep recovery codes that survive both a password
 change and *sign out everywhere*.
+
+**The full-screen overlay is raised for writes only.** `loadingInterceptor` lets every GET through
+and blocks the screen for POST/PUT/PATCH/DELETE — a save the user must not press twice, and must
+not navigate away from mid-flight. Raised on every request, as it was, it put *two* loading
+indicators on screen at once wherever a screen has one of its own: opening a folder drew "Loading…"
+in the listing panel and a blocking modal spinner over the top of it. A read is what a screen was
+opened to do, so the screen is the right place to say it is doing it. `skipLoadingOverlay` is still
+there for a write nobody is waiting on.
+
+That change is what makes the empty messages load-bearing: **an admin list's "No accounts yet." is
+gated on a `loaded` signal**, because the overlay used to cover the gap and nothing does now. Same
+rule the log screen already had, for the same reason — a list that claims the installation has none
+of something while the request is still in flight is worse than one that shows nothing yet.
+
+**That flag lives on the service, beside the list it describes**, set from `finalize` so it flips
+however the read settled — a `loaded` that only turns true on success leaves a *failed* read looking
+like a running one, and the message hidden for the session. On the service rather than in each
+component because the list is: three sections read the base paths, and a per-component flag went
+back to false every time a tab was reopened onto rows already in hand. It also covers the *second*
+list a screen reads — `admin-access-list` takes `optionsLoaded`, because a grant editor drawn early
+told an admin to go and create base paths the installation already had.
+
+**The one screen a read *fills* is Email, and it is gated whole.** Every other admin read paints a
+list, so the honest thing is to keep showing nothing; the SMTP form's fields are set from the
+response, so drawn early it invites an admin to type into boxes `apply()` is about to overwrite, and
+`configured()` is false until the host arrives — flashing "No SMTP host is set, so FileHub sends
+nothing at all." on an install that has one. Both hang off the same `loaded()`.
 
 API failures are turned into a message with `apiErrorMessage(error, fallback)`, which reads
 ProblemDetails `detail` and ValidationProblemDetails `errors` before falling back. A 401 clears the

@@ -34,6 +34,9 @@ export class AdminSharesComponent implements OnInit {
 
   public readonly shares = this.shareService.shares;
 
+  /** Gated on by the empty message — see {@link AdminShareService.loaded}. */
+  public readonly loaded = this.shareService.loaded;
+
   public ngOnInit(): void {
     this.shareService.load().subscribe({
       error: (error: unknown) =>

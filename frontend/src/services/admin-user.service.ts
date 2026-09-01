@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, Signal, inject, signal } from '@angular/core';
 import { IAdminUser, IInviteResult, IInviteUser, IUpdateUser, sortUsers } from '@models/IAdminUser';
-import { Observable, switchMap, tap } from 'rxjs';
+import { Observable, finalize, switchMap, tap } from 'rxjs';
 
 const url = '/api/admin/users';
 
@@ -18,12 +18,28 @@ const url = '/api/admin/users';
 export class AdminUserService {
   private readonly http = inject(HttpClient);
 
+  private readonly settled = signal(false);
   private readonly state = signal<IAdminUser[]>([]);
 
   public readonly users: Signal<IAdminUser[]> = this.state.asReadonly();
 
+  /**
+   * True once the first read settled, however it settled. Every message that says there are no
+   * accounts — a section's own empty line, and a grant editor's "there is nothing to tick" — is gated
+   * on it, because the loading overlay is raised for writes only: ungated, such a message claims
+   * the installation has none for as long as the request takes.
+   *
+   * It belongs here rather than on each screen for the same reason the list does. Several sections
+   * read this one collection, and a flag per screen would drop back to false every time a tab was
+   * reopened onto rows that are already in hand.
+   */
+  public readonly loaded: Signal<boolean> = this.settled.asReadonly();
+
   public load(): Observable<IAdminUser[]> {
-    return this.http.get<IAdminUser[]>(url).pipe(tap((users) => this.state.set(sortUsers(users))));
+    return this.http.get<IAdminUser[]>(url).pipe(
+      tap((users) => this.state.set(sortUsers(users))),
+      finalize(() => this.settled.set(true)),
+    );
   }
 
   /**

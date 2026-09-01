@@ -9,7 +9,7 @@
     </p>
   </div>
 
-  @if (shares().length === 0) {
+  @if (loaded() && shares().length === 0) {
     <p class="empty">No links have been created yet.</p>
   }
 

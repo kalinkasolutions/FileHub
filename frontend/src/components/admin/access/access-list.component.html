@@ -3,7 +3,7 @@
   <span class="count">{{ count() }}</span>
 </div>
 
-@if (options().length === 0) {
+@if (optionsLoaded() && options().length === 0) {
   <p class="empty">{{ emptyText() }}</p>
 } @else {
   <ul class="options">

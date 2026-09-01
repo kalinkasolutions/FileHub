@@ -30,6 +30,13 @@ export class AccessListComponent {
   /** The ids currently granted, as the server has them. */
   public readonly granted = input.required<readonly string[]>();
   public readonly emptyText = input('There is nothing to grant yet.');
+  /**
+   * Whether the options have actually been read yet. The options are a *second* list on every one
+   * of these screens — the accounts on a base path's editor, the base paths on a user's — and the
+   * loading overlay is raised for writes only, so an ungated empty message tells an admin to go
+   * and create something the installation already has while its list is still on the wire.
+   */
+  public readonly optionsLoaded = input(true);
   /** What unticking something costs — a revocation takes share links with it, always. */
   public readonly note = input('');
   public readonly busy = input(false);

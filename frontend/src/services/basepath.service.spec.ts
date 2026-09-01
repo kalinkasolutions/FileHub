@@ -37,6 +37,32 @@ describe('BasePathService', () => {
     expect(service.basePaths().map((p) => p.name)).toEqual(['Media']);
   });
 
+  // The empty messages on three admin screens are gated on this, so what it has to promise is:
+  // false while the request is on the wire, and true afterwards whichever way it went. A `loaded`
+  // that only flips on success leaves a failed read looking like a still-running one, and every
+  // gated message hidden for the life of the session.
+  it('is not loaded until the first read settles', () => {
+    expect(service.loaded()).toBe(false);
+
+    service.load().subscribe();
+    const request = http.expectOne('/api/admin/base-path');
+    expect(service.loaded()).toBe(false);
+
+    request.flush([basePath()]);
+
+    expect(service.loaded()).toBe(true);
+  });
+
+  it('counts a failed read as settled', () => {
+    service.load().subscribe({ error: () => undefined });
+    http
+      .expectOne('/api/admin/base-path')
+      .flush('', { status: 500, statusText: 'Internal Server Error' });
+
+    expect(service.loaded()).toBe(true);
+    expect(service.basePaths()).toEqual([]);
+  });
+
   it('appends a created base path without re-reading the list', () => {
     service.load().subscribe();
     http.expectOne('/api/admin/base-path').flush([basePath()]);
