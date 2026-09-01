@@ -8,6 +8,7 @@ people accounts, and hand out links to individual files or folders.
 - Public share links that work without an account, with an optional download limit
 - Link previews (Open Graph) so shares unfurl in chat apps
 - Two-factor sign-in (TOTP), password reset and email change by mail
+- Installs as an app on a phone or desktop (PWA), and tells you when a new version is ready
 - Single Docker image, SQLite storage, no external services
 
 ## Running it
@@ -105,6 +106,24 @@ address.
   recovery codes both ask for the current password, so a stolen session cannot pair a second
   factor of its own.
 
+## Installing it as an app
+
+FileHub ships a web manifest and a service worker, so a browser will offer to install it — *Install*
+in Chrome's address bar, *Add to Home Screen* on a phone. It then opens in its own window with no
+browser chrome.
+
+Two things are worth knowing:
+
+- **It needs HTTPS.** A browser only registers a service worker on a secure origin, so an install
+  offer appears behind your reverse proxy but not on a plain-HTTP `http://host:4122`. (`localhost`
+  is exempt, which is how it is tested.)
+- **Nothing you browse is cached.** The worker caches the app itself so it starts instantly; it
+  never caches a directory listing or a file, because both change on the disk underneath it.
+  Offline the app opens and says it cannot sign you in, which is the truth.
+
+When you pull a new image, an already-installed copy notices — on its next start, or within a few
+hours if it is left open — and offers a reload rather than taking one.
+
 ## Behind a reverse proxy
 
 `nginx.example.conf` is a working reference. Three things in it are not optional:
@@ -178,9 +197,11 @@ anything else promotional — you must either**
 1. buy a commercial licence from <https://brandsemut.com/product/greater-theory/>, or
 2. replace the wordmark with your own.
 
-Replacing it is one file. `frontend/public/file-hub.svg` is the wordmark, used in the app header and
-above every sign-in screen; `frontend/public/filehub.svg` and `filehub.png` are the separate "F"
-mark, used as the favicon and in the mail templates, and are not affected. Drop in your own SVG
-under the same name and rebuild.
+Replacing it is one file and one folder. `frontend/public/file-hub.svg` is the wordmark, used in the
+app header, above every sign-in screen, and — framed on a square — as the installed app's icon and
+splash in `frontend/public/icons/`. `frontend/public/filehub.svg` and `filehub.png` are the separate
+"F" mark, used as the favicon and in the mail templates, and are not affected. Drop in your own SVG
+under the same name, re-render the icons in `frontend/public/icons/` from it at the sizes
+`manifest.webmanifest` lists, and rebuild.
 
 The "F" mark itself is this project's own artwork and is covered by the MIT licence above.

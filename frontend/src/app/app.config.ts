@@ -1,7 +1,15 @@
-import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
+import {
+  ApplicationConfig,
+  inject,
+  isDevMode,
+  provideAppInitializer,
+  provideBrowserGlobalErrorListeners,
+} from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
+import { provideServiceWorker } from '@angular/service-worker';
+import { AppUpdateService } from '@services/app-update.service';
 import { provideToastr } from 'ngx-toastr';
 
 import { routes } from './app.routes';
@@ -21,5 +29,16 @@ export const appConfig: ApplicationConfig = {
     ),
     provideToastr(),
     provideAnimationsAsync(),
+    // The worker is only built into a production bundle, so `isDevMode()` and the missing file
+    // agree — but registering it in the dev loop would also mean a cached shell served in front of
+    // `npm run watch`, which is the one thing that would make live reload lie.
+    //
+    // `registerWhenStable:30000` keeps registration off the critical path: the browser downloads
+    // and installs the worker once the app has gone idle, or after 30s if it never does.
+    provideServiceWorker('ngsw-worker.js', {
+      enabled: !isDevMode(),
+      registrationStrategy: 'registerWhenStable:30000',
+    }),
+    provideAppInitializer(() => inject(AppUpdateService).start()),
   ],
 };

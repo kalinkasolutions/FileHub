@@ -672,8 +672,9 @@ the public resolve all take `callerIsAdmin` — and `CreateAsync` also `callerCa
 but not that the principal was read, and in particular not that the claims factory put the roles an
 admin only implies onto the cookie the `RequireRole` policy reads), the caller
 identity on the anonymous share routes, `FileDownload`'s zip and
-headers, `ShareLinks`, the rate limiter, the forwarded-headers configuration, and the SignalR half
-of the live log (`LogHub`, `LogSignalSink`, `LogBroadcastService` — the rule and the coalescing they
+headers, `ShareLinks`, the rate limiter, the forwarded-headers configuration, the service worker
+(`AppUpdateService`, `ngsw-config.json` — checked by driving a real browser, not by a spec), and
+the SignalR half of the live log (`LogHub`, `LogSignalSink`, `LogBroadcastService` — the rule and the coalescing they
 rest on are covered, the wiring is not). `AdminSeeder` is
 covered, because it is the part of startup that can brick an install; the migration and role half
 in `Seed` is not.
@@ -783,6 +784,58 @@ the manual kerning across for free and matched the original's ink bounding box e
 Greater Theory is **personal-use only** (brandsemut). The outlines are in the repository, the font
 file is not, and the README says what a commercial fork has to do about it — buy a licence or
 replace `frontend/public/file-hub.svg`. Keep that notice in step with the artwork.
+
+#### It is an installable PWA
+
+`manifest.webmanifest` + `@angular/service-worker`, wired in `app.config.ts` and configured by
+`ngsw-config.json`. The worker is built into the **production configuration only** (`angular.json`),
+and `provideServiceWorker` is gated on `!isDevMode()` besides — a cached shell in front of
+`npm run watch` is the one thing that would make live reload lie about what it is showing.
+
+- **There are no `dataGroups`, and there must not be.** The worker caches the shell and the static
+  assets; it never caches an API response. Every screen in this app is a view onto a disk that
+  changes underneath it, and a listing served from a cache is a listing of files that may not be
+  there. Offline the shell comes up and the session check fails, which lands on the sign-in screen —
+  the honest answer for a file server with no network.
+- **`navigationUrls` excludes `/api/**`, `/public-api/**` and `/og/**`** on top of the default
+  "anything with a dot". Downloads go out through a synthetic `<a download>`, which is not a
+  navigation and was never at risk, but the `og/share/{id}` page *is* a real document under this
+  origin and the worker would otherwise answer it with `index.html`. Verified end to end: a
+  controlled page still downloads real bytes, and `og/share` still returns the server's HTML.
+- **`version.json` is not in the hash table**, because the Dockerfile writes it *after* the SPA is
+  copied in. That was already the reason for the ordering — see the comment there — and it is now
+  load-bearing: in the manifest it would be cached, or fail its hash check, the moment the release
+  build rewrote it.
+- **The Google Fonts icon face is deliberately not cached.** An asset group for it would have the
+  worker `fetch` a cross-origin URL, and a service worker's fetches are subject to the CSP on
+  *its own* script response — which behind `nginx.example.conf` is `connect-src 'self'`. It would
+  fail silently, and making it work means widening the CSP for a file the browser's own HTTP cache
+  already keeps for a year. If you add it back, widen `connect-src` in the same commit.
+- `thebeaver.png` is excluded from the lazy asset group: 240KB that only the 404 page ever shows.
+- **`AppUpdateService` turns `VERSION_READY` into a toast that reloads on tap**, rather than
+  reloading by itself. An installed copy otherwise runs its cached bundle until every tab is
+  closed, which on a phone's home screen is weeks — and FileHub is deployed by pulling a new image,
+  so that bundle is talking to an API that has moved. It is not automatic because a reload in the
+  middle of the mail settings loses what the admin was typing. The tap runs `activateUpdate()`
+  before the reload, so the page that comes back is certainly the new build.
+- **It also polls every six hours, and that is what makes the notice reach the case it was written
+  for.** The worker asks the server for a new version when it *starts*, which is once per page
+  load — and an installed copy is resumed rather than reloaded, which is the whole point of
+  installing it. Without a `checkForUpdate()` of its own the toast only ever appeared on a cold
+  start, exactly where the reload had already happened. No stabilisation guard is needed because
+  the first tick is six hours out; a failed check is swallowed, since the next one tries again.
+
+**The icons are generated from the wordmark**, not drawn: `public/icons/icon.svg` frames
+`file-hub.svg` on `$bg-page` at 84% width, and `icon-maskable.svg` does the same at 66% so the
+artwork stays inside a maskable icon's central 80% safe zone. Both nest the original `<g>` with its
+own viewBox rather than copying any coordinates — the hand-tuned kerning is carried across by
+reference, which is the only way it survives. The PNGs beside them are rasterised from those two
+files at the sizes the manifest lists; regenerate with any rasteriser if the wordmark changes.
+The two SVGs are sources, not assets: `angular.json` ignores `icons/*.svg` so they stay in the
+repository without being served and swept into the worker's lazy asset group.
+
+Note that this puts the licensed wordmark on the launcher icon as well as in the header, so the
+README's note about a commercial fork covers `public/icons/` too.
 
 #### Two things that cost a day each
 
