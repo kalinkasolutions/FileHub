@@ -627,10 +627,22 @@ the screen.
 - **The message and the expanded stack trace are selectable**, against the app-wide
   `user-select: none`. A log line exists to be quoted into a ticket or a search; a trace exists to
   be pasted somewhere else entirely.
-- **A log row is three stacked lines on a phone** — level, then timestamp, then the message, each
-  full width — and one line from 470px up. Three columns at 390px leave the message about fifteen
-  glyphs, which is not a log line. The expand-exception button is absolutely positioned on the small
-  layout so it does not claim a fourth line.
+- **A log row is three stacked lines** — level, then timestamp, then the message, each full width —
+  and one line once there is room for one. Three columns at 390px leave the message about fifteen
+  glyphs, which is not a log line. The expand-exception button is absolutely positioned on the
+  stacked layout so it does not claim a fourth line.
+- **Which of the two it is comes from a `@container` query on `.entries`, not a media query.** The
+  window's width does not answer this: at `$admin-wide` the section becomes a 450px filter column
+  plus the log, so the *list* is at its narrowest — 468px at a 960px viewport, 324px at 700px where
+  the auto-fit grid puts the two panels side by side — exactly where a media query would call the
+  screen wide. Laid out on the window, a row was three comfortable lines on a phone and a one-line
+  row with a 180px message on a laptop. The threshold is 640px of the list's own width: the level
+  column, the timestamp and the padding around them cost ~280px before the message starts. A
+  browser without container queries keeps the stacked rows, which work at any width.
+- **Warning is orange (`$text-warning`) and error is the red.** Warning used to be `$text-danger`,
+  the same red at 81% alpha — so the two levels an operator scans for were the two hardest to tell
+  apart. The orange is the danger red turned to 26° on the wheel at the same saturation and
+  lightness, so it belongs to the same palette rather than arriving from somewhere else.
 
 `LogQueryTests` covers the filters; they are all places where the query can be quietly wrong rather
 than loudly broken. `LogSignalTests` covers the coalescing and the loop guard, which live in

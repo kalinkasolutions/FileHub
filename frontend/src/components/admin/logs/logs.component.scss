@@ -91,19 +91,27 @@
 
 // The list is the scroller, so the panel's rule and its heading stay put while the log moves under
 // them — the same shape the file browser's listing has.
+//
+// It is also the *container* a row asks about its own width, which is the only question that
+// answers the row's shape. The window's width does not: at the wide breakpoint the section becomes
+// a 450px filter column plus the log, so the list is at its narrowest — under 500px — at exactly
+// the moment a media query would call the screen wide. A row laid out on the window's width was
+// therefore three comfortable lines on a phone and a one-line row with a 180px message on a
+// 960px monitor, which is the wrong way round.
 .entries {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  container: log / inline-size;
 }
 
-// Mobile-first: on a phone an entry is three stacked lines — level, then when, then what happened.
-// Squeezing three columns into 390px leaves the message about fifteen glyphs, and a log line cut to
-// fifteen glyphs is not a log line. The rule further down puts it back on one line as soon as there
-// is width for it.
+// Mobile-first: in a narrow list an entry is three stacked lines — level, then when, then what
+// happened. Squeezing three columns into 390px leaves the message about fifteen glyphs, and a log
+// line cut to fifteen glyphs is not a log line. The rule further down puts it back on one line as
+// soon as the list is wide enough to hold one.
 //
-// It is dense and monospace, which is the app's one face anyway; above the step-down that means the
-// level and time columns line up all the way down the list.
+// It is dense and monospace, which is the app's one face anyway; on the one-line layout that means
+// the level and time columns line up all the way down the list.
 .entry {
   @include flex(column);
   gap: 0;
@@ -151,8 +159,11 @@
     color: $text-secondary;
   }
 
+  // Orange, and the red is left to the errors below. Warning used to be the danger red at 81%
+  // alpha — the same colour as an error, a shade lighter — so the two levels an operator is
+  // scanning for were the two hardest to tell apart.
   &.warning .level {
-    color: $text-danger;
+    color: $text-warning;
   }
 
   // The only rows that colour the whole line. An error is worth finding while scrolling past it,
@@ -188,9 +199,14 @@
   }
 }
 
-// From a tablet up the entry is one line again — level, time, message — which is what makes the
-// list read as a log rather than as a stack of three-line blocks.
-@media (min-width: 470px) {
+// Once the list itself is wide the entry is one line again — level, time, message — which is what
+// makes it read as a log rather than as a stack of three-line blocks.
+//
+// 640px is what that line costs: a 6.5em level column, a nineteen-character timestamp and the gaps
+// and padding around them take ~280px before the message starts, so anything narrower is spending
+// most of the row on the two short columns. A browser with no container queries keeps the stacked
+// rows, which is the layout that works at any width.
+@container log (min-width: 640px) {
   .entry {
     @include flex(row);
     align-items: baseline;

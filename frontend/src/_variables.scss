@@ -60,6 +60,11 @@ $danger-hover-strong: rgba(236, 67, 67, 0.28);
 $icon-danger: $text-danger;
 $icon-danger-bg: rgba(236, 67, 67, 0.16);
 
+// The warning orange is the danger red turned round the wheel: the same 0xec red channel, the same
+// saturation and lightness, at 26° instead of 0°. A warning sits next to an error in the log and
+// has to be told apart from it at a glance, which two shades of the one red were not.
+$text-warning: #ec8b41;
+
 // ── Links ───────────────────────────────────────────────────────────────────
 $link-primary: $text-primary;
 $link-hover: $primary-green;
