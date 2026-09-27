@@ -806,11 +806,15 @@ and `provideServiceWorker` is gated on `!isDevMode()` besides — a cached shell
   copied in. That was already the reason for the ordering — see the comment there — and it is now
   load-bearing: in the manifest it would be cached, or fail its hash check, the moment the release
   build rewrote it.
-- **The Google Fonts icon face is deliberately not cached.** An asset group for it would have the
-  worker `fetch` a cross-origin URL, and a service worker's fetches are subject to the CSP on
-  *its own* script response — which behind `nginx.example.conf` is `connect-src 'self'`. It would
-  fail silently, and making it work means widening the CSP for a file the browser's own HTTP cache
-  already keeps for a year. If you add it back, widen `connect-src` in the same commit.
+- **The icon font is self-hosted** (`public/fonts/material-symbols-outlined.woff2`, declared in
+  `styles.scss`), and that is not a preference. The Angular worker answers *every* GET the page
+  makes, cross-origin included — leaving a URL out of every group does not bypass it, it only means
+  the worker fetches it without caching it. Those fetches run under the CSP on the worker's own
+  script response, which is `connect-src 'self'`, so the Google-hosted face failed on every
+  controlled page and came back as the worker's synthetic `504 Gateway Timeout` — no icons at all.
+  Keep the SPA same-origin; a third-party asset needs `connect-src` widened in the same commit.
+  The file is the static `opsz 20, wght 300, FILL 0` instance Google served for the old link, and
+  it now sits in the lazy asset group like any other font, so the icons also work offline.
 - `thebeaver.png` is excluded from the lazy asset group: 240KB that only the 404 page ever shows.
 - **`AppUpdateService` turns `VERSION_READY` into a toast that reloads on tap**, rather than
   reloading by itself. An installed copy otherwise runs its cached bundle until every tab is
