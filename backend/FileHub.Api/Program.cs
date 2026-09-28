@@ -34,6 +34,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.SignalR;
 using Serilog;
 using Serilog.Events;
+using Serilog.Sinks.Grafana.Loki;
 using Shared;
 using Westwind.AspNetCore.LiveReload;
 
@@ -63,21 +64,38 @@ var minimumLevel = ParseLogLevel(builder.Configuration["Logging:LogLevel:Default
 // configured before there is a container to resolve anything from. The same instance is registered
 // below, so the sink and the broadcaster are talking about one doorbell and not two.
 var logChangeSignal = new LogChangeSignal();
-builder.Host.UseSerilog((context, configuration) => configuration
-    .MinimumLevel.Is(minimumLevel)
-    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
-    .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
-    .MinimumLevel.Override("Microsoft.Hosting.Lifetime", LogEventLevel.Information)
-    .Enrich.FromLogContext()
-    .WriteTo.Console()
-    // batchSize 1 rather than the sink's default 100. The admin log screen tails this table, and a
-    // batch that only flushes when it is full means a quiet install shows nothing for minutes while
-    // "Following" claims otherwise. One INSERT per entry is a write this application can afford:
-    // the volume is a handful of lines per request, not a stream.
-    .WriteTo.SQLite(logDbPath, tableName: "Logs", storeTimestampInUtc: true, batchSize: 1)
-    // Writes nothing; rings the doorbell so the admin log screen is told a line exists instead of
-    // asking every couple of seconds whether one does. See LogChangeSignal.
-    .WriteTo.Sink(new LogSignalSink(logChangeSignal)));
+var lokiUri = builder.Configuration["Loki:Uri"];
+var lokiEnabled = builder.Configuration.GetValue("Loki:Enabled", false);
+builder.Host.UseSerilog((context, configuration) =>
+{
+    configuration
+        .MinimumLevel.Is(minimumLevel)
+        .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+        .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
+        .MinimumLevel.Override("Microsoft.Hosting.Lifetime", LogEventLevel.Information)
+        .Enrich.FromLogContext()
+        .WriteTo.Console()
+        // batchSize 1 rather than the sink's default 100. The admin log screen tails this table, and a
+        // batch that only flushes when it is full means a quiet install shows nothing for minutes while
+        // "Following" claims otherwise. One INSERT per entry is a write this application can afford:
+        // the volume is a handful of lines per request, not a stream.
+        .WriteTo.SQLite(logDbPath, tableName: "Logs", storeTimestampInUtc: true, batchSize: 1)
+        // Writes nothing; rings the doorbell so the admin log screen is told a line exists instead of
+        // asking every couple of seconds whether one does. See LogChangeSignal.
+        .WriteTo.Sink(new LogSignalSink(logChangeSignal));
+
+    if (lokiEnabled && !string.IsNullOrWhiteSpace(lokiUri))
+    {
+        configuration.WriteTo.GrafanaLoki(
+            uri: lokiUri,
+            labels:
+            [
+                new LokiLabel { Key = "app", Value = "filehub" },
+                new LokiLabel { Key = "env", Value = builder.Environment.EnvironmentName }
+            ],
+            restrictedToMinimumLevel: LogEventLevel.Information);
+    }
+});
 
 builder.Services.AddSingleton(logChangeSignal);
 builder.Services.AddSignalR();

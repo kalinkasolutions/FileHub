@@ -42,6 +42,9 @@ services:
       - Admin__Password=${ADMIN_PASSWORD:-}
       # Trace, Debug, Information, Warning, Error or Critical.
       - Logging__LogLevel__Default=${LOG_LEVEL:-Information}
+      # Optional: also ship logs (Information and up) to Grafana Loki, e.g. http://loki.example.ch:3100.
+      - Loki__Enabled=${LOKI_ENABLED:-false}
+      - Loki__Uri=${LOKI_URI:-}
       # Seed values for the EmailSettings row; once an admin edits the settings, the row wins.
       - Email__SmtpHost=${EMAIL_SMTP_HOST:-}
       - Email__Port=${EMAIL_PORT:-587}
