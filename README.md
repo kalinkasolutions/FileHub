@@ -79,6 +79,7 @@ Everything is environment variables; see `.env.example` for the full comments.
 | `CONNECTION_STRING` | SQLite file. Keep it under `/var/srv` or it dies with the container. | `Data Source=/var/srv/filehub.db` |
 | `DATA_PROTECTION_KEY_PATH` | Where the encryption key ring is written. Same volume, same reason. | `/var/srv/keys` |
 | `LOG_LEVEL` | Minimum level for the console and the `Logs` table. | `Information` |
+| `LOKI_ENABLED`, `LOKI_URI` | Also ship logs from Information up to [Grafana Loki](https://grafana.com/oss/loki/), labelled `app="filehub"` and `env`. The URI is Loki's address, e.g. `http://loki.example.ch:3100`; the push path is added by the sink. | off |
 | `EMAIL_SMTP_HOST`, `EMAIL_PORT`, `EMAIL_USERNAME`, `EMAIL_PASSWORD`, `EMAIL_FROM_ADDRESS`, `EMAIL_FROM_NAME`, `EMAIL_SECURE_SOCKET_OPTIONS` | SMTP. These only *seed* the settings row — once an admin saves the mail settings in the UI, that row is what gets used. | port `587`, `StartTls` |
 
 Only `APP_BASE_URL`, `ADMIN_EMAIL` and the SMTP block need real values; the rest have defaults that
