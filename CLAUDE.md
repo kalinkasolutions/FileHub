@@ -767,8 +767,9 @@ themed too — left alone it is the one surface on screen still wearing somebody
 
 The logo is **`file-hub.svg`**, the wordmark, in the header and above every auth screen. It is blue
 — the one non-green thing in the app — which was true of the original and is left alone
-deliberately. The square "F" mark stays as the favicon and in the mail templates, where a raster is
-needed. `thebeaver.png` is on the 404, where it has always been.
+deliberately. Its F, without a ground (`favicon.svg`), is the favicon and — rasterised as
+`filehub.png` — the logo in the mail templates and link previews. `thebeaver.png` is on the 404,
+where it has always been.
 
 **The wordmark is outlines, and it has to stay outlines.** It used to be a live `<text>` element set
 in `font-family:'Greater Theory'` with no fallback, which meant the logo was one thing on a machine
@@ -829,17 +830,16 @@ and `provideServiceWorker` is gated on `!isDevMode()` besides — a cached shell
   start, exactly where the reload had already happened. No stabilisation guard is needed because
   the first tick is six hours out; a failed check is swallowed, since the next one tries again.
 
-**The icons are generated from the wordmark**, not drawn: `public/icons/icon.svg` frames
-`file-hub.svg` on `$bg-page` at 84% width, and `icon-maskable.svg` does the same at 66% so the
-artwork stays inside a maskable icon's central 80% safe zone. Both nest the original `<g>` with its
-own viewBox rather than copying any coordinates — the hand-tuned kerning is carried across by
-reference, which is the only way it survives. The PNGs beside them are rasterised from those two
-files at the sizes the manifest lists; regenerate with any rasteriser if the wordmark changes.
+**The icons are the F of the wordmark**, its outline copied unaltered: `public/icons/icon.svg`
+sets it on `$bg-page`, and `icon-maskable.svg` does the same with the glyph inside a maskable icon's
+central 80% safe zone. The PNGs beside them are rasterised from those two files at the sizes the
+manifest lists; regenerate with any rasteriser if the wordmark changes.
 The two SVGs are sources, not assets: `angular.json` ignores `icons/*.svg` so they stay in the
-repository without being served and swept into the worker's lazy asset group.
+repository without being served and swept into the worker's lazy asset group. That is why the SVG
+favicon lives at `public/favicon.svg` and not beside them.
 
 Note that this puts the licensed wordmark on the launcher icon as well as in the header, so the
-README's note about a commercial fork covers `public/icons/` too.
+README's note about a commercial fork covers `public/icons/`, the favicon and `filehub.png` too.
 
 #### Two things that cost a day each
 
