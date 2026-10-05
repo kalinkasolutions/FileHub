@@ -199,10 +199,11 @@ anything else promotional — you must either**
 2. replace the wordmark with your own.
 
 Replacing it is one file and one folder. `frontend/public/file-hub.svg` is the wordmark, used in the
-app header, above every sign-in screen, and — framed on a square — as the installed app's icon and
-splash in `frontend/public/icons/`. `frontend/public/filehub.svg` and `filehub.png` are the separate
-"F" mark, used as the favicon and in the mail templates, and are not affected. Drop in your own SVG
-under the same name, re-render the icons in `frontend/public/icons/` from it at the sizes
-`manifest.webmanifest` lists, and rebuild.
+app header and above every sign-in screen. Its F is also the app's mark: on a square as the
+installed app's icon and splash in `frontend/public/icons/`, and on its own as
+`frontend/public/favicon.svg`, from which `favicon.ico` and `filehub.png` (the logo in mails and
+link previews) are rendered. Drop in your own SVG under the same name, re-render those from it —
+the icons at the sizes `manifest.webmanifest` lists — and rebuild.
 
-The "F" mark itself is this project's own artwork and is covered by the MIT licence above.
+`frontend/public/filehub.svg`, the older "F" mark, is this project's own artwork and is covered by
+the MIT licence above.
