@@ -317,6 +317,7 @@ app.MapPublicShareEndpoint();
 
 app.MapFallbackToFile("index.html");
 
+BuildVersion.LogAtStartup(app);
 await Seed.InitializeAsync(app);
 await app.RunAsync();
 
