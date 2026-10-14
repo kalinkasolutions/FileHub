@@ -105,20 +105,6 @@ describe('PathService', () => {
     expect(service.segments()).toHaveLength(2);
   });
 
-  it('goes one level up, and stops at the top', () => {
-    const service = new PathService();
-
-    service.open(directory('media', ''));
-    service.open(directory('music', 'music'));
-
-    service.up();
-    expect(service.segments().map((x) => x.name)).toEqual(['media']);
-
-    service.up();
-    service.up();
-    expect(service.isAtTop()).toBe(true);
-  });
-
   it('goes all the way home', () => {
     const service = new PathService();
 

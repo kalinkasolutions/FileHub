@@ -28,23 +28,12 @@
     <section class="listing">
       <!-- The heading *is* the trail. A panel whose title said "Files" while the row under it
            spelled out where you were said the same thing twice and spent a rule on the repetition,
-           so the crumbs moved up into the title and the row below is gone. The back button keeps
-           its place at the head of the line: it is the trail's last step, not a separate control.
+           so the crumbs moved up into the title and the row below is gone. There is no back
+           button: the parent crumb and the browser's own back both go up a level.
 
            A trail can be deeper than the panel is wide, so it scrolls sideways; the component keeps
            the last crumb in view. -->
       <header class="title">
-        @if (!pathService.isAtTop()) {
-          <button
-            class="icon-btn quiet"
-            type="button"
-            aria-label="Up one level"
-            (click)="pathService.up()"
-          >
-            <mat-icon>arrow_back</mat-icon>
-          </button>
-        }
-
         <nav #crumbs class="here" aria-label="Breadcrumb">
           <!-- At the top of the tree "home" is where you are, so it is the disabled current crumb
                rather than a link back to the screen already on display. -->

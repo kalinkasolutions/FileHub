@@ -679,7 +679,7 @@ rest on are covered, the wiring is not). `AdminSeeder` is
 covered, because it is the part of startup that can brick an install; the migration and role half
 in `Seed` is not.
 
-The SPA has **138 vitest specs** (`npm test`), over the things worth pinning without a browser:
+The SPA has **137 vitest specs** (`npm test`), over the things worth pinning without a browser:
 path building, the size and audience formatters, the services against `HttpTestingController`, and
 the guards. They do not cover how anything *looks* — the layout bugs in this codebase have all been
 found by screenshotting a running instance at 360px and 1280px, not by a spec, so do that when
@@ -893,10 +893,12 @@ was two on a desktop, and that was wrong for what it holds: five blocks read top
 them one field and a button, so a two-track grid pairs a three-line block with a ten-line one and
 zig-zags the reading order across the screen.
 
-**The listing panel's heading is the breadcrumb trail**, not a title: the back button, then
-`home / media / audiobooks / …`, then the tally. It replaced a title that said "Files" over a
-separate crumb row saying where you were — the same thing twice, with a rule spent on the
-repetition. The trail keeps the title's own type size, scrolls sideways without a scrollbar, and the
+**The listing panel's heading is the breadcrumb trail**, not a title: `home / media / audiobooks /
+…`, then the tally. There is no back button — the parent crumb and the browser's own back (each step
+down is a history entry) both go up a level, and a button that only exists below the top made the
+heading change height and the trail shift sideways on the first step in. It replaced a title that
+said "Files" over a separate crumb row saying where you were — the same thing twice, with a rule
+spent on the repetition. The trail keeps the title's own type size, scrolls sideways without a scrollbar, and the
 component scrolls the last crumb into view whenever the path *or the tally* changes: the tally
 appearing narrows the trail beside it, and a scroll already at the end stops being at the end.
 
