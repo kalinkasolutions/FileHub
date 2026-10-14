@@ -88,17 +88,6 @@ export class PathService {
     this.push(trail.slice(0, index + 1));
   }
 
-  /** One level up. */
-  public up(): void {
-    const trail = this.trail();
-
-    if (trail.length === 0) {
-      return;
-    }
-
-    this.push(trail.slice(0, -1));
-  }
-
   /** All the way back to the base-path listing. */
   public goHome(): void {
     if (this.trail().length === 0) {
