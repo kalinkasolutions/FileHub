@@ -5,9 +5,19 @@ import { IAuthStatus } from '@models/IAuthStatus';
 import { ILogin, ILoginResult, ITwoFactorLogin } from '@models/ILogin';
 import { IForgotPassword, IResetPassword } from '@models/IPassword';
 import { Roles } from '@models/roles';
-import { Observable, catchError, finalize, of, shareReplay, tap } from 'rxjs';
+import {
+  Observable,
+  catchError,
+  finalize,
+  of,
+  retry,
+  shareReplay,
+  tap,
+  timeout,
+  timer,
+} from 'rxjs';
 
-/** What the app knows about a caller with no session — also the answer to a failed status call. */
+/** What the app knows about a caller with no session. */
 const anonymous: IAuthStatus = {
   authenticated: false,
   userId: null,
@@ -16,6 +26,14 @@ const anonymous: IAuthStatus = {
   roles: [],
   mustChangePassword: false,
 };
+
+/**
+ * A busy connection — a multi-GB download sharing it, say — can stall the status request for tens
+ * of seconds. Each attempt gets this long before it counts as failed and is tried again.
+ */
+const statusAttemptTimeoutMs = 5_000;
+const statusRetries = 3;
+const firstRetryDelayMs = 500;
 
 /**
  * The session and everything that depends on it. The session itself is a cookie, so this service
@@ -33,7 +51,7 @@ export class AuthService {
    * The status request while it is in flight. Several guards can run for one navigation and each
    * calls `ensureLoaded`; sharing the observable means they all wait on the same request.
    */
-  private inFlight: Observable<IAuthStatus> | null = null;
+  private inFlight: Observable<IAuthStatus | null> | null = null;
 
   public readonly status: Signal<IAuthStatus | null> = this.state.asReadonly();
   public readonly isAuthenticated = computed(() => this.state()?.authenticated ?? false);
@@ -49,8 +67,15 @@ export class AuthService {
   public readonly mustChangePassword = computed(() => this.state()?.mustChangePassword ?? false);
   public readonly username = computed(() => this.state()?.username ?? '');
 
-  /** The cached status, fetching it first if nothing has yet. */
-  public ensureLoaded(): Observable<IAuthStatus> {
+  /**
+   * The cached status, fetching it first if nothing has yet.
+   *
+   * Emits null when the server could not be asked. The endpoint answers anonymous callers too, so a
+   * failure is the network or a stopped server and says nothing about the session: it is neither
+   * cached nor taken as signed out. A session that really is gone shows up as a 401 on the page's
+   * own calls, which `unauthorizedInterceptor` turns into the sign-in screen.
+   */
+  public ensureLoaded(): Observable<IAuthStatus | null> {
     const cached = this.state();
     if (cached) {
       return of(cached);
@@ -61,10 +86,13 @@ export class AuthService {
     }
 
     this.inFlight = this.http.get<IAuthStatus>('/api/auth/status').pipe(
-      // The endpoint answers for anonymous callers too, so a failure here is the network or a
-      // stopped server — either way the app has to carry on as signed out.
-      catchError(() => of(anonymous)),
+      timeout(statusAttemptTimeoutMs),
+      retry({
+        count: statusRetries,
+        delay: (_, attempt) => timer(firstRetryDelayMs * 2 ** (attempt - 1)),
+      }),
       tap((status) => this.state.set(status)),
+      catchError(() => of(null)),
       finalize(() => (this.inFlight = null)),
       shareReplay({ bufferSize: 1, refCount: false }),
     );
@@ -79,7 +107,7 @@ export class AuthService {
   }
 
   /** Re-reads the status now — after a password change, say, which clears `mustChangePassword`. */
-  public refresh(): Observable<IAuthStatus> {
+  public refresh(): Observable<IAuthStatus | null> {
     this.invalidate();
     return this.ensureLoaded();
   }

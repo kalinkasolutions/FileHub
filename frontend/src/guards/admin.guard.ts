@@ -15,6 +15,11 @@ export const adminGuard: CanActivateFn = () => {
 
   return authService.ensureLoaded().pipe(
     map((status) => {
+      // The server could not be asked; the API's own role check still stands behind the page.
+      if (!status) {
+        return true;
+      }
+
       if (!status.authenticated) {
         return router.createUrlTree(['/login']);
       }

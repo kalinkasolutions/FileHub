@@ -17,7 +17,7 @@ export const passwordChangeGuard: CanActivateFn = () => {
 
   return authService.ensureLoaded().pipe(
     map((status) => {
-      if (!status.authenticated || !status.mustChangePassword) {
+      if (!status?.authenticated || !status.mustChangePassword) {
         return true;
       }
 
