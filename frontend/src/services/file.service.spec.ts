@@ -39,11 +39,16 @@ describe('FileService.downloadUrl', () => {
 
   it('addresses an entry by base path and relative path', () => {
     expect(service.downloadUrl(id, 'music/track.flac')).toBe(
-      `/api/files/download/${id}/music/track.flac`,
+      `/api/files/download/${id}/music/track.flac?ngsw-bypass`,
     );
   });
 
   it('leaves a trailing slash for the base path itself', () => {
-    expect(service.downloadUrl(id, '')).toBe(`/api/files/download/${id}/`);
+    expect(service.downloadUrl(id, '')).toBe(`/api/files/download/${id}/?ngsw-bypass`);
+  });
+
+  // The worker would otherwise pipe the whole download through itself; see ngswBypass.
+  it('tells the service worker to stay out of it', () => {
+    expect(service.downloadUrl(id, 'a.iso')).toContain('?ngsw-bypass');
   });
 });

@@ -497,6 +497,11 @@ and the public route. Both hand it a path the sandbox already validated; it does
   in production, on the biggest files.
 - The status line is on the wire before the first byte of an archive, so a mid-stream failure can
   only be signalled by leaving the archive unfinished. Log it; do not try to write an error body.
+- **The zip loop watches `RequestAborted`.** Kestrel does not fail a write to a connection the
+  client has closed, so without the token an abandoned zip was built to the end: two cancelled game
+  folders kept the disk busy for four and a half minutes after Firefox had given up on them, and
+  then logged 200. The request log says the handler finished, not that anyone received the bytes;
+  nginx's byte count is what says that.
 
 ### Email
 
@@ -853,6 +858,11 @@ and `provideServiceWorker` is gated on `!isDevMode()` besides — a cached shell
   navigation and was never at risk, but the `og/share/{id}` page *is* a real document under this
   origin and the worker would otherwise answer it with `index.html`. Verified end to end: a
   controlled page still downloads real bytes, and `og/share` still returns the server's HTML.
+- **Every download URL carries `?ngsw-bypass`** (`ngswBypass` in `file.service.ts`, the share page
+  included). The worker proxies every GET it does not cache through its own `fetch`, so a download
+  was a multi-gigabyte stream piped through the worker — and Firefox recycling the worker
+  mid-stream failed every download it was carrying in the same second, while the app was fine. The
+  query parameter is the worker's own switch for stepping aside.
 - **`version.json` is not in the hash table**, because the Dockerfile writes it *after* the SPA is
   copied in. That was already the reason for the ordering — see the comment there — and it is now
   load-bearing: in the manifest it would be cached, or fail its hash check, the moment the release

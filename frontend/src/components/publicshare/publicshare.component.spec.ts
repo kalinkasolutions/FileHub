@@ -54,7 +54,7 @@ describe('PublicShareComponent', () => {
     expect(fixture.componentInstance.share()?.name).toBe('holiday.zip');
     expect(fixture.componentInstance.loading()).toBe(false);
     expect(fixture.componentInstance.downloadUrl()).toBe(
-      `${location.origin}/public-api/share/${shareId}/download`,
+      `${location.origin}/public-api/share/${shareId}/download?ngsw-bypass`,
     );
     expect(navigations).toEqual([]);
   });
