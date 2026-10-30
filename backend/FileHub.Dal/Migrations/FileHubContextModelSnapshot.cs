@@ -188,6 +188,118 @@ namespace Dal.Migrations
                     b.ToTable("GroupMemberships");
                 });
 
+            modelBuilder.Entity("Entities.Logs.LogEntry", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Exception")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("Exception");
+
+                    b.Property<string>("Level")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("Level");
+
+                    b.Property<string>("Properties")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("Properties");
+
+                    b.Property<string>("RenderedMessage")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("RenderedMessage");
+
+                    b.Property<string>("Timestamp")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("Timestamp");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Logs", null, t =>
+                        {
+                            t.ExcludeFromMigrations();
+                        });
+                });
+
+            modelBuilder.Entity("Entities.Media.MediaInfo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("BasePathId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("ExternalId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ExternalUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("FetchedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Found")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Genres")
+                        .HasMaxLength(1024)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("HasPoster")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("LastUpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("MediaType")
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Overview")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Platforms")
+                        .HasMaxLength(1024)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Query")
+                        .HasMaxLength(4096)
+                        .HasColumnType("TEXT");
+
+                    b.Property<double?>("Rating")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("RelativePath")
+                        .IsRequired()
+                        .HasMaxLength(4096)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Source")
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(1024)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("Year")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BasePathId", "RelativePath")
+                        .IsUnique();
+
+                    b.ToTable("MediaInfos");
+                });
+
             modelBuilder.Entity("Entities.Paths.BasePath", b =>
                 {
                     b.Property<Guid>("Id")
@@ -196,6 +308,9 @@ namespace Dal.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("LastUpdatedAt")
                         .HasColumnType("TEXT");
@@ -464,6 +579,17 @@ namespace Dal.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Entities.Media.MediaInfo", b =>
+                {
+                    b.HasOne("Entities.Paths.BasePath", "BasePath")
+                        .WithMany("MediaInfos")
+                        .HasForeignKey("BasePathId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("BasePath");
+                });
+
             modelBuilder.Entity("Entities.Paths.BasePathAccess", b =>
                 {
                     b.HasOne("Entities.Paths.BasePath", "BasePath")
@@ -593,6 +719,8 @@ namespace Dal.Migrations
                     b.Navigation("Access");
 
                     b.Navigation("GroupAccess");
+
+                    b.Navigation("MediaInfos");
 
                     b.Navigation("Shares");
                 });

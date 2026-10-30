@@ -12,6 +12,7 @@ function directory(name: string, nextSegment: string, basePathId = disk): IFileE
     size: 0,
     nextSegment,
     isBasePath: nextSegment.length === 0,
+    hasInfo: false,
     // Deliberately different every time, the way the server mints it.
     itemId: `${Math.random()}`,
   };

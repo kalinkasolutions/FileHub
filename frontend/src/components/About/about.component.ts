@@ -28,6 +28,8 @@ export class AboutComponent implements OnInit {
   public readonly imageUrl = 'https://hub.docker.com/r/kalinkasolutions/filehub';
   public readonly licenseUrl = 'https://github.com/kalinkasolutions/FileHub/blob/master/LICENSE';
   public readonly typefaceUrl = 'https://brandsemut.com/product/greater-theory/';
+  public readonly tmdbUrl = 'https://www.themoviedb.org/';
+  public readonly igdbUrl = 'https://www.igdb.com/';
 
   /**
    * A full sha is noise on screen; seven characters is enough to find the commit.

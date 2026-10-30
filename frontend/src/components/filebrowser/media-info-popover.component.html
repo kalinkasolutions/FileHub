@@ -1,0 +1,71 @@
+<section class="popover" role="dialog" [attr.aria-label]="'About ' + name">
+  <header class="title">
+    <span class="name" [title]="name">{{ name }}</span>
+    <button class="icon-btn quiet" type="button" aria-label="Close" (click)="close()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </header>
+
+  @if (isLoading()) {
+    <p class="empty">Looking it up…</p>
+  } @else if (error()) {
+    <p class="empty error">{{ error() }}</p>
+  } @else if (info(); as info) {
+    @if (info.found) {
+      <div class="body">
+        <!-- A blank where the poster would be keeps the text in the same place whether the source
+             had an image or not. -->
+        @if (posterUrl()) {
+          <img class="poster" [src]="posterUrl()" alt="" />
+        } @else {
+          <div class="poster blank">
+            <mat-icon>{{ info.mediaType === 'game' ? 'sports_esports' : 'movie' }}</mat-icon>
+          </div>
+        }
+
+        <div class="details">
+          <h3 class="headline">{{ info.title }}</h3>
+          <span class="meta">{{ meta() }}</span>
+
+          @if (info.genres.length > 0) {
+            <span class="chips">
+              @for (genre of info.genres; track genre) {
+                <span class="chip">{{ genre }}</span>
+              }
+            </span>
+          }
+
+          @if (info.platforms.length > 0) {
+            <span class="meta platforms">{{ info.platforms.join(' · ') }}</span>
+          }
+
+          @if (info.overview) {
+            <p class="overview">{{ info.overview }}</p>
+          }
+        </div>
+      </div>
+    } @else {
+      <p class="empty">Nothing on {{ source() }} matches “{{ info.query }}”.</p>
+      <p class="hint">
+        Rename the folder to the title and year, or add the {{ source() }} id to its name as
+        <code>{{ idTagExample() }}</code
+        >, and an admin can look it up again.
+      </p>
+    }
+
+    <footer class="footer">
+      @if (info.externalUrl) {
+        <a class="source" [href]="info.externalUrl" target="_blank" rel="noopener noreferrer">
+          <span>via {{ source() }}</span>
+          <mat-icon>open_in_new</mat-icon>
+        </a>
+      } @else {
+        <span class="source">via {{ source() }}</span>
+      }
+
+      @if (isAdmin()) {
+        <button class="secondary again" type="button" (click)="refresh()">Look up again</button>
+      }
+    </footer>
+  }
+</section>

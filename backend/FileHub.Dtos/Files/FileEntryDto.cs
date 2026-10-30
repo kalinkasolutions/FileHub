@@ -22,6 +22,10 @@ public sealed class FileEntryDto
 
     public bool IsBasePath { get; set; }
 
+    /// <summary>True for a folder directly under a base path marked media or games: the browser
+    /// draws the info button for it, and <c>api/media/info</c> answers for it.</summary>
+    public bool HasInfo { get; set; }
+
     /// <summary>
     /// A fresh id per listing, for identity comparisons <em>within</em> one response only. It is
     /// regenerated every time, so it must never be persisted or compared across requests.

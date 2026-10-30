@@ -1,9 +1,11 @@
 using Dal.Repositories.BasePaths;
 using Dal.Repositories.Groups;
+using Dal.Repositories.Media;
 using Dal.Repositories.Shares;
 using Dtos.BasePaths;
 using Entities.Paths;
 using FileHub.BusinessLogic.Auditing;
+using FileHub.BusinessLogic.Media;
 using FileHub.BusinessLogic.Validation;
 using Microsoft.Extensions.Logging;
 using Shared;
@@ -17,13 +19,17 @@ public sealed class BasePathService : IBasePathService
     private readonly IBasePathRepository m_basePathRepository;
     private readonly IGroupRepository m_groupRepository;
     private readonly IShareRepository m_shareRepository;
+    private readonly IMediaInfoRepository m_mediaInfoRepository;
+    private readonly IPosterStore m_posterStore;
 
     public BasePathService(
         ILogger<BasePathService> logger,
         IAuditActor auditActor,
         IBasePathRepository basePathRepository,
         IGroupRepository groupRepository,
-        IShareRepository shareRepository
+        IShareRepository shareRepository,
+        IMediaInfoRepository mediaInfoRepository,
+        IPosterStore posterStore
     )
     {
         m_logger = logger;
@@ -31,6 +37,8 @@ public sealed class BasePathService : IBasePathService
         m_basePathRepository = basePathRepository;
         m_groupRepository = groupRepository;
         m_shareRepository = shareRepository;
+        m_mediaInfoRepository = mediaInfoRepository;
+        m_posterStore = posterStore;
     }
 
     public async Task<OperationResult<List<BasePathDto>>> GetAllAsync()
@@ -54,13 +62,18 @@ public sealed class BasePathService : IBasePathService
             return pathResult.MapError<BasePathDto>();
         }
 
+        if (!BasePathKinds.TryParse(dto.Kind, out var kind))
+        {
+            return OperationResult<BasePathDto>.BadRequest(InvalidKind);
+        }
+
         var path = pathResult.Value;
         if (await m_basePathRepository.PathExistsAsync(path, excludeId: null))
         {
             return OperationResult<BasePathDto>.BadRequest($"\"{path}\" is already a base path");
         }
 
-        var basePath = new BasePath { Path = path, Name = ResolveName(dto.Name, path) };
+        var basePath = new BasePath { Path = path, Name = ResolveName(dto.Name, path), Kind = kind };
         m_basePathRepository.Add(basePath);
         await m_basePathRepository.SaveChangesAsync();
 
@@ -92,10 +105,23 @@ public sealed class BasePathService : IBasePathService
             return pathResult.MapError<BasePathDto>();
         }
 
+        if (!BasePathKinds.TryParse(dto.Kind, out var kind))
+        {
+            return OperationResult<BasePathDto>.BadRequest(InvalidKind);
+        }
+
         var path = pathResult.Value;
         if (await m_basePathRepository.PathExistsAsync(path, excludeId: id))
         {
             return OperationResult<BasePathDto>.BadRequest($"\"{path}\" is already a base path");
+        }
+
+        // The cached look-ups are keyed by folder name under *this* disk as *this* kind. A different
+        // directory or a different source makes every one of them an answer to another question, so
+        // they go — before the save, so a failure forgets too much rather than keeping a wrong row.
+        if (basePath.Path != path || basePath.Kind != kind)
+        {
+            await ForgetMediaInfoAsync(id);
         }
 
         // Repointing a base path silently repoints every link into it, because a share stores
@@ -104,6 +130,7 @@ public sealed class BasePathService : IBasePathService
         var previousPath = basePath.Path;
         basePath.Path = path;
         basePath.Name = ResolveName(dto.Name, path);
+        basePath.Kind = kind;
         await m_basePathRepository.SaveChangesAsync();
 
         m_logger.LogInformation(
@@ -125,6 +152,10 @@ public sealed class BasePathService : IBasePathService
         {
             return OperationResult<Empty>.NotFound("Base path not found");
         }
+
+        // The rows cascade with the base path; the poster files do not, so they are taken off the
+        // disk here while the ids are still known.
+        await ForgetMediaInfoAsync(id);
 
         // Grants and shares cascade with the row. The Go build had to delete shares by hand here,
         // because a share stored a resolved absolute path and outlived the base path it came from.
@@ -317,6 +348,20 @@ public sealed class BasePathService : IBasePathService
         return OperationResult<string>.Success(full);
     }
 
+    /// <summary>Drops every cached look-up under a base path, poster files included. Nothing is
+    /// saved here; the caller's save carries the deletes.</summary>
+    private async Task ForgetMediaInfoAsync(Guid basePathId)
+    {
+        var infos = await m_mediaInfoRepository.GetForBasePathAsync(basePathId);
+
+        foreach (var info in infos)
+        {
+            m_posterStore.Delete(info.Id);
+        }
+
+        m_mediaInfoRepository.RemoveRange(infos);
+    }
+
     private static string ResolveName(string name, string path)
     {
         var trimmed = (name ?? string.Empty).Trim();
@@ -331,11 +376,14 @@ public sealed class BasePathService : IBasePathService
         return directoryName.Length > 0 ? directoryName : path;
     }
 
+    private const string InvalidKind = "The kind must be none, media or games";
+
     private static BasePathDto MapBasePath(BasePath basePath, int userCount, int groupCount) => new()
     {
         Id = basePath.Id,
         Path = basePath.Path,
         Name = basePath.Name,
+        Kind = BasePathKinds.Name(basePath.Kind),
         CreatedAt = basePath.CreatedAt,
         UserCount = userCount,
         GroupCount = groupCount

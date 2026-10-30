@@ -5,6 +5,7 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <RootNamespace>FileHub</RootNamespace>
+        <UserSecretsId>fecc3e20-a947-4612-8cfc-4c2e5c55cc71</UserSecretsId>
     </PropertyGroup>
 
     <!-- The SPA build output lives in wwwroot; keep it out of the compile/publish item groups

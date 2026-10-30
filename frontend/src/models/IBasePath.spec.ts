@@ -6,6 +6,7 @@ function basePath(overrides: Partial<IBasePath> = {}): IBasePath {
     id: 'b',
     path: '/mnt/media',
     name: 'Media',
+    kind: 'none',
     createdAt: '2026-01-01T00:00:00Z',
     userCount: 0,
     groupCount: 0,

@@ -2,7 +2,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
-import { IBasePath, grantLabel, isUngranted } from '@models/IBasePath';
+import { BasePathKind, IBasePath, grantLabel, isUngranted, kindLabel } from '@models/IBasePath';
 import { AdminGroupService } from '@services/admin-group.service';
 import { AdminUserService } from '@services/admin-user.service';
 import { apiErrorMessage } from '@services/api-error';
@@ -43,7 +43,15 @@ export class BasePathsComponent implements OnInit {
 
   public readonly newPath = signal('');
   public readonly newName = signal('');
+  public readonly newKind = signal<BasePathKind>('none');
   public readonly busy = signal(false);
+
+  /** The three things a disk can hold, as the picker says them. */
+  public readonly kinds: { kind: BasePathKind; label: string }[] = [
+    { kind: 'none', label: 'Nothing — a plain disk' },
+    { kind: 'media', label: 'Movies and series, on TMDb' },
+    { kind: 'games', label: 'Games, on IGDB' },
+  ];
 
   /** Gated on by the empty message — see {@link BasePathService.loaded}. */
   public readonly loaded = this.basePathService.loaded;
@@ -52,6 +60,7 @@ export class BasePathsComponent implements OnInit {
   public readonly editingId = signal<string | null>(null);
   public readonly editPath = signal('');
   public readonly editName = signal('');
+  public readonly editKind = signal<BasePathKind>('none');
 
   /** The row whose grants are open, which of its two lists, and the ids as the server reported them. */
   public readonly accessFor = signal<IBasePath | null>(null);
@@ -129,15 +138,20 @@ export class BasePathsComponent implements OnInit {
     return isUngranted(basePath);
   }
 
+  public kindLabel(kind: BasePathKind): string {
+    return kindLabel(kind);
+  }
+
   public add(): void {
     this.busy.set(true);
     this.basePathService
-      .create({ path: this.newPath().trim(), name: this.newName().trim() })
+      .create({ path: this.newPath().trim(), name: this.newName().trim(), kind: this.newKind() })
       .pipe(finalize(() => this.busy.set(false)))
       .subscribe({
         next: (created) => {
           this.newPath.set('');
           this.newName.set('');
+          this.newKind.set('none');
           this.toastr.success(`${created.name} added. Only admins can see it until it is granted.`);
         },
         // The API says whether the path was relative, missing or not a directory — that message is
@@ -152,6 +166,7 @@ export class BasePathsComponent implements OnInit {
     this.editingId.set(basePath.id);
     this.editPath.set(basePath.path);
     this.editName.set(basePath.name);
+    this.editKind.set(basePath.kind);
   }
 
   public cancelEdit(): void {
@@ -161,7 +176,11 @@ export class BasePathsComponent implements OnInit {
   public saveEdit(basePath: IBasePath): void {
     this.busy.set(true);
     this.basePathService
-      .update(basePath.id, { path: this.editPath().trim(), name: this.editName().trim() })
+      .update(basePath.id, {
+        path: this.editPath().trim(),
+        name: this.editName().trim(),
+        kind: this.editKind(),
+      })
       .pipe(finalize(() => this.busy.set(false)))
       .subscribe({
         next: (updated) => {

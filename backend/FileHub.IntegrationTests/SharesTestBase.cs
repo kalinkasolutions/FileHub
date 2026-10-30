@@ -1,6 +1,7 @@
 using Dal.Repositories.Admin;
 using Dal.Repositories.BasePaths;
 using Dal.Repositories.Groups;
+using Dal.Repositories.Media;
 using Dal.Repositories.Shares;
 using Dtos.BasePaths;
 using Dtos.Groups;
@@ -9,6 +10,7 @@ using FileHub.BusinessLogic.Services.Admin;
 using FileHub.BusinessLogic.Services.BasePaths;
 using FileHub.BusinessLogic.Services.Files;
 using FileHub.BusinessLogic.Services.Groups;
+using FileHub.BusinessLogic.Media;
 using FileHub.BusinessLogic.Services.Shares;
 using Microsoft.Extensions.DependencyInjection;
 using Shared;
@@ -44,6 +46,9 @@ public abstract class SharesTestBase : TestHostBase
         services.AddScoped<IBasePathRepository, BasePathRepository>();
         services.AddScoped<IGroupRepository, GroupRepository>();
         services.AddScoped<IShareRepository, ShareRepository>();
+        // BasePathService forgets the cached look-ups when a disk changes, so it needs both.
+        services.AddScoped<IMediaInfoRepository, MediaInfoRepository>();
+        services.AddSingleton<IPosterStore, FakePosterStore>();
         services.AddScoped<IBasePathService, BasePathService>();
         services.AddScoped<IGroupService, GroupService>();
         services.AddScoped<IFileService, FileService>();

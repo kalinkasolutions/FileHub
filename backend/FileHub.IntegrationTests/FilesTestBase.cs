@@ -1,11 +1,13 @@
 using Dal.Repositories.BasePaths;
 using Dal.Repositories.Groups;
+using Dal.Repositories.Media;
 using Dal.Repositories.Shares;
 using Dtos.BasePaths;
 using Dtos.Groups;
 using FileHub.BusinessLogic.Services.BasePaths;
 using FileHub.BusinessLogic.Services.Files;
 using FileHub.BusinessLogic.Services.Groups;
+using FileHub.BusinessLogic.Media;
 using FileHub.BusinessLogic.Services.Shares;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -25,7 +27,16 @@ public abstract class FilesTestBase : TestHostBase
     protected IGroupService Groups => Services.GetRequiredService<IGroupService>();
     protected IShareService Shares => Services.GetRequiredService<IShareService>();
 
-    protected FilesTestBase() : base(Configure)
+    protected FilesTestBase() : this(_ => { })
+    {
+    }
+
+    /// <param name="configureMore">What a derived fixture adds on top of the browsing slice.</param>
+    protected FilesTestBase(Action<IServiceCollection> configureMore) : base(services =>
+    {
+        Configure(services);
+        configureMore(services);
+    })
     {
     }
 
@@ -34,6 +45,9 @@ public abstract class FilesTestBase : TestHostBase
         services.AddScoped<IBasePathRepository, BasePathRepository>();
         services.AddScoped<IGroupRepository, GroupRepository>();
         services.AddScoped<IShareRepository, ShareRepository>();
+        // BasePathService forgets the cached look-ups when a disk changes, so it needs both.
+        services.AddScoped<IMediaInfoRepository, MediaInfoRepository>();
+        services.AddSingleton<IPosterStore, FakePosterStore>();
         services.AddScoped<IBasePathService, BasePathService>();
         services.AddScoped<IGroupService, GroupService>();
         services.AddScoped<IFileService, FileService>();
@@ -41,9 +55,9 @@ public abstract class FilesTestBase : TestHostBase
     }
 
     /// <summary>Registers a directory as a base path, through the same service an admin would use.</summary>
-    protected async Task<BasePathDto> CreateBasePathAsync(string path, string name = "Media")
+    protected async Task<BasePathDto> CreateBasePathAsync(string path, string name = "Media", string kind = "none")
     {
-        var result = await BasePaths.CreateAsync(new SaveBasePathDto { Path = path, Name = name });
+        var result = await BasePaths.CreateAsync(new SaveBasePathDto { Path = path, Name = name, Kind = kind });
         Assert.True(result.IsSuccess, result.ErrorMessage);
         return result.Value;
     }
