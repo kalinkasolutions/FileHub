@@ -1,6 +1,10 @@
+import { Overlay, OverlayRef } from '@angular/cdk/overlay';
+import { ComponentPortal } from '@angular/cdk/portal';
 import {
   Component,
   ElementRef,
+  Injector,
+  OnDestroy,
   afterRenderEffect,
   computed,
   effect,
@@ -22,6 +26,7 @@ import { ToastrService } from 'ngx-toastr';
 import { finalize, map } from 'rxjs';
 import { formatEntrySize } from '@util/format';
 import { IShareDialogData, ShareDialogComponent } from './share-dialog.component';
+import { MEDIA_INFO_TARGET, MediaInfoPopoverComponent } from './media-info-popover.component';
 import { ReceivedSharesComponent } from './received-shares.component';
 import { ShareLinksComponent } from './share-links.component';
 
@@ -55,14 +60,19 @@ const pageSize = 50;
   styleUrl: './filebrowser.component.scss',
   imports: [FormsModule, MatIconModule, ShareLinksComponent, ReceivedSharesComponent],
 })
-export class FilebrowserComponent {
+export class FilebrowserComponent implements OnDestroy {
   private readonly directoryService = inject(DirectoryService);
   private readonly fileService = inject(FileService);
   private readonly dialog = inject(MatDialog);
   private readonly toastr = inject(ToastrService);
   private readonly authService = inject(AuthService);
+  private readonly overlay = inject(Overlay);
+  private readonly injector = inject(Injector);
 
   public readonly pathService = inject(PathService);
+
+  /** The open info popover, if any. One at a time: opening another closes it. */
+  private infoRef: OverlayRef | null = null;
 
   private readonly crumbs = viewChild<ElementRef<HTMLElement>>('crumbs');
   private readonly scroller = viewChild<ElementRef<HTMLElement>>('scroller');
@@ -240,6 +250,67 @@ export class FilebrowserComponent {
     return formatEntrySize(entry.isDir, entry.size);
   }
 
+  /**
+   * Floats the info card next to the row's button. Below it when there is room, above it when the
+   * row is near the bottom, and pushed into the viewport on a phone, where the card is as wide as
+   * the screen. A transparent backdrop makes a tap anywhere else close it; so does scrolling the
+   * list, because a card anchored to a row that has moved is anchored to nothing.
+   */
+  public info(entry: IFileEntry, origin: HTMLElement): void {
+    this.closeInfo();
+
+    const positionStrategy = this.overlay
+      .position()
+      .flexibleConnectedTo(origin)
+      .withPositions([
+        { originX: 'end', originY: 'bottom', overlayX: 'end', overlayY: 'top', offsetY: 4 },
+        { originX: 'end', originY: 'top', overlayX: 'end', overlayY: 'bottom', offsetY: -4 },
+        { originX: 'start', originY: 'bottom', overlayX: 'start', overlayY: 'top', offsetY: 4 },
+        { originX: 'start', originY: 'top', overlayX: 'start', overlayY: 'bottom', offsetY: -4 },
+      ])
+      .withFlexibleDimensions(false)
+      .withPush(true)
+      .withViewportMargin(8);
+
+    const ref = this.overlay.create({
+      positionStrategy,
+      scrollStrategy: this.overlay.scrollStrategies.close(),
+      hasBackdrop: true,
+      backdropClass: 'cdk-overlay-transparent-backdrop',
+    });
+
+    ref.backdropClick().subscribe(() => this.closeInfo());
+    ref.keydownEvents().subscribe((event) => {
+      if (event.key === 'Escape') {
+        this.closeInfo();
+      }
+    });
+    ref.detachments().subscribe(() => {
+      if (this.infoRef === ref) {
+        this.infoRef = null;
+      }
+    });
+
+    const injector = Injector.create({
+      parent: this.injector,
+      providers: [
+        {
+          provide: MEDIA_INFO_TARGET,
+          useValue: { basePathId: entry.id, relativePath: entry.nextSegment, name: entry.name },
+        },
+        { provide: OverlayRef, useValue: ref },
+      ],
+    });
+
+    ref.attach(new ComponentPortal(MediaInfoPopoverComponent, null, injector));
+    this.infoRef = ref;
+  }
+
+  private closeInfo(): void {
+    this.infoRef?.dispose();
+    this.infoRef = null;
+  }
+
   private showMore(): void {
     if (this.shown() >= this.filtered().length) {
       return;
@@ -280,6 +351,10 @@ export class FilebrowserComponent {
         this.toastr.error(apiErrorMessage(error, 'Could not open that folder'));
       },
     });
+  }
+
+  public ngOnDestroy(): void {
+    this.closeInfo();
   }
 
   private settle(id: number): void {

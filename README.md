@@ -81,6 +81,9 @@ Everything is environment variables; see `.env.example` for the full comments.
 | `LOG_LEVEL` | Minimum level for the console and the `Logs` table. | `Information` |
 | `LOKI_ENABLED`, `LOKI_URI` | Also ship logs from Information up to [Grafana Loki](https://grafana.com/oss/loki/), labelled `app="filehub"` and `env`. The URI is Loki's address, e.g. `http://loki.example.ch:3100`; the push path is added by the sink. | off |
 | `EMAIL_SMTP_HOST`, `EMAIL_PORT`, `EMAIL_USERNAME`, `EMAIL_PASSWORD`, `EMAIL_FROM_ADDRESS`, `EMAIL_FROM_NAME`, `EMAIL_SECURE_SOCKET_OPTIONS` | SMTP. These only *seed* the settings row — once an admin saves the mail settings in the UI, that row is what gets used. | port `587`, `StartTls` |
+| `TMDB_API_KEY`, `TMDB_LANGUAGE` | Optional. Lets an admin mark a base path as **media**: every folder directly under it gets an info button with the poster, year, rating and summary from [TMDb](https://www.themoviedb.org/). The v3 key or the read access token both work. | off, `en-US` |
+| `IGDB_CLIENT_ID`, `IGDB_CLIENT_SECRET` | Optional. The same for a base path marked **games**, from [IGDB](https://www.igdb.com/) through a Twitch developer application. | off |
+| `MEDIA_POSTER_PATH` | Where the downloaded posters are kept. Same volume as the database. | `/var/srv/posters` |
 
 Only `APP_BASE_URL`, `ADMIN_EMAIL` and the SMTP block need real values; the rest have defaults that
 work, though `TRUSTED_PROXIES` is worth narrowing from the private ranges to your proxy's own
@@ -106,6 +109,26 @@ address.
 - **Two-factor is per account**, enabled from the account screen; enrolling and regenerating
   recovery codes both ask for the current password, so a stolen session cannot pair a second
   factor of its own.
+
+## Movie, series and game info
+
+A base path can be marked as **media** or **games** in the admin area. The folders directly under
+it — one per title, like `Dune Part Two (2024)` or `Cyberpunk 2077` — then carry an info button in
+the browser that opens a card with the poster, year, rating, genres and a summary. Movies and
+series come from TMDb, games from IGDB; both need a key (see the table above), and without one the
+button says so.
+
+Each folder is looked up **once**, the first time somebody asks, and the answer and poster are kept
+in FileHub's own database and volume. A folder nothing matched is remembered too. An answer is
+refreshed after six months, which is what TMDb's terms allow, or when an admin presses *Look up
+again* on the card. A wrong match is corrected by renaming the folder — to the title and year, or
+with the source's id in curly braces (`Scrubs (2001) {tmdb-tv-4556}`, `Dune {tmdb-movie-438631}`,
+`GTA V {igdb-1020}`), which pins it — and looking it up again. TMDb numbers movies and shows
+separately, so its tag names the type; a bare `{tmdb-4556}` is settled by whichever of the two
+carries the folder's title.
+
+FileHub uses the TMDB API but is not endorsed or certified by TMDB. Game data is provided by
+IGDB.com. Both require that notice, and the about screen carries it.
 
 ## Installing it as an app
 

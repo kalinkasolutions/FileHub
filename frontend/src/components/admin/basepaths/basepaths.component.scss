@@ -36,3 +36,14 @@
 .optional {
   color: $text-placeholder;
 }
+
+.chip {
+  @include admin-chip;
+}
+
+.chips {
+  @include flex(row);
+  gap: $small-padding;
+  flex-wrap: wrap;
+  margin-top: $small-padding;
+}

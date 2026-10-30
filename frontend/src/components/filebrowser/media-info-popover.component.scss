@@ -1,0 +1,180 @@
+@use 'mixins' as *;
+@use 'variables' as *;
+
+// A panel, like everything else that is a thing on a screen. Capped at a reading width and at the
+// viewport on a phone, where the overlay pushes it fully into view.
+.popover {
+  @include panel;
+  width: min(30em, calc(100vw - 16px));
+  max-height: min(70vh, 34em);
+  overflow: hidden;
+
+  > .title {
+    @include flex(row);
+    align-items: center;
+    gap: $small-padding;
+    padding-right: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    min-height: $control-height;
+    flex-shrink: 0;
+  }
+}
+
+// The folder's own name: the heading while the answer is on its way, a caption once it is here.
+.name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: $font-size-base;
+  color: $text-secondary;
+}
+
+// Stretched, not top-aligned: the text column has to be as tall as the body for the summary inside
+// it to know where to stop and scroll. The poster pins itself to the top on its own.
+.body {
+  @include flex(row);
+  align-items: stretch;
+  gap: $default-padding;
+  flex: 1;
+  min-height: 0;
+  padding: $default-padding;
+}
+
+// A poster's shape, filled or not, so the text column starts in the same place either way.
+.poster {
+  flex-shrink: 0;
+  align-self: flex-start;
+  width: 7em;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  background: $bg-elevated;
+
+  &.blank {
+    @include flex(row);
+    align-items: center;
+    justify-content: center;
+
+    mat-icon {
+      @include icon-size(32px);
+      color: $icon-faint;
+      cursor: default;
+    }
+  }
+}
+
+.details {
+  @include flex(column);
+  gap: $small-padding;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.headline {
+  margin: 0;
+  font-size: $font-size-title;
+  font-weight: 700;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  color: $text-dim;
+  font-size: $font-size-small;
+}
+
+.platforms {
+  overflow-wrap: anywhere;
+}
+
+.chips {
+  @include flex(row);
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  @include chip;
+}
+
+// The one part that can get long, so it is the one part that scrolls — and the one a reader might
+// want to copy, against the app-wide user-select: none.
+.overview {
+  flex: 1 1 auto;
+  margin: 0;
+  min-height: 0;
+  overflow-y: auto;
+  color: $text-secondary;
+  font-size: $font-size-small;
+  line-height: 1.5;
+  user-select: text;
+}
+
+.empty {
+  margin: $default-padding;
+  color: $text-placeholder;
+  font-size: $font-size-base;
+  line-height: 1.5;
+
+  &.error {
+    color: $text-error;
+  }
+}
+
+.hint {
+  margin: 0 $default-padding $default-padding;
+  color: $text-muted;
+  font-size: $font-size-small;
+  line-height: 1.5;
+
+  code {
+    user-select: text;
+  }
+}
+
+// Where it came from, and for an admin the way to ask again. Attribution is a condition of using
+// either source, so the link is always there — a footnote, not a button.
+.footer {
+  @include flex(row);
+  align-items: center;
+  justify-content: space-between;
+  gap: $small-padding;
+  flex-shrink: 0;
+  padding: $small-padding $default-padding;
+  border-top: 1px solid $border-subtle;
+}
+
+.source {
+  @include flex(row);
+  align-items: center;
+  gap: 4px;
+  color: $text-dim;
+  font-size: $font-size-small;
+  text-decoration: none;
+
+  mat-icon {
+    @include icon-size($icon-size-inline);
+    color: inherit;
+    cursor: inherit;
+  }
+
+  @include hover {
+    color: $link-hover;
+  }
+}
+
+.again {
+  min-height: $tap-target-min;
+  padding: 0 $small-padding;
+  font-size: $font-size-small;
+}
+
+// Under 470px the poster gives the text the room; the card is already the width of the screen.
+@media (max-width: 470px) {
+  .poster {
+    width: 5em;
+  }
+}

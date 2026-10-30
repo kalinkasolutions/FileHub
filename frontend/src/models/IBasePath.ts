@@ -8,6 +8,8 @@ export interface IBasePath {
   path: string;
   /** Label shown in the UI; the directory name when the admin left it empty. */
   name: string;
+  /** Where the folders directly under it are looked up, if anywhere. */
+  kind: BasePathKind;
   createdAt: string;
   /** How many users have been granted it <em>directly</em>. */
   userCount: number;
@@ -15,12 +17,32 @@ export interface IBasePath {
   groupCount: number;
 }
 
+/**
+ * What the folders directly under a base path are: `media` asks TMDb about them, `games` asks
+ * IGDB, and `none` is a plain disk with no info button. One kind covers movies and series, because
+ * TMDb's search tells the two apart by itself.
+ */
+export type BasePathKind = 'none' | 'media' | 'games';
+
 /** Body of `POST /api/admin/base-path` and `PUT /api/admin/base-path/{id}`. */
 export interface ISaveBasePath {
   /** Has to be absolute and has to exist on the host — the API checks both and says which failed. */
   path: string;
   /** Optional; the API falls back to the directory name when it is empty. */
   name: string;
+  kind: BasePathKind;
+}
+
+/** The kind as the admin screen's chip says it; empty for a plain disk, which wears no chip. */
+export function kindLabel(kind: BasePathKind): string {
+  switch (kind) {
+    case 'media':
+      return 'movies & series · TMDb';
+    case 'games':
+      return 'games · IGDB';
+    default:
+      return '';
+  }
 }
 
 /**

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Entities.Media;
 using Entities.Shares;
 
 namespace Entities.Paths;
@@ -19,7 +20,14 @@ public sealed class BasePath : IBaseEntity
     /// <summary>Label shown in the UI; falls back to the directory name when empty.</summary>
     public string Name { get; set; }
 
+    /// <summary>
+    /// Whether the folders directly under it are movies and series, games, or just files. Anything
+    /// but <see cref="BasePathKind.None"/> gives those folders an info button in the browser.
+    /// </summary>
+    public BasePathKind Kind { get; set; }
+
     public ICollection<BasePathAccess> Access { get; set; } = new List<BasePathAccess>();
     public ICollection<BasePathGroupAccess> GroupAccess { get; set; } = new List<BasePathGroupAccess>();
     public ICollection<Share> Shares { get; set; } = new List<Share>();
+    public ICollection<MediaInfo> MediaInfos { get; set; } = new List<MediaInfo>();
 }

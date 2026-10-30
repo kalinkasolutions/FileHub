@@ -45,6 +45,12 @@ services:
       # Optional: also ship logs (Information and up) to Grafana Loki, e.g. http://loki.example.ch:3100.
       - Loki__Enabled=${LOKI_ENABLED:-false}
       - Loki__Uri=${LOKI_URI:-}
+      # The info button on a disk marked media or games. Posters are kept under /var/srv too.
+      - Media__PosterPath=${MEDIA_POSTER_PATH:-/var/srv/posters}
+      - Tmdb__ApiKey=${TMDB_API_KEY:-}
+      - Tmdb__Language=${TMDB_LANGUAGE:-en-US}
+      - Igdb__ClientId=${IGDB_CLIENT_ID:-}
+      - Igdb__ClientSecret=${IGDB_CLIENT_SECRET:-}
       # Seed values for the EmailSettings row; once an admin edits the settings, the row wins.
       - Email__SmtpHost=${EMAIL_SMTP_HOST:-}
       - Email__Port=${EMAIL_PORT:-587}

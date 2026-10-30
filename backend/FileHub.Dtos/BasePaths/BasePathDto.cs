@@ -13,6 +13,9 @@ public sealed class BasePathDto
     /// <summary>Label shown in the UI; the directory name when the admin left it empty.</summary>
     public string Name { get; set; }
 
+    /// <summary>"none", "media" or "games" — where the folders under it are looked up, if anywhere.</summary>
+    public string Kind { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     /// <summary>How many users have been granted this base path directly.</summary>

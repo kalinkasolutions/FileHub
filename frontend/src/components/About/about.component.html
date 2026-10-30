@@ -76,6 +76,33 @@
     </p>
   </section>
 
+  <!-- Both sources require attribution as a condition of use, and TMDb prescribes the sentence.
+       It is here rather than only in the README because this is the screen a running copy shows. -->
+  <section class="block">
+    <h2>Data sources</h2>
+
+    <div class="rows">
+      <div class="row">
+        <span class="label">Movies &amp; series</span>
+        <!-- TMDb's terms ask for their logo, smaller than the app's own; this is their short mark. -->
+        <a class="value logo" [href]="tmdbUrl" target="_blank" rel="noopener noreferrer">
+          <img src="tmdb.svg" alt="The Movie Database (TMDB)" />
+        </a>
+      </div>
+
+      <div class="row">
+        <span class="label">Games</span>
+        <a class="value" [href]="igdbUrl" target="_blank" rel="noopener noreferrer">IGDB</a>
+      </div>
+    </div>
+
+    <p class="hint">
+      The posters and summaries behind a folder's info button come from these two, when an admin has
+      marked a disk as media or games. This product uses the TMDB API but is not endorsed or
+      certified by TMDB. Game data is provided by IGDB.com.
+    </p>
+  </section>
+
   <!-- The wordmark is the one part of this app that is not MIT, and a fork that does not know it
        is a fork in breach. It is on this screen rather than in the README alone for that reason. -->
   <section class="block">

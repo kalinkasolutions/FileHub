@@ -7,6 +7,7 @@ using Dal.Repositories.Email;
 using Dal.Repositories.Groups;
 using Dal.Repositories.Identity;
 using Dal.Repositories.Logs;
+using Dal.Repositories.Media;
 using Dal.Repositories.Shares;
 using Entities.Account;
 using FileHub;
@@ -15,6 +16,7 @@ using FileHub.Authorization;
 using FileHub.BusinessLogic;
 using FileHub.BusinessLogic.Auditing;
 using FileHub.BusinessLogic.Email;
+using FileHub.BusinessLogic.Media;
 using FileHub.BusinessLogic.Services.Account;
 using FileHub.BusinessLogic.Services.Admin;
 using FileHub.BusinessLogic.Services.BasePaths;
@@ -23,6 +25,7 @@ using FileHub.BusinessLogic.Services.Files;
 using FileHub.BusinessLogic.Services.Groups;
 using FileHub.BusinessLogic.Services.Identity;
 using FileHub.BusinessLogic.Services.Logs;
+using FileHub.BusinessLogic.Services.Media;
 using FileHub.BusinessLogic.Services.Shares;
 using FileHub.Endpoints;
 using FileHub.Realtime;
@@ -220,6 +223,9 @@ builder.Services.AddRateLimiter(options =>
 builder.Services.Configure<AdminOptions>(builder.Configuration.GetSection(AdminOptions.SectionName));
 builder.Services.Configure<AppOptions>(builder.Configuration.GetSection(AppOptions.SectionName));
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
+builder.Services.Configure<MediaOptions>(builder.Configuration.GetSection(MediaOptions.SectionName));
+builder.Services.Configure<TmdbOptions>(builder.Configuration.GetSection(TmdbOptions.SectionName));
+builder.Services.Configure<IgdbOptions>(builder.Configuration.GetSection(IgdbOptions.SectionName));
 
 // Who the audit lines name. Scoped, because it is a fact about the request in hand; read from the
 // cookie's claims, so it costs no query. It decides nothing — see IAuditActor.
@@ -233,6 +239,7 @@ builder.Services.AddScoped<IBasePathRepository, BasePathRepository>();
 builder.Services.AddScoped<IGroupRepository, GroupRepository>();
 builder.Services.AddScoped<IShareRepository, ShareRepository>();
 builder.Services.AddScoped<ILogRepository, LogRepository>();
+builder.Services.AddScoped<IMediaInfoRepository, MediaInfoRepository>();
 
 builder.Services.AddScoped<IEmailSettingsProvider, EmailSettingsProvider>();
 builder.Services.AddScoped<IEmailService, EmailService>();
@@ -246,6 +253,30 @@ builder.Services.AddScoped<IGroupService, GroupService>();
 builder.Services.AddScoped<IFileService, FileService>();
 builder.Services.AddScoped<IShareService, ShareService>();
 builder.Services.AddScoped<ILogService, LogService>();
+builder.Services.AddScoped<IMediaInfoService, MediaInfoService>();
+
+// The two look-up sources behind the info button, one per base-path kind. Named clients, because
+// the typed-client overload names the client after the interface and both would then share one
+// configuration — the last base address would win for both.
+builder.Services.AddSingleton<IPosterStore, PosterStore>();
+builder.Services.AddSingleton<IgdbAccessToken>();
+builder.Services.AddHttpClient("twitch", client =>
+{
+    client.BaseAddress = new Uri("https://id.twitch.tv/");
+    client.Timeout = TimeSpan.FromSeconds(15);
+});
+builder.Services.AddHttpClient<IMediaLookupProvider, TmdbLookupProvider>("tmdb", client =>
+{
+    client.BaseAddress = new Uri("https://api.themoviedb.org/3/");
+    client.Timeout = TimeSpan.FromSeconds(15);
+});
+builder.Services.AddHttpClient<IMediaLookupProvider, IgdbLookupProvider>("igdb", client =>
+{
+    client.BaseAddress = new Uri("https://api.igdb.com/v4/");
+    client.Timeout = TimeSpan.FromSeconds(15);
+});
+builder.Services.AddHttpClient<IPosterFetcher, HttpPosterFetcher>("posters", client =>
+    client.Timeout = TimeSpan.FromSeconds(20));
 
 var webRootPath = Path.Combine(builder.Environment.ContentRootPath, "wwwroot");
 
@@ -313,6 +344,7 @@ app.MapBasePathEndpoint();
 app.MapGroupEndpoint();
 app.MapFileEndpoint();
 app.MapShareEndpoint();
+app.MapMediaInfoEndpoint();
 app.MapPublicShareEndpoint();
 
 app.MapFallbackToFile("index.html");

@@ -107,6 +107,20 @@
                 <span class="size">{{ size(entry) }}</span>
               </div>
 
+              <!-- Only a title folder on a disk marked media or games has one; the server decides
+                   which rows those are. -->
+              @if (entry.hasInfo) {
+                <button
+                  #infoButton
+                  class="icon-btn quiet"
+                  type="button"
+                  [attr.aria-label]="'About ' + entry.name"
+                  (click)="info(entry, infoButton)"
+                >
+                  <mat-icon>info</mat-icon>
+                </button>
+              }
+
               <!-- A base path is the whole disk: it is neither downloadable as one zip nor a
                    sensible thing to hand out a public link to. -->
               @if (!entry.isBasePath) {

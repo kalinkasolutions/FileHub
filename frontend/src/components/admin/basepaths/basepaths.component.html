@@ -34,6 +34,24 @@
         />
       </div>
 
+      <div class="form-control">
+        <label for="new-kind">Looks up</label>
+        <select
+          id="new-kind"
+          name="newKind"
+          [ngModel]="newKind()"
+          (ngModelChange)="newKind.set($event)"
+        >
+          @for (option of kinds; track option.kind) {
+            <option [value]="option.kind">{{ option.label }}</option>
+          }
+        </select>
+        <span class="hint">
+          On a disk marked this way, every folder directly under it gets an info button with a
+          poster and a summary. Looked up once, then kept.
+        </span>
+      </div>
+
       <div class="buttons">
         <button type="submit" [disabled]="addForm.invalid || busy()">Add base path</button>
       </div>
@@ -56,6 +74,11 @@
             <span class="name">{{ basePath.name }}</span>
             <span class="path">{{ basePath.path }}</span>
             <span class="meta" [class.warn]="ungranted(basePath)">{{ grants(basePath) }}</span>
+            @if (basePath.kind !== 'none') {
+              <span class="chips">
+                <span class="chip">{{ kindLabel(basePath.kind) }}</span>
+              </span>
+            }
           </div>
 
           <div class="row-actions">
@@ -123,9 +146,23 @@
                   autocomplete="off"
                 />
               </div>
+              <div class="form-control">
+                <label for="edit-kind">Looks up</label>
+                <select
+                  id="edit-kind"
+                  name="editKind"
+                  [ngModel]="editKind()"
+                  (ngModelChange)="editKind.set($event)"
+                >
+                  @for (option of kinds; track option.kind) {
+                    <option [value]="option.kind">{{ option.label }}</option>
+                  }
+                </select>
+              </div>
               <p class="hint">
                 Repointing a base path repoints every share link into it — the links keep working
-                and serve the new directory.
+                and serve the new directory. Changing the path or what it looks up forgets every
+                answer cached for its folders.
               </p>
               <div class="buttons">
                 <button class="secondary" type="button" (click)="cancelEdit()">Cancel</button>

@@ -51,3 +51,11 @@ code {
   font-size: $font-size-small;
   overflow-wrap: anywhere;
 }
+
+// A source's mark where its name would be. Two lines tall, so it sits in the row like a value and
+// stays well below the wordmark in the header, which is what TMDb's terms ask for.
+.logo img {
+  display: block;
+  height: 2em;
+  width: auto;
+}

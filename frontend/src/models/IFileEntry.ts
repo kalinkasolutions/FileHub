@@ -22,6 +22,12 @@ export interface IFileEntry {
   isBasePath: boolean;
 
   /**
+   * A folder directly under a base path marked media or games: it gets the info button, and
+   * `api/media/info` answers for it. The server decides this; the client only draws it.
+   */
+  hasInfo: boolean;
+
+  /**
    * A fresh id per listing. It is regenerated on every response, so it is good for identity
    * comparisons *within* one in-memory listing and for nothing else — never persist it, never
    * compare it against an id from another request.

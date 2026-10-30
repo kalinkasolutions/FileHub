@@ -90,7 +90,7 @@ public sealed class FileService : IFileService
         var navigation = new NavigationDto
         {
             NavigationName = relativePath.Length == 0 ? basePath.Name : Path.GetFileName(fullPath),
-            Entries = ListDirectory(basePath, fullPath)
+            Entries = ListDirectory(basePath, fullPath, isTopLevel: relativePath.Length == 0)
         };
 
         return OperationResult<NavigationDto>.Success(navigation);
@@ -134,9 +134,12 @@ public sealed class FileService : IFileService
         return OperationResult<ResolvedFile>.Success(resolved);
     }
 
-    private List<FileEntryDto> ListDirectory(BasePath basePath, string directoryPath)
+    private List<FileEntryDto> ListDirectory(BasePath basePath, string directoryPath, bool isTopLevel)
     {
         var entries = new List<FileEntryDto>();
+
+        // Only the folders directly under a marked disk are titles TMDb or IGDB can be asked about.
+        var foldersHaveInfo = isTopLevel && basePath.Kind != BasePathKind.None;
 
         // The base path is resolved once for the whole listing instead of twice for every entry —
         // ToRelative and TryResolve each used to re-derive it, and that costs a stat per segment of
@@ -162,7 +165,7 @@ public sealed class FileService : IFileService
                 continue;
             }
 
-            var entry = MapEntry(basePath.Id, entryPath, nextSegment);
+            var entry = MapEntry(basePath.Id, entryPath, nextSegment, foldersHaveInfo);
 
             if (entry is null)
             {
@@ -180,7 +183,7 @@ public sealed class FileService : IFileService
 
     /// <summary>Null when the entry cannot be read — a race with a delete, or a permission the app
     /// does not have. One unreadable entry is skipped, it does not fail the listing.</summary>
-    private FileEntryDto? MapEntry(Guid basePathId, string fullPath, string nextSegment)
+    private FileEntryDto? MapEntry(Guid basePathId, string fullPath, string nextSegment, bool foldersHaveInfo)
     {
         try
         {
@@ -194,6 +197,7 @@ public sealed class FileService : IFileService
                 Size = isDirectory ? CountEntries(fullPath) : new FileInfo(fullPath).Length,
                 NextSegment = nextSegment,
                 IsBasePath = false,
+                HasInfo = isDirectory && foldersHaveInfo,
                 ItemId = Guid.NewGuid()
             };
         }

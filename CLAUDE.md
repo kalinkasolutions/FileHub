@@ -429,6 +429,56 @@ The Open Graph page (`og/share/{id}`) is served to the public internet and inter
 share id from the URL and a filename from disk, so it escapes per context (`HtmlEncoder` /
 `JavaScriptEncoder`). Never assemble that page with string interpolation of raw values.
 
+### The info button: TMDb and IGDB, cached
+
+A base path carries a `Kind` (`Entities/Paths/BasePathKind.cs`: `None`, `Media`, `Games`; on the
+wire the words `none`/`media`/`games`, parsed by `BasePathKinds`). On a marked disk, **the folders
+directly under the base path** are titles — `FileService` sets `HasInfo` on exactly those listing
+rows, and `MediaInfoService.GetAsync` refuses anything else (the base path itself, a nested
+folder) before touching a source. One kind covers movies and series because TMDb's multi search
+tells them apart; games are IGDB, reached with a Twitch client id and secret.
+
+- **Every answer is a `MediaInfo` row** (`BasePathId` + `RelativePath`, unique) plus a poster file
+  named by the row's id under `Media:PosterPath`. The first ask fetches; every later one reads the
+  row, so a folder costs the API one request ever. **A miss is a row too** (`Found` false) — without
+  it the same failing search would run on every open. A row older than **180 days** is fetched
+  again, because TMDb's terms cap a cached answer at six months; an admin can force it through
+  `POST api/media/info/refresh`, which is the only admin-only route in `MediaInfoEndpoint`. A
+  source that could not be reached is a 502 and is **not** cached.
+- **Access is the disk's access.** `GetAsync` and `GetPosterPathAsync` both start from
+  `GetForUserAsync(basePathId, userId, callerIsAdmin)` and answer "not found" otherwise, exactly
+  like a listing. The poster route serves the file with `Cache-Control: private`.
+- **`FolderTitleParser` is the only place a folder name becomes a search**, and it is pure: a
+  bracketed `(1999)` is the year, the first release tag (`1080p`, `WEB-DL`, `-RUNE`, `v1.10`,
+  `S01`) ends the title, a bare year ends it too unless it is the first word (`2001 A Space
+  Odyssey`), and `{tmdb-tv-4556}` / `{tmdb-movie-693134}` / `{igdb-1020}` pin the match outright —
+  that tag is the way a wrong match is corrected, by renaming the folder, so keep it working.
+  **TMDb ids are only unique per type**: movie 295778 is a wrestling compilation and show 295778
+  is Scrubs, so a bare `{tmdb-295778}` fetches both and keeps the one whose title matches the
+  folder (`TitleKey`), then the year, then the movie. `FolderTitleParserTests` is the table of
+  cases.
+- **Changing a base path's path or kind forgets its rows and posters** (`BasePathService`), before
+  the save, for the same over-revoke reason the share revocations run before theirs: the rows are
+  answers about *that* directory from *that* source. A rename alone keeps them. Deleting the base
+  path cascades the rows; the service deletes the poster files first, while the ids are known.
+- **Providers are `IMediaLookupProvider`, one per kind**, registered as named typed clients in
+  `Program.cs` — named, because the typed-client overload names the client after the interface and
+  both would otherwise share one `BaseAddress`. `IgdbAccessToken` is the one singleton: Twitch's
+  token is bought once per process behind a lock and renewed early. `MediaLookupException` is for a
+  refusal worth repeating to the user (a rejected key); transport errors stay what they are.
+- **Nothing in the SPA links to a source's image host.** The poster goes through
+  `api/media/poster/{id}`, same-origin — the service worker's CSP is `connect-src 'self'`, so a
+  hot-linked poster would fail on every controlled page exactly as the icon font once did.
+- The popover is a CDK overlay anchored to the row's button (`media-info-popover.component`), a
+  panel like everything else, closed by a tap outside, Escape, or scrolling the list; one at a time.
+  `MediaInfoService` on the client remembers what the session has seen, so reopening costs nothing.
+- **Attribution is a condition of both sources** and lives on the about screen with TMDb's
+  prescribed sentence; the README mirrors it. The TMDb logo itself is not in the repository.
+
+`MediaInfoTests` drives the service over fakes for the two providers, the poster fetcher and the
+store; the real `TmdbLookupProvider` and `IgdbLookupProvider` are only checked against the live APIs
+by hand, with the keys in user secrets (`dotnet user-secrets list`, from `backend/FileHub.Api`).
+
 ### Downloads
 
 `Api/Downloads/FileDownload.cs` is the one way bytes leave the app, shared by the authenticated
@@ -650,7 +700,7 @@ than loudly broken. `LogSignalTests` covers the coalescing and the loop guard, w
 
 ### Testing
 
-`FileHub.IntegrationTests` (xUnit, 478 tests) drives the **services**, not the routes: the real service →
+`FileHub.IntegrationTests` (xUnit, 517 tests) drives the **services**, not the routes: the real service →
 repository → EF/Identity stack over a per-test SQLite **in-memory** database (`TestHostBase` takes
 a delegate that registers the slice under test). SQLite rather than the EF in-memory provider,
 because the unique indexes and the `ON DELETE CASCADE` behaviour that share revocation and user
@@ -679,7 +729,7 @@ rest on are covered, the wiring is not). `AdminSeeder` is
 covered, because it is the part of startup that can brick an install; the migration and role half
 in `Seed` is not.
 
-The SPA has **137 vitest specs** (`npm test`), over the things worth pinning without a browser:
+The SPA has **148 vitest specs** (`npm test`), over the things worth pinning without a browser:
 path building, the size and audience formatters, the services against `HttpTestingController`, and
 the guards. They do not cover how anything *looks* — the layout bugs in this codebase have all been
 found by screenshotting a running instance at 360px and 1280px, not by a spec, so do that when

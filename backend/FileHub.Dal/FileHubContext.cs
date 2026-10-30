@@ -3,6 +3,7 @@ using Entities.Account;
 using Entities.Email;
 using Entities.Groups;
 using Entities.Logs;
+using Entities.Media;
 using Entities.Paths;
 using Entities.Shares;
 using Microsoft.AspNetCore.Identity;
@@ -24,6 +25,7 @@ public class FileHubContext : IdentityDbContext<FileHubUser, IdentityRole<Guid>,
     public DbSet<GroupMembership> GroupMemberships { get; set; }
     public DbSet<Share> Shares { get; set; }
     public DbSet<EmailSetting> EmailSettings { get; set; }
+    public DbSet<MediaInfo> MediaInfos { get; set; }
 
     /// <summary>
     /// The Serilog SQLite sink's own table, mapped read-only so the admin log screen can query it
@@ -128,6 +130,28 @@ public class FileHubContext : IdentityDbContext<FileHubUser, IdentityRole<Guid>,
             entity.HasOne(s => s.AudienceGroup)
                 .WithMany(g => g.Shares)
                 .HasForeignKey(s => s.AudienceGroupId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<MediaInfo>(entity =>
+        {
+            entity.Property(i => i.RelativePath).IsRequired().HasMaxLength(4096);
+            entity.Property(i => i.Query).HasMaxLength(4096);
+            entity.Property(i => i.Source).HasMaxLength(16);
+            entity.Property(i => i.MediaType).HasMaxLength(16);
+            entity.Property(i => i.ExternalUrl).HasMaxLength(2048);
+            entity.Property(i => i.Title).HasMaxLength(1024);
+            entity.Property(i => i.Genres).HasMaxLength(1024);
+            entity.Property(i => i.Platforms).HasMaxLength(1024);
+
+            // One answer per folder: the look-up reads by this pair, and two rows for one folder
+            // would be two posters and two opinions.
+            entity.HasIndex(i => new { i.BasePathId, i.RelativePath }).IsUnique();
+
+            // A cached answer is worth nothing without the disk it describes.
+            entity.HasOne(i => i.BasePath)
+                .WithMany(p => p.MediaInfos)
+                .HasForeignKey(i => i.BasePathId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
