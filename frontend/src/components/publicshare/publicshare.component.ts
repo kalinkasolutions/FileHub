@@ -4,6 +4,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 import { firstValueFrom } from 'rxjs';
+import { ngswBypass } from '@services/file.service';
 import { formatSize } from './formatsize';
 
 /** Shape of `GET /public-api/share/{id}` — everything an anonymous caller is told about a link. */
@@ -63,7 +64,7 @@ export class PublicShareComponent implements OnInit {
    * through the app.
    */
   public downloadUrl(): string {
-    return `${location.origin}/public-api/share/${this.share()?.id}/download`;
+    return `${location.origin}/public-api/share/${this.share()?.id}/download${ngswBypass}`;
   }
 
   public async copyLink(): Promise<void> {

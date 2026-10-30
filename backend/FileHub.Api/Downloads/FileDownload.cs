@@ -40,7 +40,11 @@ public static class FileDownload
         // land mid-stream, so the escape hatch is opened up front for this request only.
         AllowSynchronousWrites(context);
 
-        return Results.Stream(stream => WriteZipAsync(stream, fullPath, logger), "application/zip");
+        // Kestrel does not fail a write to a connection the client has closed, so without the token
+        // an abandoned zip is built to the end — reading the whole directory into nowhere.
+        var clientGone = context.RequestAborted;
+
+        return Results.Stream(stream => WriteZipAsync(stream, fullPath, clientGone, logger), "application/zip");
     }
 
     /// <summary>
@@ -69,7 +73,7 @@ public static class FileDownload
         }
     }
 
-    private static async Task WriteZipAsync(Stream output, string directoryPath, ILogger logger)
+    private static async Task WriteZipAsync(Stream output, string directoryPath, CancellationToken clientGone, ILogger logger)
     {
         var options = new EnumerationOptions
         {
@@ -87,12 +91,16 @@ public static class FileDownload
             // directory are written through the response body, and Kestrel refuses synchronous
             // writes to it.
             await using var archive = await ZipArchive.CreateAsync(
-                output, ZipArchiveMode.Create, leaveOpen: true, entryNameEncoding: null);
+                output, ZipArchiveMode.Create, leaveOpen: true, entryNameEncoding: null, clientGone);
 
             foreach (var entryPath in Directory.EnumerateFileSystemEntries(directoryPath, "*", options))
             {
-                await AddEntryAsync(archive, directoryPath, entryPath);
+                await AddEntryAsync(archive, directoryPath, entryPath, clientGone);
             }
+        }
+        catch (OperationCanceledException) when (clientGone.IsCancellationRequested)
+        {
+            logger.LogInformation("The client gave up on the zip for {Path:l}; stopped building it", directoryPath);
         }
         catch (IOException exception)
         {
@@ -104,7 +112,7 @@ public static class FileDownload
         }
     }
 
-    private static async Task AddEntryAsync(ZipArchive archive, string root, string entryPath)
+    private static async Task AddEntryAsync(ZipArchive archive, string root, string entryPath, CancellationToken clientGone)
     {
         // Zip entry names are always forward-slashed, whatever the host separator is.
         var name = Path.GetRelativePath(root, entryPath).Replace(Path.DirectorySeparatorChar, '/');
@@ -121,8 +129,8 @@ public static class FileDownload
         var entry = archive.CreateEntry(name, CompressionLevel.NoCompression);
 
         await using var source = File.OpenRead(entryPath);
-        await using var target = await entry.OpenAsync();
-        await source.CopyToAsync(target);
+        await using var target = await entry.OpenAsync(clientGone);
+        await source.CopyToAsync(target, clientGone);
     }
 
     /// <summary>

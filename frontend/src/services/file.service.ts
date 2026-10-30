@@ -23,13 +23,21 @@ export function downloadName(name: string, isDir: boolean): string {
   return isDir ? `${name}.zip` : name;
 }
 
+/**
+ * Appended to every download URL so the service worker lets the browser fetch it directly. The
+ * worker proxies each GET it does not cache through its own `fetch`, which made a download a
+ * multi-gigabyte stream piped through the worker — and the browser recycling the worker mid-stream
+ * failed every download it was carrying at once.
+ */
+export const ngswBypass = '?ngsw-bypass';
+
 /** Starting a download. Nothing here goes through `HttpClient`: the response is a stream the browser
  * has to own — buffering a multi-gigabyte file into memory to hand it back would defeat the point. */
 @Injectable({ providedIn: 'root' })
 export class FileService {
   /** `GET /api/files/download/{basePathId}/{*relativePath}`; a directory streams as a zip. */
   public downloadUrl(basePathId: string, relativePath: string): string {
-    return `/api/files/download/${encodeURIComponent(basePathId)}/${encodeRelativePath(relativePath)}`;
+    return `/api/files/download/${encodeURIComponent(basePathId)}/${encodeRelativePath(relativePath)}${ngswBypass}`;
   }
 
   public download(entry: IFileEntry): void {
