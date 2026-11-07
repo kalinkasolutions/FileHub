@@ -18,17 +18,16 @@
         </mat-icon>
 
         <div class="details">
-          <div class="headline">
-            <span class="name" [title]="share.relativePath || share.name">{{ share.name }}</span>
-            <span class="audience">
-              <mat-icon>{{ isRestricted(share) ? 'lock' : 'public' }}</mat-icon>
-              <span>{{ share.audienceGroupName || 'Anyone' }}</span>
-            </span>
-          </div>
+          <span class="name" [title]="share.relativePath || share.name">{{ share.name }}</span>
           <span class="meta">
             {{ meta(share) }} · shared {{ share.createdAt | date: 'mediumDate' }}
           </span>
         </div>
+
+        <span class="audience">
+          <mat-icon>{{ isRestricted(share) ? 'lock' : 'public' }}</mat-icon>
+          <span>{{ share.audienceGroupName || 'Anyone' }}</span>
+        </span>
 
         <button
           class="icon-btn quiet"

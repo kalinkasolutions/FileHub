@@ -50,7 +50,6 @@
 
 .link {
   @include tile-row;
-  align-items: flex-start;
   padding: $small-padding;
   // Every row carries the rule so that turning it on colours it rather than moving the row; it is
   // the one mark that reads from across a full screen of links.
@@ -59,6 +58,8 @@
   .kind {
     @include icon-size;
     flex-shrink: 0;
+    // On the name's line, not the row's middle, once the meta line wraps.
+    align-self: flex-start;
     margin-top: 2px;
     cursor: default;
   }
@@ -74,18 +75,7 @@
     min-width: 0;
   }
 
-  // Name and audience share a line: who can open a link belongs next to what it points at, not
-  // buried in the run of numbers underneath.
-  .headline {
-    @include flex(row);
-    align-items: center;
-    gap: $small-padding;
-    flex-wrap: wrap;
-  }
-
   .name {
-    flex: 1 1 8em;
-    min-width: 0;
     overflow: hidden;
     color: $text-primary;
     font-size: $font-size-row;
@@ -100,7 +90,7 @@
     align-items: center;
     gap: 3px;
     flex-shrink: 0;
-    max-width: 100%;
+    max-width: 10em;
     padding: 1px $small-padding 1px 3px;
     border: 1px solid $border-subtle;
     color: $text-dim;
@@ -157,6 +147,32 @@
 
     mat-icon {
       color: $primary-green;
+    }
+  }
+}
+
+// Beside the buttons the chip squeezes a phone's name to a few letters, so it drops under the meta.
+@media (max-width: 470px) {
+  .link {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    row-gap: 4px;
+
+    .kind {
+      grid-row: 1 / span 2;
+    }
+
+    .details {
+      grid-area: 1 / 2;
+    }
+
+    .audience {
+      grid-area: 2 / 2;
+      justify-self: start;
+    }
+
+    .icon-btn {
+      grid-row: 1 / span 2;
     }
   }
 }
