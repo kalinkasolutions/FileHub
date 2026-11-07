@@ -21,18 +21,17 @@
         </mat-icon>
 
         <div class="details">
-          <div class="headline">
-            <span class="name" [title]="share.name">{{ share.name }}</span>
-            <span class="audience">
-              <mat-icon>lock</mat-icon>
-              <span>{{ share.audienceGroupName }}</span>
-            </span>
-          </div>
+          <span class="name" [title]="share.name">{{ share.name }}</span>
           <span class="meta">
             {{ meta(share) }} · from {{ share.sharedBy }} ·
             {{ share.createdAt | date: 'mediumDate' }}
           </span>
         </div>
+
+        <span class="audience">
+          <mat-icon>lock</mat-icon>
+          <span>{{ share.audienceGroupName }}</span>
+        </span>
 
         <button
           class="icon-btn quiet"
