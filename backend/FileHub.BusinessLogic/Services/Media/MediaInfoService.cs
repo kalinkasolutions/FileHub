@@ -78,7 +78,7 @@ public sealed class MediaInfoService : IMediaInfoService
         var cached = await m_mediaInfoRepository.GetAsync(basePathId, folder);
         if (cached is not null && !refresh && !MediaInfoAge.IsStale(cached, DateTime.UtcNow))
         {
-            return OperationResult<MediaInfoDto>.Success(Map(cached));
+            return OperationResult<MediaInfoDto>.Success(MediaInfoMapping.ToDto(cached));
         }
 
         return await FetchAsync(basePath, folder, cached, cancellationToken);
@@ -167,7 +167,7 @@ public sealed class MediaInfoService : IMediaInfoService
 
             return theirs is null
                 ? OperationResult<MediaInfoDto>.NotFound("Path not found")
-                : OperationResult<MediaInfoDto>.Success(Map(theirs));
+                : OperationResult<MediaInfoDto>.Success(MediaInfoMapping.ToDto(theirs));
         }
 
         if (lookup is null)
@@ -181,7 +181,7 @@ public sealed class MediaInfoService : IMediaInfoService
                 m_auditActor.Describe(), folder, provider.Name, lookup.Title, lookup.Year);
         }
 
-        return OperationResult<MediaInfoDto>.Success(Map(info));
+        return OperationResult<MediaInfoDto>.Success(MediaInfoMapping.ToDto(info));
     }
 
     public async Task<OperationResult<string>> GetPosterPathAsync(Guid userId, bool callerIsAdmin, Guid mediaInfoId)
@@ -215,7 +215,7 @@ public sealed class MediaInfoService : IMediaInfoService
     /// <summary>A stale answer is still an answer; only a first look-up has nothing to fall back on.</summary>
     private static OperationResult<MediaInfoDto> StaleOrFailed(
         MediaInfo? cached, string message, Func<string, OperationResult<MediaInfoDto>> failure) =>
-        cached is not null ? OperationResult<MediaInfoDto>.Success(Map(cached)) : failure(message);
+        cached is not null ? OperationResult<MediaInfoDto>.Success(MediaInfoMapping.ToDto(cached)) : failure(message);
 
     private static void Apply(MediaInfo info, ParsedTitle parsed, IMediaLookupProvider provider, MediaLookup? lookup)
     {
@@ -262,25 +262,4 @@ public sealed class MediaInfoService : IMediaInfoService
             return m_posterStore.Exists(id);
         }
     }
-
-    private static MediaInfoDto Map(MediaInfo info) => new()
-    {
-        Id = info.Id,
-        Found = info.Found,
-        Query = info.Query,
-        Source = info.Source,
-        MediaType = info.MediaType,
-        Title = info.Title,
-        Year = info.Year,
-        Overview = info.Overview,
-        Rating = info.Rating,
-        Genres = Split(info.Genres),
-        Platforms = Split(info.Platforms),
-        HasPoster = info.HasPoster,
-        ExternalUrl = info.ExternalUrl,
-        FetchedAt = info.FetchedAt
-    };
-
-    private static List<string> Split(string joined) =>
-        string.IsNullOrEmpty(joined) ? [] : joined.Split(", ").ToList();
 }

@@ -4,6 +4,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 import { firstValueFrom } from 'rxjs';
+import { IMediaInfo, mediaMetaLine, sourceName } from '@models/IMediaInfo';
 import { ngswBypass } from '@services/file.service';
 import { formatSize } from './formatsize';
 
@@ -14,6 +15,8 @@ export interface IPublicShare {
   /** Total bytes, read from the share row: the public routes never walk the tree. */
   size: number;
   isDir: boolean;
+  /** What TMDb or IGDB said about the title the link sits in; null when nothing is known. */
+  info: IMediaInfo | null;
 }
 
 /**
@@ -41,6 +44,7 @@ export class PublicShareComponent implements OnInit {
 
   public readonly share = signal<IPublicShare | null>(null);
   public readonly loading = signal(true);
+  public readonly infoOpen = signal(false);
 
   public async ngOnInit(): Promise<void> {
     const id = this.route.snapshot.paramMap.get('id') ?? '';
@@ -57,6 +61,16 @@ export class PublicShareComponent implements OnInit {
   }
 
   public readonly formatSize = formatSize;
+  public readonly meta = mediaMetaLine;
+
+  public source(info: IMediaInfo): string {
+    return sourceName(info.source);
+  }
+
+  /** The anonymous poster route the link preview uses; the fetch time makes a refreshed one a new URL. */
+  public posterUrl(shareId: string, info: IMediaInfo): string {
+    return `/og/share/${shareId}/poster?v=${encodeURIComponent(info.fetchedAt)}`;
+  }
 
   /**
    * A full URL rather than a relative one: this is the address that gets pasted into a chat, and

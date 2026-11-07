@@ -513,6 +513,11 @@ tells them apart; games are IGDB, reached with a Twitch client id and secret.
   per unfurl) and drops when full. `MediaRefreshWorker` runs them one at a time in its own scope
   through `RefreshForLinkAsync`, which re-checks the rule and fetches the base path by id alone —
   safe only because nothing but a resolved link queues it, and revoking access deletes the link.
+- **The share landing page shows the same title** behind a chevron, closed by default so the
+  download stays the page's one job. `public-api/share/{id}` carries it as `PublicShareDto.Info`
+  from `ShareService.FindTitleAsync` — same cache-only, queue-on-stale terms as the poster, null for
+  a miss — with `Query` and `Id` blanked: the query is the parsed folder name, a directory above the
+  file that a recipient is not told. The poster is the anonymous `og/share/{id}/poster`.
 - **Attribution is a condition of both sources** and lives on the about screen with TMDb's
   prescribed sentence; the README mirrors it. The TMDb logo itself is not in the repository.
 
@@ -746,7 +751,7 @@ than loudly broken. `LogSignalTests` covers the coalescing and the loop guard, w
 
 ### Testing
 
-`FileHub.IntegrationTests` (xUnit, 545 tests) drives the **services**, not the routes: the real service →
+`FileHub.IntegrationTests` (xUnit, 547 tests) drives the **services**, not the routes: the real service →
 repository → EF/Identity stack over a per-test SQLite **in-memory** database (`TestHostBase` takes
 a delegate that registers the slice under test). SQLite rather than the EF in-memory provider,
 because the unique indexes and the `ON DELETE CASCADE` behaviour that share revocation and user
@@ -775,7 +780,7 @@ rest on are covered, the wiring is not). `AdminSeeder` is
 covered, because it is the part of startup that can brick an install; the migration and role half
 in `Seed` is not.
 
-The SPA has **150 vitest specs** (`npm test`), over the things worth pinning without a browser:
+The SPA has **151 vitest specs** (`npm test`), over the things worth pinning without a browser:
 path building, the size and audience formatters, the services against `HttpTestingController`, and
 the guards. They do not cover how anything *looks* — the layout bugs in this codebase have all been
 found by screenshotting a running instance at 360px and 1280px, not by a spec, so do that when

@@ -6,15 +6,18 @@
   height: 100%;
   @include flex(column);
   align-items: center;
-  justify-content: center;
   padding: $screen-padding;
+  overflow-y: auto;
 }
 
-// The link is the one thing on this screen, so it is the one panel on it.
+// The link is the one thing on this screen, so it is the one panel on it. Centred by auto margins
+// rather than justify-content, which would clip the top once the opened info makes it taller than
+// the screen.
 .panel {
   @include panel;
   width: 100%;
   max-width: $max-form-width;
+  margin: auto 0;
   gap: $default-margin;
   padding: $default-padding;
   text-align: center;
@@ -88,5 +91,133 @@ h1 {
   @include hover {
     background: transparent;
     color: $link-hover;
+  }
+}
+
+// Closed by default: the download is what the visitor came for, and the info is a footnote to it.
+.info-toggle {
+  @include flex(row);
+  align-items: center;
+  justify-content: space-between;
+  gap: $small-padding;
+  min-height: $tap-target-min;
+  margin: 0 (-$default-padding);
+  padding: 0 $default-padding;
+
+  // Closed, it is the panel's bottom edge; open, the info follows it.
+  &:last-child {
+    margin-bottom: -$default-padding;
+  }
+  border-top: 1px solid $border-subtle;
+  background: transparent;
+  color: $text-secondary;
+  font-size: $font-size-small;
+  font-weight: 400;
+  text-align: left;
+
+  .label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  mat-icon {
+    flex-shrink: 0;
+    transition: transform 150ms ease;
+  }
+
+  &.open mat-icon {
+    transform: rotate(180deg);
+  }
+
+  @include hover {
+    background: $surface-hover;
+    color: $text-primary;
+  }
+}
+
+.title-info {
+  @include flex(column);
+  gap: $small-padding;
+  text-align: left;
+}
+
+.summary {
+  @include flex(row);
+  gap: $default-padding;
+}
+
+.poster {
+  flex-shrink: 0;
+  align-self: flex-start;
+  width: 7em;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  background: $bg-elevated;
+}
+
+.facts {
+  @include flex(column);
+  gap: $small-padding;
+  min-width: 0;
+}
+
+.headline {
+  margin: 0;
+  font-size: $font-size-title;
+  font-weight: 700;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  color: $text-dim;
+  font-size: $font-size-small;
+  overflow-wrap: anywhere;
+}
+
+.chips {
+  @include flex(row);
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  @include chip;
+}
+
+.overview {
+  margin: 0;
+  color: $text-secondary;
+  font-size: $font-size-small;
+  line-height: 1.5;
+  user-select: text;
+}
+
+// Attribution is a condition of using either source, so it is always there — a footnote.
+.source {
+  @include flex(row);
+  align-items: center;
+  align-self: flex-start;
+  gap: 4px;
+  color: $text-dim;
+  font-size: $font-size-small;
+  text-decoration: none;
+
+  mat-icon {
+    @include icon-size($icon-size-inline);
+    color: inherit;
+    cursor: inherit;
+  }
+
+  @include hover {
+    color: $link-hover;
+  }
+}
+
+@media (max-width: 470px) {
+  .poster {
+    width: 5em;
   }
 }

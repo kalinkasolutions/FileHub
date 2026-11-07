@@ -1,3 +1,4 @@
+using Dtos.Media;
 using Dtos.Shares;
 using Shared;
 
@@ -73,4 +74,10 @@ public interface IShareService
     /// the disk is unmarked, the folder was never looked up, or the look-up had no poster.
     /// </summary>
     Task<OperationResult<PublicSharePoster>> FindPosterAsync(ResolvedShare share);
+
+    /// <summary>
+    /// What TMDb or IGDB said about the title a resolved link sits in, for the landing page. Same
+    /// terms as <see cref="FindPosterAsync"/>: cache only, and not found for a miss.
+    /// </summary>
+    Task<OperationResult<MediaInfoDto>> FindTitleAsync(ResolvedShare share);
 }
