@@ -69,7 +69,7 @@ public sealed class FileService : IFileService
         var basePath = await m_basePathRepository.GetForUserAsync(dto.BasePathId, userId, callerIsAdmin);
         if (basePath is null)
         {
-            return NotGranted<NavigationDto>(userId, dto.BasePathId);
+            return NotGranted.BasePath<NavigationDto>(m_logger, m_auditActor, userId, dto.BasePathId);
         }
 
         var relativePath = dto.Path ?? string.Empty;
@@ -102,7 +102,7 @@ public sealed class FileService : IFileService
         var basePath = await m_basePathRepository.GetForUserAsync(basePathId, userId, callerIsAdmin);
         if (basePath is null)
         {
-            return NotGranted<ResolvedFile>(userId, basePathId);
+            return NotGranted.BasePath<ResolvedFile>(m_logger, m_auditActor, userId, basePathId);
         }
 
         var relative = relativePath ?? string.Empty;
@@ -252,19 +252,6 @@ public sealed class FileService : IFileService
         {
             return 0;
         }
-    }
-
-    /// <summary>
-    /// A base path the caller cannot reach — no grant of their own, no group that holds it, and not
-    /// an admin — answers exactly like one that does not exist, so the response cannot be used to
-    /// enumerate what other users can see.
-    /// </summary>
-    private OperationResult<T> NotGranted<T>(Guid userId, Guid basePathId)
-    {
-        m_logger.LogWarning(
-            "{Actor:l} (user {UserId}) has no access to base path {BasePathId}",
-            m_auditActor.Describe(), userId, basePathId);
-        return OperationResult<T>.NotFound("Base path not found");
     }
 
     private const string PathNotFound = "Path not found";

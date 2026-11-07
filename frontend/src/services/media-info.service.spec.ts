@@ -22,7 +22,11 @@ const dune: IMediaInfo = {
   fetchedAt: '2026-01-01T00:00:00Z',
 };
 
-const target = { basePathId: 'b', relativePath: 'Dune Part Two (2024)', name: 'Dune Part Two (2024)' };
+const target = {
+  basePathId: 'b',
+  relativePath: 'Dune Part Two (2024)',
+  name: 'Dune Part Two (2024)',
+};
 
 describe('MediaInfoService', () => {
   let service: MediaInfoService;
@@ -43,6 +47,13 @@ describe('MediaInfoService', () => {
     const request = http.expectOne((r) => r.url === '/api/media/info');
     expect(request.request.params.get('basePathId')).toBe('b');
     expect(request.request.params.get('path')).toBe('Dune Part Two (2024)');
+  });
+
+  it('encodes a + in the folder name, which the server would otherwise read as a space', () => {
+    service.get({ ...target, relativePath: 'Need for Speed Heat + DLC' }).subscribe();
+
+    const request = http.expectOne((r) => r.url === '/api/media/info');
+    expect(request.request.urlWithParams).toContain('path=Need%20for%20Speed%20Heat%20%2B%20DLC');
   });
 
   it('remembers an answer for the session, so a reopened popover costs nothing', () => {
@@ -66,7 +77,10 @@ describe('MediaInfoService', () => {
     expect(service.known(target)?.rating).toBe(8.5);
   });
 
-  it('builds the poster url from the id', () => {
-    expect(service.posterUrl('m1')).toBe('/api/media/poster/m1');
+  it('builds the poster url from the id and the fetch time, so a refreshed poster is a new url', () => {
+    expect(service.posterUrl(dune)).toBe('/api/media/poster/m1?v=2026-01-01T00%3A00%3A00Z');
+    expect(service.posterUrl({ ...dune, fetchedAt: '2026-06-01T00:00:00Z' })).not.toBe(
+      service.posterUrl(dune),
+    );
   });
 });

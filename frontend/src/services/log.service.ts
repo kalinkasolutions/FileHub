@@ -4,6 +4,7 @@ import { HubConnectionBuilder, HubConnectionState, LogLevel } from '@microsoft/s
 import { skipLoadingOverlay } from '@interceptors/loading.interceptor';
 import { ILogPage, ILogQuery } from '@models/ILogEntry';
 import { Observable } from 'rxjs';
+import { queryParams } from '@services/query-params';
 
 /** Where the hub is mapped. Under `/api` so the forced-password-change gate covers it. */
 const hubUrl = '/api/admin/logs/stream';
@@ -88,7 +89,7 @@ export type LogStreamState = 'connecting' | 'live' | 'reconnecting' | 'offline';
  * would have to decide to ignore; leaving it off means "no filter" says so on the wire.
  */
 function toParams(query: ILogQuery): HttpParams {
-  let params = new HttpParams();
+  let params = queryParams();
 
   if (query.minLevel) {
     params = params.set('minLevel', query.minLevel);

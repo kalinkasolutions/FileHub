@@ -56,7 +56,7 @@ export class MediaInfoPopoverComponent implements OnInit {
 
   public readonly posterUrl = computed(() => {
     const info = this.info();
-    return info?.hasPoster ? this.mediaInfoService.posterUrl(info.id) : '';
+    return info?.hasPoster ? this.mediaInfoService.posterUrl(info) : '';
   });
 
   /** The id tag a renamed folder can carry to pin the match. TMDb numbers movies and shows

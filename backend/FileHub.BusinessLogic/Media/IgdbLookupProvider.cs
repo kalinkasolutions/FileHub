@@ -1,8 +1,9 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Text;
-using System.Text.Json;
 using Entities.Paths;
+using FileHub.BusinessLogic.Media.Igdb;
 using Microsoft.Extensions.Options;
 
 namespace FileHub.BusinessLogic.Media;
@@ -43,96 +44,48 @@ public sealed class IgdbLookupProvider : IMediaLookupProvider
             ? $"fields {Fields}; where id = {id};"
             : $"search \"{Escape(title.Title)}\"; fields {Fields}; where version_parent = null; limit 10;";
 
-        using var document = await QueryAsync(query, cancellationToken);
-        var candidates = document.RootElement.EnumerateArray().ToList();
+        var candidates = await QueryAsync(query, cancellationToken);
 
-        if (candidates.Count == 0)
-        {
-            return null;
-        }
-
-        return Map(Pick(candidates, title));
+        return candidates.Count == 0 ? null : Map(Pick(candidates, title));
     }
 
     /// <summary>The result whose name is the title, else one from the folder's year, else the first:
     /// IGDB ranks by relevance, and relevance puts "Elden Ring: Nightreign" close to "Elden Ring".</summary>
-    private static JsonElement Pick(List<JsonElement> candidates, ParsedTitle title)
+    private static IgdbGame Pick(List<IgdbGame> candidates, ParsedTitle title)
     {
         var wanted = TitleKey.Of(title.Title);
-        var exact = candidates.FirstOrDefault(c => TitleKey.Of(c.GetProperty("name").GetString() ?? string.Empty) == wanted);
 
-        if (exact.ValueKind == JsonValueKind.Object)
-        {
-            return exact;
-        }
-
-        if (title.Year is { } year)
-        {
-            var sameYear = candidates.FirstOrDefault(c => YearOf(c) == year);
-            if (sameYear.ValueKind == JsonValueKind.Object)
-            {
-                return sameYear;
-            }
-        }
-
-        return candidates[0];
+        return candidates.FirstOrDefault(game => TitleKey.Of(game.Name ?? string.Empty) == wanted)
+               ?? candidates.FirstOrDefault(game => title.Year is not null && game.Year == title.Year)
+               ?? candidates[0];
     }
 
-    private static MediaLookup Map(JsonElement game)
+    private MediaLookup Map(IgdbGame game)
     {
-        var rating = game.TryGetProperty("total_rating", out var total) ? total.GetDouble() : 0;
-        var cover = game.TryGetProperty("cover", out var coverElement) && coverElement.TryGetProperty("image_id", out var imageId)
-            ? imageId.GetString()
-            : null;
+        var platforms = (game.Platforms ?? [])
+            .Select(platform => platform.Label ?? string.Empty)
+            .Where(label => label.Length > 0)
+            .ToList();
+        var genres = (game.Genres ?? [])
+            .Select(genre => genre.Name ?? string.Empty)
+            .Where(name => name.Length > 0)
+            .ToList();
+        var cover = game.Cover?.ImageId;
 
         return new MediaLookup(
             MediaType: "game",
-            ExternalId: game.GetProperty("id").GetInt64(),
-            ExternalUrl: game.TryGetProperty("url", out var url) ? url.GetString() ?? string.Empty : string.Empty,
-            Title: game.GetProperty("name").GetString() ?? string.Empty,
-            Year: YearOf(game),
-            Overview: game.TryGetProperty("summary", out var summary) ? summary.GetString() ?? string.Empty : string.Empty,
-            Rating: rating > 0 ? Math.Round(rating / 10, 1) : null,
-            Genres: Names(game, "genres", "name"),
-            Platforms: Names(game, "platforms", "abbreviation", "name"),
-            PosterUrl: string.IsNullOrEmpty(cover) ? null : $"https://images.igdb.com/igdb/image/upload/t_cover_big/{cover}.jpg");
+            ExternalId: game.Id,
+            ExternalUrl: game.Url ?? string.Empty,
+            Title: game.Name ?? string.Empty,
+            Year: game.Year,
+            Overview: game.Summary ?? string.Empty,
+            Rating: game.TotalRating is > 0 and var rating ? Math.Round(rating / 10, 1) : null,
+            Genres: genres,
+            Platforms: platforms,
+            PosterUrl: string.IsNullOrEmpty(cover) ? null : $"{m_options.ImageUrl.TrimEnd('/')}/{cover}.jpg");
     }
 
-    private static List<string> Names(JsonElement game, string collection, params string[] fields)
-    {
-        if (!game.TryGetProperty(collection, out var items))
-        {
-            return [];
-        }
-
-        var names = new List<string>();
-
-        foreach (var item in items.EnumerateArray())
-        {
-            foreach (var field in fields)
-            {
-                if (item.TryGetProperty(field, out var value) && value.GetString() is { Length: > 0 } name)
-                {
-                    names.Add(name);
-                    break;
-                }
-            }
-        }
-
-        return names;
-    }
-
-    private static int? YearOf(JsonElement game)
-    {
-        if (!game.TryGetProperty("first_release_date", out var date) || date.ValueKind != JsonValueKind.Number)
-        {
-            return null;
-        }
-
-        return DateTimeOffset.FromUnixTimeSeconds(date.GetInt64()).Year;
-    }
-
-    private async Task<JsonDocument> QueryAsync(string query, CancellationToken cancellationToken)
+    private async Task<List<IgdbGame>> QueryAsync(string query, CancellationToken cancellationToken)
     {
         var response = await SendAsync(query, cancellationToken);
 
@@ -153,8 +106,7 @@ public sealed class IgdbLookupProvider : IMediaLookupProvider
 
             response.EnsureSuccessStatusCode();
 
-            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-            return await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+            return await response.Content.ReadFromJsonAsync<List<IgdbGame>>(SourceJson.Options, cancellationToken) ?? [];
         }
     }
 

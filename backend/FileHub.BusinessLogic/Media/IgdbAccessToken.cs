@@ -1,5 +1,6 @@
 using System.Net;
-using System.Text.Json;
+using System.Net.Http.Json;
+using FileHub.BusinessLogic.Media.Igdb;
 using Microsoft.Extensions.Options;
 
 namespace FileHub.BusinessLogic.Media;
@@ -11,6 +12,9 @@ namespace FileHub.BusinessLogic.Media;
 /// </summary>
 public sealed class IgdbAccessToken
 {
+    /// <summary>The named client whose base address is <see cref="IgdbOptions.TokenUrl"/>; see Program.cs.</summary>
+    public const string HttpClientName = "twitch";
+
     private readonly IHttpClientFactory m_httpClientFactory;
     private readonly IgdbOptions m_options;
     private readonly SemaphoreSlim m_lock = new(1, 1);
@@ -64,8 +68,7 @@ public sealed class IgdbAccessToken
             ["grant_type"] = "client_credentials"
         });
 
-        // The "twitch" client's base address is Twitch's id service; see Program.cs.
-        using var response = await m_httpClientFactory.CreateClient("twitch").PostAsync("oauth2/token", content, cancellationToken);
+        using var response = await m_httpClientFactory.CreateClient(HttpClientName).PostAsync("oauth2/token", content, cancellationToken);
 
         if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.BadRequest or HttpStatusCode.Forbidden)
         {
@@ -74,13 +77,15 @@ public sealed class IgdbAccessToken
 
         response.EnsureSuccessStatusCode();
 
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
-        var token = document.RootElement.GetProperty("access_token").GetString()
-                    ?? throw new MediaLookupException("Twitch answered without a token");
-        var expiresIn = document.RootElement.TryGetProperty("expires_in", out var seconds) ? seconds.GetInt32() : 3600;
+        var token = await response.Content.ReadFromJsonAsync<TwitchToken>(SourceJson.Options, cancellationToken);
+
+        if (string.IsNullOrEmpty(token?.AccessToken))
+        {
+            throw new MediaLookupException("Twitch answered without a token");
+        }
 
         // Renewed a little early, so a token never expires between the check and the request.
-        return (token, DateTime.UtcNow.AddSeconds(Math.Max(expiresIn - 300, 60)));
+        var expiresIn = token.ExpiresIn ?? 3600;
+        return (token.AccessToken, DateTime.UtcNow.AddSeconds(Math.Max(expiresIn - 300, 60)));
     }
 }

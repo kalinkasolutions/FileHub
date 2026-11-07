@@ -31,4 +31,9 @@ public static class ShareLinks
     /// <summary>The preview image the Open Graph page advertises.</summary>
     public static string PreviewImage(AppOptions options) =>
         $"{options.TrimmedBaseUrl()}/filehub.png";
+
+    /// <summary>The cover of the title a link sits in. Versioned by the fetch time, because chat
+    /// clients cache a preview image by its URL.</summary>
+    public static string Poster(AppOptions options, Guid shareId, DateTime fetchedAt) =>
+        $"{options.TrimmedBaseUrl()}/og/share/{shareId}/poster?v={fetchedAt.Ticks}";
 }

@@ -1,7 +1,8 @@
 using System.Net;
 using System.Net.Http.Headers;
-using System.Text.Json;
+using System.Net.Http.Json;
 using Entities.Paths;
+using FileHub.BusinessLogic.Media.Tmdb;
 using Microsoft.Extensions.Options;
 
 namespace FileHub.BusinessLogic.Media;
@@ -13,9 +14,6 @@ namespace FileHub.BusinessLogic.Media;
 /// </summary>
 public sealed class TmdbLookupProvider : IMediaLookupProvider
 {
-    private const string ImageBase = "https://image.tmdb.org/t/p/w342";
-    private const string SiteBase = "https://www.themoviedb.org";
-
     private readonly HttpClient m_http;
     private readonly TmdbOptions m_options;
 
@@ -105,30 +103,24 @@ public sealed class TmdbLookupProvider : IMediaLookupProvider
 
     private async Task<(string Type, long Id)?> SearchAsync(string query, int? year, CancellationToken cancellationToken)
     {
-        using var document = await GetAsync(
+        var response = await GetAsync<TmdbSearchResponse>(
             "search/multi", [("query", query), ("include_adult", "false")], cancellationToken);
-
-        if (document is null || !document.RootElement.TryGetProperty("results", out var results))
-        {
-            return null;
-        }
 
         (string Type, long Id)? first = null;
 
-        foreach (var result in results.EnumerateArray())
+        foreach (var result in response?.Results ?? [])
         {
-            var type = result.GetProperty("media_type").GetString();
-            if (type is not ("movie" or "tv"))
+            if (result.MediaType is not ("movie" or "tv"))
             {
                 continue;
             }
 
-            var candidate = (type, result.GetProperty("id").GetInt64());
+            var candidate = (result.MediaType, result.Id);
             first ??= candidate;
 
             // The year is the one thing the folder name says that a search cannot filter on here, so
             // the first result from that year beats the first result overall.
-            if (year is null || YearOf(result, type) == year)
+            if (year is null || result.Year == year)
             {
                 return candidate;
             }
@@ -139,45 +131,34 @@ public sealed class TmdbLookupProvider : IMediaLookupProvider
 
     private async Task<MediaLookup?> DetailsAsync(string type, long id, CancellationToken cancellationToken)
     {
-        using var document = await GetAsync($"{type}/{id}", [], cancellationToken);
+        var title = await GetAsync<TmdbTitle>($"{type}/{id}", [], cancellationToken);
 
-        if (document is null)
+        if (title is null)
         {
             return null;
         }
 
-        var root = document.RootElement;
-        var titleField = type == "movie" ? "title" : "name";
-        var genres = root.TryGetProperty("genres", out var genreArray)
-            ? genreArray.EnumerateArray().Select(g => g.GetProperty("name").GetString() ?? string.Empty).Where(g => g.Length > 0).ToList()
-            : [];
-        var rating = root.TryGetProperty("vote_average", out var vote) ? vote.GetDouble() : 0;
-        var poster = root.TryGetProperty("poster_path", out var posterPath) ? posterPath.GetString() : null;
+        var genres = (title.Genres ?? [])
+            .Select(genre => genre.Name ?? string.Empty)
+            .Where(name => name.Length > 0)
+            .ToList();
 
         return new MediaLookup(
             MediaType: type,
             ExternalId: id,
-            ExternalUrl: $"{SiteBase}/{type}/{id}",
-            Title: root.GetProperty(titleField).GetString() ?? string.Empty,
-            Year: YearOf(root, type),
-            Overview: root.TryGetProperty("overview", out var overview) ? overview.GetString() ?? string.Empty : string.Empty,
-            Rating: rating > 0 ? Math.Round(rating, 1) : null,
+            ExternalUrl: $"{m_options.SiteUrl.TrimEnd('/')}/{type}/{id}",
+            Title: title.DisplayTitle,
+            Year: title.Year,
+            Overview: title.Overview ?? string.Empty,
+            Rating: title.VoteAverage is > 0 and var rating ? Math.Round(rating, 1) : null,
             Genres: genres,
             Platforms: [],
-            PosterUrl: string.IsNullOrEmpty(poster) ? null : ImageBase + poster);
-    }
-
-    private static int? YearOf(JsonElement element, string type)
-    {
-        var field = type == "movie" ? "release_date" : "first_air_date";
-        var date = element.TryGetProperty(field, out var value) ? value.GetString() : null;
-
-        return date is { Length: >= 4 } && int.TryParse(date.AsSpan(0, 4), out var year) ? year : null;
+            PosterUrl: string.IsNullOrEmpty(title.PosterPath) ? null : m_options.ImageUrl.TrimEnd('/') + title.PosterPath);
     }
 
     /// <summary>One GET against the v3 API; null for a 404, an exception for anything else wrong.</summary>
-    private async Task<JsonDocument?> GetAsync(
-        string path, IEnumerable<(string Name, string Value)> query, CancellationToken cancellationToken)
+    private async Task<T?> GetAsync<T>(
+        string path, IEnumerable<(string Name, string Value)> query, CancellationToken cancellationToken) where T : class
     {
         var parameters = new List<(string Name, string Value)>(query) { ("language", m_options.Language) };
         using var request = new HttpRequestMessage(HttpMethod.Get, path);
@@ -211,7 +192,6 @@ public sealed class TmdbLookupProvider : IMediaLookupProvider
 
         response.EnsureSuccessStatusCode();
 
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        return await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+        return await response.Content.ReadFromJsonAsync<T>(SourceJson.Options, cancellationToken);
     }
 }

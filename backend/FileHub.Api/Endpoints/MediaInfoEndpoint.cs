@@ -53,7 +53,8 @@ public static class MediaInfoEndpoint
         }
 
         // Private: the poster is answered on the base path's access rules, so a shared cache must
-        // not hand it to the next caller. A day, because a re-fetch keeps the same id.
+        // not hand it to the next caller. A re-fetch keeps the same id, so the SPA puts the row's
+        // fetch time on the URL and a refreshed poster is never answered from the browser's cache.
         context.Response.Headers.CacheControl = "private, max-age=86400";
         return Results.File(result.Value, "image/jpeg");
     }

@@ -36,6 +36,7 @@ public abstract class FilesTestBase : TestHostBase
     {
         Configure(services);
         configureMore(services);
+        services.AddFakeMediaLookupIfMissing();
     })
     {
     }

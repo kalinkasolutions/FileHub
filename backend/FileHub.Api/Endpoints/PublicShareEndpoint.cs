@@ -37,6 +37,7 @@ public static class PublicShareEndpoint
         // Not under public-api: this one is a page, not an API call, and it is the URL a share link
         // actually points at so that a chat client unfurling it finds Open Graph tags.
         builder.MapGet("og/share/{id:guid}", OpenGraphAsync).AllowAnonymous().RequireRateLimiting("public");
+        builder.MapGet("og/share/{id:guid}/poster", PosterAsync).AllowAnonymous().RequireRateLimiting("public");
     }
 
     private static async Task<IResult> GetAsync(Guid id, ClaimsPrincipal user, IShareService service)
@@ -117,15 +118,49 @@ public static class PublicShareEndpoint
         // in, so leaking the file name here would defeat the audience for every link ever pasted.
         var title = result.IsSuccess ? result.Value.Name : "not available";
         var size = result.IsSuccess ? OpenGraphPage.FormatSize(result.Value.Size) : string.Empty;
+        var imageUrl = ShareLinks.PreviewImage(options.Value);
+
+        if (result.IsSuccess)
+        {
+            var poster = await service.FindPosterAsync(result.Value);
+            if (poster.IsSuccess)
+            {
+                imageUrl = ShareLinks.Poster(options.Value, id, poster.Value.FetchedAt);
+            }
+        }
 
         var page = OpenGraphPage.Render(
             title,
             string.Create(CultureInfo.InvariantCulture, $"{title}, {size}"),
-            ShareLinks.PreviewImage(options.Value),
+            imageUrl,
             ShareLinks.Share(options.Value, id),
             LandingPath(id));
 
         return Results.Content(page, "text/html");
+    }
+
+    /// <summary>
+    /// The movie, series or game cover a link's preview shows. Answers on the same terms as the page
+    /// itself — a dead or group-only link has no poster — and reads only what is already cached.
+    /// </summary>
+    private static async Task<IResult> PosterAsync(
+        Guid id, ClaimsPrincipal user, IShareService service, HttpContext context)
+    {
+        var result = await service.ResolvePublicAsync(id, CallerId(user), user.IsInRole(Roles.Admin));
+        if (result.HasError)
+        {
+            return Results.NotFound();
+        }
+
+        var poster = await service.FindPosterAsync(result.Value);
+        if (poster.HasError)
+        {
+            return Results.NotFound();
+        }
+
+        // Short, so a revoked link's cover does not outlive it for long in a shared cache.
+        context.Response.Headers.CacheControl = "public, max-age=3600";
+        return Results.File(poster.Value.FullPath, "image/jpeg");
     }
 
     /// <summary>The caller's id, or null when nobody is signed in — which is the ordinary case here.</summary>

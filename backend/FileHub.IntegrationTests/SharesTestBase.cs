@@ -53,13 +53,14 @@ public abstract class SharesTestBase : TestHostBase
         services.AddScoped<IGroupService, GroupService>();
         services.AddScoped<IFileService, FileService>();
         services.AddScoped<IShareService, ShareService>();
+        services.AddFakeMediaLookupIfMissing();
         services.AddScoped<IUserAdminRepository, UserAdminRepository>();
         services.AddScoped<IUserAdminService, UserAdminService>();
     }
 
-    protected async Task<BasePathDto> CreateBasePathAsync(string path, string name = "Media")
+    protected async Task<BasePathDto> CreateBasePathAsync(string path, string name = "Media", string kind = "none")
     {
-        var result = await BasePaths.CreateAsync(new SaveBasePathDto { Path = path, Name = name });
+        var result = await BasePaths.CreateAsync(new SaveBasePathDto { Path = path, Name = name, Kind = kind });
         Assert.True(result.IsSuccess, result.ErrorMessage);
         return result.Value;
     }

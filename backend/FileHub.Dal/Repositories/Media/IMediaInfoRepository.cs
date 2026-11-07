@@ -12,7 +12,8 @@ public interface IMediaInfoRepository
 
     Task<List<MediaInfo>> GetForBasePathAsync(Guid basePathId);
 
-    void Add(MediaInfo info);
+    /// <summary>Inserts the row, or answers false when one for the same folder got there first.</summary>
+    Task<bool> TryAddAsync(MediaInfo info);
 
     void RemoveRange(IEnumerable<MediaInfo> infos);
 

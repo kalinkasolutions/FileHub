@@ -1,6 +1,7 @@
 using Dal.Repositories.Media;
 using Dtos.BasePaths;
 using Dtos.Files;
+using Dtos.Media;
 using Entities.Paths;
 using FileHub.BusinessLogic.Media;
 using FileHub.BusinessLogic.Services.Media;
@@ -238,17 +239,86 @@ public sealed class MediaInfoTests : FilesTestBase
     public async Task A_refresh_asks_again_and_keeps_the_same_row()
     {
         var (alice, basePath) = await MediaDiskAsync("Dune Part Two (2024)");
+        var admin = await CreateUserAsync("admin@example.com", roles: Roles.Admin);
         m_tmdb.Answer = FakeLookupProvider.Movie("Dune: Part Two", 2024);
         var first = await Info.GetAsync(alice, false, basePath, "Dune Part Two (2024)", refresh: false, CancellationToken.None);
 
         m_tmdb.Answer = FakeLookupProvider.Movie("Dune: Part Two", 2024) with { Rating = 8.5 };
         NewRequest();
-        var refreshed = await Info.GetAsync(alice, false, basePath, "Dune Part Two (2024)", refresh: true, CancellationToken.None);
+        var refreshed = await Info.GetAsync(admin.Id, callerIsAdmin: true, basePath, "Dune Part Two (2024)", refresh: true, CancellationToken.None);
 
         Assert.Equal(first.Value.Id, refreshed.Value.Id);
         Assert.Equal(8.5, refreshed.Value.Rating);
         Assert.Equal(2, m_tmdb.Calls.Count);
         Assert.Equal(1, await Context.MediaInfos.CountAsync());
+    }
+
+    [Fact]
+    public async Task Only_an_admin_may_look_a_title_up_again()
+    {
+        var (alice, basePath) = await MediaDiskAsync("Dune Part Two (2024)");
+        m_tmdb.Answer = FakeLookupProvider.Movie("Dune: Part Two", 2024);
+
+        var result = await Info.GetAsync(alice, false, basePath, "Dune Part Two (2024)", refresh: true, CancellationToken.None);
+
+        Assert.Equal(ResultCode.Forbidden, result.ResultCode);
+        Assert.Empty(m_tmdb.Calls);
+    }
+
+    [Fact]
+    public async Task A_stale_answer_is_kept_when_the_source_does_not_answer()
+    {
+        var (alice, basePath) = await MediaDiskAsync("Dune Part Two (2024)");
+        m_tmdb.Answer = FakeLookupProvider.Movie("Dune: Part Two", 2024);
+        await Info.GetAsync(alice, false, basePath, "Dune Part Two (2024)", refresh: false, CancellationToken.None);
+        await AgeTheAnswerAsync();
+        m_tmdb.Failure = new HttpRequestException("connection refused");
+
+        var result = await Info.GetAsync(alice, false, basePath, "Dune Part Two (2024)", refresh: false, CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        Assert.Equal("Dune: Part Two", result.Value.Title);
+        Assert.Equal(2, m_tmdb.Calls.Count);
+    }
+
+    [Fact]
+    public async Task A_stale_answer_is_kept_when_the_key_was_taken_away()
+    {
+        var (alice, basePath) = await MediaDiskAsync("Dune Part Two (2024)");
+        m_tmdb.Answer = FakeLookupProvider.Movie("Dune: Part Two", 2024);
+        await Info.GetAsync(alice, false, basePath, "Dune Part Two (2024)", refresh: false, CancellationToken.None);
+        await AgeTheAnswerAsync();
+        m_tmdb.IsConfigured = false;
+
+        var result = await Info.GetAsync(alice, false, basePath, "Dune Part Two (2024)", refresh: false, CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        Assert.Equal("Dune: Part Two", result.Value.Title);
+    }
+
+    [Fact]
+    public async Task Two_first_look_ups_of_one_folder_at_once_share_one_row()
+    {
+        var (alice, basePath) = await MediaDiskAsync("Dune Part Two (2024)");
+        m_tmdb.Answer = FakeLookupProvider.Movie("Dune: Part Two", 2024);
+        OperationResult<MediaInfoDto>? second = null;
+
+        // The second request arrives while the first is waiting on the source, and is saved first.
+        m_tmdb.WhileAnswering = async () =>
+        {
+            m_tmdb.WhileAnswering = null;
+            using var scope = NewScope();
+            var other = scope.ServiceProvider.GetRequiredService<IMediaInfoService>();
+            second = await other.GetAsync(alice, false, basePath, "Dune Part Two (2024)", refresh: false, CancellationToken.None);
+        };
+
+        var first = await Info.GetAsync(alice, false, basePath, "Dune Part Two (2024)", refresh: false, CancellationToken.None);
+
+        Assert.True(first.IsSuccess, first.ErrorMessage);
+        Assert.True(second!.IsSuccess, second.ErrorMessage);
+        Assert.Equal(second.Value.Id, first.Value.Id);
+        Assert.Equal(1, await Context.MediaInfos.CountAsync());
+        Assert.Equal([first.Value.Id], Store.Files.Keys);
     }
 
     [Fact]
@@ -258,10 +328,7 @@ public sealed class MediaInfoTests : FilesTestBase
         m_tmdb.Answer = FakeLookupProvider.Movie("Dune: Part Two", 2024);
         await Info.GetAsync(alice, false, basePath, "Dune Part Two (2024)", refresh: false, CancellationToken.None);
 
-        var row = await Context.MediaInfos.SingleAsync();
-        row.FetchedAt = DateTime.UtcNow.AddDays(-200);
-        await Context.SaveChangesAsync();
-        NewRequest();
+        await AgeTheAnswerAsync();
 
         await Info.GetAsync(alice, false, basePath, "Dune Part Two (2024)", refresh: false, CancellationToken.None);
 
@@ -362,6 +429,15 @@ public sealed class MediaInfoTests : FilesTestBase
         Assert.Equal("none", plain.Kind);
         Assert.Equal("media", media.Kind);
         Assert.Equal(["media", "none"], (await BasePaths.GetAllAsync()).Value.Select(p => p.Kind));
+    }
+
+    /// <summary>Backdates the one cached answer past the six months it may be kept for.</summary>
+    private async Task AgeTheAnswerAsync()
+    {
+        var row = await Context.MediaInfos.SingleAsync();
+        row.FetchedAt = DateTime.UtcNow.AddDays(-200);
+        await Context.SaveChangesAsync();
+        NewRequest();
     }
 
     /// <summary>A media disk with one title folder, granted to alice. Returns her id and the disk's.</summary>

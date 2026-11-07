@@ -35,6 +35,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Options;
 using Serilog;
 using Serilog.Events;
 using Serilog.Sinks.Grafana.Loki;
@@ -254,25 +255,27 @@ builder.Services.AddScoped<IFileService, FileService>();
 builder.Services.AddScoped<IShareService, ShareService>();
 builder.Services.AddScoped<ILogService, LogService>();
 builder.Services.AddScoped<IMediaInfoService, MediaInfoService>();
+builder.Services.AddSingleton<MediaRefreshQueue>();
+builder.Services.AddHostedService<MediaRefreshWorker>();
 
 // The two look-up sources behind the info button, one per base-path kind. Named clients, because
 // the typed-client overload names the client after the interface and both would then share one
 // configuration — the last base address would win for both.
 builder.Services.AddSingleton<IPosterStore, PosterStore>();
 builder.Services.AddSingleton<IgdbAccessToken>();
-builder.Services.AddHttpClient("twitch", client =>
+builder.Services.AddHttpClient(IgdbAccessToken.HttpClientName, (services, client) =>
 {
-    client.BaseAddress = new Uri("https://id.twitch.tv/");
+    client.BaseAddress = new Uri(services.GetRequiredService<IOptions<IgdbOptions>>().Value.TokenUrl);
     client.Timeout = TimeSpan.FromSeconds(15);
 });
-builder.Services.AddHttpClient<IMediaLookupProvider, TmdbLookupProvider>("tmdb", client =>
+builder.Services.AddHttpClient<IMediaLookupProvider, TmdbLookupProvider>("tmdb", (services, client) =>
 {
-    client.BaseAddress = new Uri("https://api.themoviedb.org/3/");
+    client.BaseAddress = new Uri(services.GetRequiredService<IOptions<TmdbOptions>>().Value.ApiUrl);
     client.Timeout = TimeSpan.FromSeconds(15);
 });
-builder.Services.AddHttpClient<IMediaLookupProvider, IgdbLookupProvider>("igdb", client =>
+builder.Services.AddHttpClient<IMediaLookupProvider, IgdbLookupProvider>("igdb", (services, client) =>
 {
-    client.BaseAddress = new Uri("https://api.igdb.com/v4/");
+    client.BaseAddress = new Uri(services.GetRequiredService<IOptions<IgdbOptions>>().Value.ApiUrl);
     client.Timeout = TimeSpan.FromSeconds(15);
 });
 builder.Services.AddHttpClient<IPosterFetcher, HttpPosterFetcher>("posters", client =>

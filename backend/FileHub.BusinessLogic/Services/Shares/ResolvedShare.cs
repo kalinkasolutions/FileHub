@@ -17,4 +17,10 @@ public sealed class ResolvedShare
 
     /// <summary>The size stored on the row, measured once when the link was created.</summary>
     public required long Size { get; init; }
+
+    public required Guid BasePathId { get; init; }
+
+    /// <summary>The title folder the target sits in, on a disk marked media or games — the folder
+    /// whose cached poster the link preview shows. Null on an unmarked disk or for the disk itself.</summary>
+    public required string? TitleFolder { get; init; }
 }
