@@ -26,9 +26,14 @@ public interface IShareService
     /// access to the base path only settles the first. An admin holds the role implicitly, so
     /// <paramref name="callerIsAdmin"/> is enough on its own.
     /// </para>
+    /// <para>
+    /// On a disk marked media or games it also looks the title up, so the link's preview has its
+    /// cover from the first paste. A failed look-up does not fail the link.
+    /// </para>
     /// </summary>
     Task<OperationResult<ShareDto>> CreateAsync(
-        Guid userId, bool callerIsAdmin, bool callerCanCreateShares, CreateShareDto dto);
+        Guid userId, bool callerIsAdmin, bool callerCanCreateShares, CreateShareDto dto,
+        CancellationToken cancellationToken = default);
 
     Task<OperationResult<List<ShareDto>>> ListForUserAsync(Guid userId);
 
@@ -61,4 +66,11 @@ public interface IShareService
     /// Answers the same <c>NotFound</c> as every other public failure.
     /// </summary>
     Task<OperationResult<Empty>> RegisterDownloadAsync(Guid shareId, Guid? callerId, bool callerIsAdmin);
+
+    /// <summary>
+    /// The cached poster of the title a resolved link sits in, for its Open Graph preview. Only ever
+    /// reads the cache: an anonymous route must not trigger a call to TMDb or IGDB. Not found when
+    /// the disk is unmarked, the folder was never looked up, or the look-up had no poster.
+    /// </summary>
+    Task<OperationResult<PublicSharePoster>> FindPosterAsync(ResolvedShare share);
 }

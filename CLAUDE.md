@@ -463,20 +463,61 @@ tells them apart; games are IGDB, reached with a Twitch client id and secret.
   path cascades the rows; the service deletes the poster files first, while the ids are known.
 - **Providers are `IMediaLookupProvider`, one per kind**, registered as named typed clients in
   `Program.cs` — named, because the typed-client overload names the client after the interface and
-  both would otherwise share one `BaseAddress`. `IgdbAccessToken` is the one singleton: Twitch's
-  token is bought once per process behind a lock and renewed early. `MediaLookupException` is for a
-  refusal worth repeating to the user (a rejected key); transport errors stay what they are.
+  both would otherwise share one `BaseAddress`. **Every URL a provider touches comes from its
+  options** (`TmdbOptions.ApiUrl/ImageUrl/SiteUrl`, `IgdbOptions.ApiUrl/TokenUrl/ImageUrl`), with
+  the real hosts as defaults in `appsettings.json`; nothing in the providers names a host, so a
+  test or a mirror can point them anywhere with `Tmdb__ApiUrl` and friends. **The JSON is read into
+  typed records** under `Media/Tmdb` and `Media/Igdb` through `SourceJson.Options` (snake_case on the
+  wire, PascalCase on the records, a missing field is a null) rather than walked as `JsonElement`.
+  `IgdbAccessToken` is the one singleton: Twitch's token is bought once per process behind a lock
+  and renewed early. `MediaLookupException` is for a refusal worth repeating to the user (a rejected
+  key); transport errors stay what they are.
+- **The refresh is refused in the service as well as by the route.** `GetAsync` answers `Forbidden`
+  to `refresh: true` without `callerIsAdmin`, before anything is looked at, for the same reason
+  `ShareService.CreateAsync` checks `callerCanCreateShares` itself: the rule is visible where the
+  logic lives and a service-level test can pin it.
+- **A stale row is still the answer when the re-fetch fails** — the source unreachable, the key
+  rejected, or the key taken away. Only a *first* look-up has nothing to fall back on and gets the
+  502 or the "not configured" 400. A client that went away mid-look-up (`OperationCanceledException`
+  with the request's token cancelled) is not logged as a failure; nobody is reading the answer.
+- **Two first look-ups of one folder at once are one row.** The insert goes through
+  `IMediaInfoRepository.TryAddAsync`, which answers false when the unique `(BasePathId,
+  RelativePath)` index was hit, and the service then returns the row that won and deletes the
+  poster it had saved under its own id. Read-then-insert alone made the loser a 500 and left an
+  orphan poster. `PosterStore.Delete` tolerates a directory that does not exist yet, because the
+  directory is only made by the first save and the first miss on a fresh install comes before it.
+- **The folder name travels in the query string, through `queryParams`**
+  (`frontend/src/services/query-params.ts`), not a bare `HttpParams`: Angular's default codec leaves
+  `+` unencoded and ASP.NET reads it as a space, so "Heat + DLC" was looked up as a folder that does
+  not exist. The log screen's filters use the same helper. The poster URL carries `?v=<fetchedAt>`,
+  so a refreshed poster is a new URL and the day-long private cache on `api/media/poster/{id}` never
+  shows the old picture next to the new title.
 - **Nothing in the SPA links to a source's image host.** The poster goes through
   `api/media/poster/{id}`, same-origin — the service worker's CSP is `connect-src 'self'`, so a
   hot-linked poster would fail on every controlled page exactly as the icon font once did.
 - The popover is a CDK overlay anchored to the row's button (`media-info-popover.component`), a
   panel like everything else, closed by a tap outside, Escape, or scrolling the list; one at a time.
   `MediaInfoService` on the client remembers what the session has seen, so reopening costs nothing.
+- **A share link's preview shows the cover.** `og/share/{id}` advertises
+  `og/share/{id}/poster?v=<fetchedAt ticks>` as its `og:image` when the link sits in a title folder
+  (the first segment of its relative path, on a marked disk) whose row has a poster; otherwise
+  `filehub.png`. Both routes start from `ResolvePublicAsync`, so a dead or group-only link has no
+  cover. The cache is warmed by **creating** the link: `CreateAsync` runs the ordinary
+  `MediaInfoService.GetAsync` for the title folder after the save, on the creator's access, and
+  swallows any failure — the link is already saved, and a 500 would only invite a duplicate.
+- **A preview never waits on a source, but it can queue one.** `FindPosterAsync` answers with what
+  is cached, stale or not, and puts the folder on `MediaRefreshQueue` when the row is missing or is
+  a *found* answer past 180 days (`MediaInfoAge.NeedsRefreshForLink`). **A miss is never queued,
+  however old** — a stranger opening a link must not be able to rerun a failing search; the admin
+  refresh is how one is retried. The queue holds a folder once (a busy chat is one look-up, not one
+  per unfurl) and drops when full. `MediaRefreshWorker` runs them one at a time in its own scope
+  through `RefreshForLinkAsync`, which re-checks the rule and fetches the base path by id alone —
+  safe only because nothing but a resolved link queues it, and revoking access deletes the link.
 - **Attribution is a condition of both sources** and lives on the about screen with TMDb's
   prescribed sentence; the README mirrors it. The TMDb logo itself is not in the repository.
 
 `MediaInfoTests` drives the service over fakes for the two providers, the poster fetcher and the
-store; the real `TmdbLookupProvider` and `IgdbLookupProvider` are only checked against the live APIs
+store, and `PosterStoreTests` the real store over a temporary directory; the real `TmdbLookupProvider` and `IgdbLookupProvider` are only checked against the live APIs
 by hand, with the keys in user secrets (`dotnet user-secrets list`, from `backend/FileHub.Api`).
 
 ### Downloads
@@ -705,7 +746,7 @@ than loudly broken. `LogSignalTests` covers the coalescing and the loop guard, w
 
 ### Testing
 
-`FileHub.IntegrationTests` (xUnit, 517 tests) drives the **services**, not the routes: the real service →
+`FileHub.IntegrationTests` (xUnit, 545 tests) drives the **services**, not the routes: the real service →
 repository → EF/Identity stack over a per-test SQLite **in-memory** database (`TestHostBase` takes
 a delegate that registers the slice under test). SQLite rather than the EF in-memory provider,
 because the unique indexes and the `ON DELETE CASCADE` behaviour that share revocation and user
@@ -734,7 +775,7 @@ rest on are covered, the wiring is not). `AdminSeeder` is
 covered, because it is the part of startup that can brick an install; the migration and role half
 in `Seed` is not.
 
-The SPA has **148 vitest specs** (`npm test`), over the things worth pinning without a browser:
+The SPA has **150 vitest specs** (`npm test`), over the things worth pinning without a browser:
 path building, the size and audience formatters, the services against `HttpTestingController`, and
 the guards. They do not cover how anything *looks* — the layout bugs in this codebase have all been
 found by screenshotting a running instance at 360px and 1280px, not by a spec, so do that when

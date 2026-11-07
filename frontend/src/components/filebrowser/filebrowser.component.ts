@@ -253,8 +253,8 @@ export class FilebrowserComponent implements OnDestroy {
   /**
    * Floats the info card next to the row's button. Below it when there is room, above it when the
    * row is near the bottom, and pushed into the viewport on a phone, where the card is as wide as
-   * the screen. A transparent backdrop makes a tap anywhere else close it; so does scrolling the
-   * list, because a card anchored to a row that has moved is anchored to nothing.
+   * the screen. A transparent backdrop makes a tap anywhere else close it, and keeps the list from
+   * scrolling under it — a card anchored to a row that has moved is anchored to nothing.
    */
   public info(entry: IFileEntry, origin: HTMLElement): void {
     this.closeInfo();
@@ -274,7 +274,7 @@ export class FilebrowserComponent implements OnDestroy {
 
     const ref = this.overlay.create({
       positionStrategy,
-      scrollStrategy: this.overlay.scrollStrategies.close(),
+      scrollStrategy: this.overlay.scrollStrategies.reposition(),
       hasBackdrop: true,
       backdropClass: 'cdk-overlay-transparent-backdrop',
     });

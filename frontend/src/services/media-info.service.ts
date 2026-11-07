@@ -2,6 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { IMediaInfo, IMediaInfoTarget } from '@models/IMediaInfo';
 import { Observable, tap } from 'rxjs';
+import { queryParams } from '@services/query-params';
 
 const url = '/api/media';
 
@@ -33,14 +34,17 @@ export class MediaInfoService {
       .pipe(tap((info) => this.seen.set(key(target), info)));
   }
 
-  /** `GET /api/media/poster/{id}`, same-origin like every other request. */
-  public posterUrl(id: string): string {
-    return `${url}/poster/${encodeURIComponent(id)}`;
+  /**
+   * `GET /api/media/poster/{id}`, same-origin like every other request. The fetch time rides along
+   * so a refreshed poster has a new URL: the server lets the browser keep one for a day.
+   */
+  public posterUrl(info: IMediaInfo): string {
+    return `${url}/poster/${encodeURIComponent(info.id)}?v=${encodeURIComponent(info.fetchedAt)}`;
   }
 }
 
 function params(target: IMediaInfoTarget): HttpParams {
-  return new HttpParams().set('basePathId', target.basePathId).set('path', target.relativePath);
+  return queryParams({ basePathId: target.basePathId, path: target.relativePath });
 }
 
 function key(target: IMediaInfoTarget): string {

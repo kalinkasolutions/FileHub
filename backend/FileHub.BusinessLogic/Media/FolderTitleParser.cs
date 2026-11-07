@@ -14,8 +14,8 @@ namespace FileHub.BusinessLogic.Media;
 /// </summary>
 public static partial class FolderTitleParser
 {
-    // A token that is one of these, or that ends in "-<one of these>" the way a release group is
-    // written, ends the title. Lower case; compared ignoring case.
+    // A token that is one of these ends the title, as does one with a release group written onto
+    // it after a dash (see SplitReleaseGroup). Lower case; compared ignoring case.
     private static readonly HashSet<string> ReleaseTags = new(StringComparer.OrdinalIgnoreCase)
     {
         "480p", "720p", "1080p", "1080i", "2160p", "4k", "uhd", "hdr", "hdr10", "dv", "sdr",
@@ -53,17 +53,13 @@ public static partial class FolderTitleParser
                 continue;
             }
 
-            var token = raw;
-            var endsHere = false;
-
-            var dash = token.LastIndexOf('-');
-            if (dash > 0 && ReleaseTags.Contains(token[(dash + 1)..]))
+            if (IsReleaseTag(raw))
             {
-                token = token[..dash];
-                endsHere = true;
+                break;
             }
 
-            if (ReleaseTags.Contains(token) || Version().IsMatch(token) || Episode().IsMatch(token))
+            var (token, endsHere) = SplitReleaseGroup(raw);
+            if (token.Length == 0)
             {
                 break;
             }
@@ -86,6 +82,31 @@ public static partial class FolderTitleParser
 
         // Never search for nothing: a name made only of tags is searched for as it is.
         return new ParsedTitle(joined.Length > 0 ? joined : folderName.Trim(), year, tmdb.Id, tmdb.Type, igdb.Id);
+    }
+
+    private static bool IsReleaseTag(string token) =>
+        ReleaseTags.Contains(token) || Version().IsMatch(token) || Episode().IsMatch(token);
+
+    /// <summary>A release group is written after a dash — onto a tag ("x264-SPARKS") or onto the
+    /// last word of the title ("Ring-RUNE"). The first is nothing, the second is "Ring"; both end
+    /// the title. "Spider-Man" has a tag on neither side and is left alone.</summary>
+    private static (string Token, bool EndsHere) SplitReleaseGroup(string token)
+    {
+        var dash = token.LastIndexOf('-');
+        if (dash <= 0)
+        {
+            return (token, false);
+        }
+
+        var before = token[..dash];
+        var after = token[(dash + 1)..];
+
+        if (IsReleaseTag(before))
+        {
+            return (string.Empty, true);
+        }
+
+        return ReleaseTags.Contains(after) ? (before, true) : (token, false);
     }
 
     private static (long? Id, string? Type) IdTag(string folderName, string source)

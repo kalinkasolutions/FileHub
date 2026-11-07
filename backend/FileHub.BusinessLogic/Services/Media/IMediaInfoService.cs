@@ -19,6 +19,12 @@ public interface IMediaInfoService
         Guid userId, bool callerIsAdmin, Guid basePathId, string relativePath, bool refresh,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The background look-up a share link's preview queued: no caller and no access check, so it
+    /// only ever fills a missing row or renews a stale found one — never retries a miss.
+    /// </summary>
+    Task RefreshForLinkAsync(Guid basePathId, string folder, CancellationToken cancellationToken);
+
     /// <summary>The absolute path of a stored poster, for the endpoint to stream. Not found when
     /// the row, the poster, or the caller's access to its base path is missing.</summary>
     Task<OperationResult<string>> GetPosterPathAsync(Guid userId, bool callerIsAdmin, Guid mediaInfoId);

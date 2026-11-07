@@ -1,11 +1,15 @@
 using Dal.Repositories.BasePaths;
 using Dal.Repositories.Groups;
+using Dal.Repositories.Media;
 using Dal.Repositories.Shares;
 using Dtos.Shares;
 using Entities.Groups;
+using Entities.Paths;
 using Entities.Shares;
 using FileHub.BusinessLogic.Auditing;
 using FileHub.BusinessLogic.Authorization;
+using FileHub.BusinessLogic.Media;
+using FileHub.BusinessLogic.Services.Media;
 using FileHub.BusinessLogic.Validation;
 using Microsoft.Extensions.Logging;
 using Shared;
@@ -19,13 +23,21 @@ public sealed class ShareService : IShareService
     private readonly IShareRepository m_shareRepository;
     private readonly IBasePathRepository m_basePathRepository;
     private readonly IGroupRepository m_groupRepository;
+    private readonly IMediaInfoRepository m_mediaInfoRepository;
+    private readonly IPosterStore m_posterStore;
+    private readonly IMediaInfoService m_mediaInfoService;
+    private readonly MediaRefreshQueue m_mediaRefreshQueue;
 
     public ShareService(
         ILogger<ShareService> logger,
         IAuditActor auditActor,
         IShareRepository shareRepository,
         IBasePathRepository basePathRepository,
-        IGroupRepository groupRepository
+        IGroupRepository groupRepository,
+        IMediaInfoRepository mediaInfoRepository,
+        IPosterStore posterStore,
+        IMediaInfoService mediaInfoService,
+        MediaRefreshQueue mediaRefreshQueue
     )
     {
         m_logger = logger;
@@ -33,10 +45,15 @@ public sealed class ShareService : IShareService
         m_shareRepository = shareRepository;
         m_basePathRepository = basePathRepository;
         m_groupRepository = groupRepository;
+        m_mediaInfoRepository = mediaInfoRepository;
+        m_posterStore = posterStore;
+        m_mediaInfoService = mediaInfoService;
+        m_mediaRefreshQueue = mediaRefreshQueue;
     }
 
     public async Task<OperationResult<ShareDto>> CreateAsync(
-        Guid userId, bool callerIsAdmin, bool callerCanCreateShares, CreateShareDto dto)
+        Guid userId, bool callerIsAdmin, bool callerCanCreateShares, CreateShareDto dto,
+        CancellationToken cancellationToken = default)
     {
         var validation = DtoValidator.Validate(dto);
         if (validation.HasError)
@@ -133,6 +150,11 @@ public sealed class ShareService : IShareService
         m_logger.LogInformation(
             "{Actor:l} shared {Path:l} as link {ShareId} ({Size} bytes), audience {Audience:l}",
             m_auditActor.Describe(), fullPath, share.Id, size, audienceGroup?.Name ?? "anyone with the URL");
+
+        if (basePath.Kind != BasePathKind.None)
+        {
+            await WarmPosterAsync(userId, callerIsAdmin, basePath.Id, share.RelativePath, cancellationToken);
+        }
 
         return OperationResult<ShareDto>.Success(
             MapShare(share, basePath.Name, isDirectory, audienceGroup?.Name));
@@ -232,7 +254,9 @@ public sealed class ShareService : IShareService
             FullPath = fullPath,
             IsDirectory = isDirectory,
             // The stored measurement, never a fresh walk.
-            Size = share.Size
+            Size = share.Size,
+            BasePathId = share.BasePathId,
+            TitleFolder = share.BasePath.Kind == BasePathKind.None ? null : TitleFolderOf(share.RelativePath)
         };
 
         return OperationResult<ResolvedShare>.Success(resolved);
@@ -258,6 +282,53 @@ public sealed class ShareService : IShareService
         // link with no audience, which is the normal case and is worth seeing spelled out.
         m_logger.LogInformation("{Actor:l} downloaded link {ShareId}", m_auditActor.Describe(), shareId);
         return OperationResult<Empty>.Success();
+    }
+
+    public async Task<OperationResult<PublicSharePoster>> FindPosterAsync(ResolvedShare share)
+    {
+        if (share.TitleFolder is null)
+        {
+            return OperationResult<PublicSharePoster>.NotFound(PublicFailure);
+        }
+
+        var info = await m_mediaInfoRepository.GetAsync(share.BasePathId, share.TitleFolder);
+
+        // Queued, never awaited: the preview answers with what is cached now, stale or not.
+        if (MediaInfoAge.NeedsRefreshForLink(info, DateTime.UtcNow))
+        {
+            m_mediaRefreshQueue.TryEnqueue(new MediaRefreshRequest(share.BasePathId, share.TitleFolder));
+        }
+
+        if (info is null || !info.HasPoster || !m_posterStore.Exists(info.Id))
+        {
+            return OperationResult<PublicSharePoster>.NotFound(PublicFailure);
+        }
+
+        return OperationResult<PublicSharePoster>.Success(new PublicSharePoster(m_posterStore.PathOf(info.Id), info.FetchedAt));
+    }
+
+    /// <summary>
+    /// Looks the link's title up now, so its preview has a cover the first time it is pasted: the
+    /// public routes only ever read the cache. Best effort — the link is already saved.
+    /// </summary>
+    private async Task WarmPosterAsync(
+        Guid userId, bool callerIsAdmin, Guid basePathId, string relativePath, CancellationToken cancellationToken)
+    {
+        var titleFolder = TitleFolderOf(relativePath);
+        if (titleFolder is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await m_mediaInfoService.GetAsync(userId, callerIsAdmin, basePathId, titleFolder, refresh: false, cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            // A failed warm-up must not turn a created link into a 500 the user would retry.
+            m_logger.LogWarning(exception, "Could not look up \"{Folder:l}\" for the preview of a new link", titleFolder);
+        }
     }
 
     /// <summary>
@@ -332,6 +403,14 @@ public sealed class ShareService : IShareService
         {
             return 0;
         }
+    }
+
+    /// <summary>The folder directly under the base path, which is what a title is: a link to
+    /// "Heat (1995)/heat.mkv" belongs to "Heat (1995)".</summary>
+    private static string? TitleFolderOf(string relativePath)
+    {
+        var firstSegment = relativePath.Split('/', '\\')[0];
+        return firstSegment.Length == 0 ? null : firstSegment;
     }
 
     private static string TargetName(Share share, string basePathName) =>

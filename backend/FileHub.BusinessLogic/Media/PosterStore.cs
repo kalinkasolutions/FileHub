@@ -29,6 +29,13 @@ public sealed class PosterStore : IPosterStore
 
     public void Delete(Guid mediaInfoId)
     {
-        File.Delete(PathOf(mediaInfoId));
+        var path = PathOf(mediaInfoId);
+
+        // File.Delete forgives a missing file but not a missing directory, and the directory is
+        // only made by the first save — so the first miss on a fresh install has none yet.
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
     }
 }

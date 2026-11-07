@@ -32,7 +32,10 @@ public sealed class FakeLookupProvider : IMediaLookupProvider
     /// <summary>Every title the service asked for, in order.</summary>
     public List<ParsedTitle> Calls { get; } = [];
 
-    public Task<MediaLookup?> LookupAsync(ParsedTitle title, CancellationToken cancellationToken)
+    /// <summary>Runs while the source is "answering" — the window a second request can arrive in.</summary>
+    public Func<Task>? WhileAnswering { get; set; }
+
+    public async Task<MediaLookup?> LookupAsync(ParsedTitle title, CancellationToken cancellationToken)
     {
         Calls.Add(title);
 
@@ -41,7 +44,12 @@ public sealed class FakeLookupProvider : IMediaLookupProvider
             throw Failure;
         }
 
-        return Task.FromResult(Answer);
+        if (WhileAnswering is not null)
+        {
+            await WhileAnswering();
+        }
+
+        return Answer;
     }
 
     public static MediaLookup Movie(string title, int year, string? posterUrl = "https://posters.example/dune.jpg") => new(
