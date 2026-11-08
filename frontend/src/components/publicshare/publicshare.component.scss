@@ -10,17 +10,22 @@
   overflow-y: auto;
 }
 
-// The link is the one thing on this screen, so it is the one panel on it. Centred by auto margins
-// rather than justify-content, which would clip the top once the opened info makes it taller than
-// the screen.
+// The link is the one thing on this screen, so it is the one panel on it. Capped at the screen, so
+// a long summary scrolls inside the panel and the download never scrolls away.
 .panel {
   @include panel;
   width: 100%;
   max-width: $max-form-width;
+  max-height: 100%;
   margin: auto 0;
   gap: $default-margin;
   padding: $default-padding;
   text-align: center;
+
+  // Everything but the info keeps its height, so the info is what gives way to the screen.
+  > * {
+    flex-shrink: 0;
+  }
 }
 
 // One large glyph carries the whole "what is this" job — there is no chrome around it to say so.
@@ -141,6 +146,12 @@ h1 {
   @include flex(column);
   gap: $small-padding;
   text-align: left;
+
+  .panel > & {
+    flex-shrink: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
 }
 
 .summary {
