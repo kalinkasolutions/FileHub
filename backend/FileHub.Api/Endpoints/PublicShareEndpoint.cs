@@ -53,12 +53,15 @@ public static class PublicShareEndpoint
 
         // Projected here rather than returned by the service, because ResolvedShare carries the
         // absolute path on the host and this is the one response an anonymous caller sees.
+        var title = await service.FindTitleAsync(share);
+
         var dto = new PublicShareDto
         {
             Id = share.Id,
             Name = share.Name,
             Size = share.Size,
-            IsDir = share.IsDirectory
+            IsDir = share.IsDirectory,
+            Info = title.IsSuccess ? title.Value : null
         };
 
         return Results.Ok(dto);

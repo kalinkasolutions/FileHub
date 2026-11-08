@@ -21,6 +21,60 @@
     }
 
     <button class="link" type="button" (click)="copyLink()">Copy this link</button>
+
+    @if (share.info; as info) {
+      <button
+        class="info-toggle"
+        type="button"
+        [class.open]="infoOpen()"
+        [attr.aria-expanded]="infoOpen()"
+        aria-controls="title-info"
+        (click)="infoOpen.set(!infoOpen())"
+      >
+        <span class="label">About {{ info.title }}</span>
+        <mat-icon>expand_more</mat-icon>
+      </button>
+
+      @if (infoOpen()) {
+        <div class="title-info" id="title-info">
+          <div class="summary">
+            @if (info.hasPoster) {
+              <img class="poster" [src]="posterUrl(share.id, info)" alt="" />
+            }
+
+            <div class="facts">
+              <h2 class="headline">{{ info.title }}</h2>
+              <span class="meta">{{ meta(info) }}</span>
+
+              @if (info.genres.length > 0) {
+                <span class="chips">
+                  @for (genre of info.genres; track genre) {
+                    <span class="chip">{{ genre }}</span>
+                  }
+                </span>
+              }
+
+              @if (info.platforms.length > 0) {
+                <span class="meta">{{ info.platforms.join(' · ') }}</span>
+              }
+            </div>
+          </div>
+
+          @if (info.overview) {
+            <p class="overview">{{ info.overview }}</p>
+          }
+
+          @if (info.externalUrl) {
+            <a class="source" [href]="info.externalUrl" target="_blank" rel="noopener noreferrer">
+              <span>via {{ source(info) }}</span>
+              <mat-icon>open_in_new</mat-icon>
+            </a>
+          } @else {
+            <span class="source">via {{ source(info) }}</span>
+          }
+        </div>
+      }
+    }
   </section>
 } @else if (loading()) {
   <p class="hint">Opening the link…</p>

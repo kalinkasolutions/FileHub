@@ -74,4 +74,46 @@ describe('PublicShareComponent', () => {
     expect(fixture.componentInstance.loading()).toBe(false);
     expect(navigations).toEqual([['/404']]);
   });
+
+  it('opens the title the link sits in from the chevron, with its poster from the anonymous route', async () => {
+    fixture.detectChanges();
+
+    http.expectOne(`/public-api/share/${shareId}`).flush({
+      id: shareId,
+      name: 'heat.mkv',
+      size: 1500,
+      isDir: false,
+      info: {
+        id: '00000000-0000-0000-0000-000000000000',
+        found: true,
+        query: '',
+        source: 'tmdb',
+        mediaType: 'movie',
+        title: 'Heat',
+        year: 1995,
+        overview: 'A group of high-end professional thieves.',
+        rating: 7.9,
+        genres: ['Crime'],
+        platforms: [],
+        hasPoster: true,
+        externalUrl: 'https://www.themoviedb.org/movie/949',
+        fetchedAt: '2026-11-01T10:00:00Z',
+      },
+    });
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const page = fixture.nativeElement as HTMLElement;
+    expect(page.querySelector('.info-toggle')?.textContent).toContain('About Heat');
+    expect(page.querySelector('.title-info')).toBeNull();
+
+    (page.querySelector('.info-toggle') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(page.querySelector('.headline')?.textContent).toBe('Heat');
+    expect(page.querySelector('.poster')?.getAttribute('src')).toBe(
+      `/og/share/${shareId}/poster?v=2026-11-01T10%3A00%3A00Z`,
+    );
+    expect(page.querySelector('.source')?.textContent).toContain('via TMDb');
+  });
 });

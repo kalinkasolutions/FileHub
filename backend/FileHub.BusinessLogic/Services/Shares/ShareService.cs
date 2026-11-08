@@ -2,8 +2,10 @@ using Dal.Repositories.BasePaths;
 using Dal.Repositories.Groups;
 using Dal.Repositories.Media;
 using Dal.Repositories.Shares;
+using Dtos.Media;
 using Dtos.Shares;
 using Entities.Groups;
+using Entities.Media;
 using Entities.Paths;
 using Entities.Shares;
 using FileHub.BusinessLogic.Auditing;
@@ -286,25 +288,49 @@ public sealed class ShareService : IShareService
 
     public async Task<OperationResult<PublicSharePoster>> FindPosterAsync(ResolvedShare share)
     {
-        if (share.TitleFolder is null)
-        {
-            return OperationResult<PublicSharePoster>.NotFound(PublicFailure);
-        }
-
-        var info = await m_mediaInfoRepository.GetAsync(share.BasePathId, share.TitleFolder);
-
-        // Queued, never awaited: the preview answers with what is cached now, stale or not.
-        if (MediaInfoAge.NeedsRefreshForLink(info, DateTime.UtcNow))
-        {
-            m_mediaRefreshQueue.TryEnqueue(new MediaRefreshRequest(share.BasePathId, share.TitleFolder));
-        }
-
+        var info = await FindTitleRowAsync(share);
         if (info is null || !info.HasPoster || !m_posterStore.Exists(info.Id))
         {
             return OperationResult<PublicSharePoster>.NotFound(PublicFailure);
         }
 
         return OperationResult<PublicSharePoster>.Success(new PublicSharePoster(m_posterStore.PathOf(info.Id), info.FetchedAt));
+    }
+
+    public async Task<OperationResult<MediaInfoDto>> FindTitleAsync(ResolvedShare share)
+    {
+        var info = await FindTitleRowAsync(share);
+        if (info is null || !info.Found)
+        {
+            return OperationResult<MediaInfoDto>.NotFound(PublicFailure);
+        }
+
+        var dto = MediaInfoMapping.ToDto(info);
+
+        // The query is the parsed folder name — a directory above the file, which a recipient is
+        // not told — and the id only opens the signed-in poster route.
+        dto.Query = string.Empty;
+        dto.Id = Guid.Empty;
+        return OperationResult<MediaInfoDto>.Success(dto);
+    }
+
+    /// <summary>The cached look-up for the link's title folder, queuing a refresh when it is missing
+    /// or stale. Queued, never awaited: the caller answers with what is cached now.</summary>
+    private async Task<MediaInfo?> FindTitleRowAsync(ResolvedShare share)
+    {
+        if (share.TitleFolder is null)
+        {
+            return null;
+        }
+
+        var info = await m_mediaInfoRepository.GetAsync(share.BasePathId, share.TitleFolder);
+
+        if (MediaInfoAge.NeedsRefreshForLink(info, DateTime.UtcNow))
+        {
+            m_mediaRefreshQueue.TryEnqueue(new MediaRefreshRequest(share.BasePathId, share.TitleFolder));
+        }
+
+        return info;
     }
 
     /// <summary>

@@ -1,3 +1,5 @@
+using Dtos.Media;
+
 namespace Dtos.Shares;
 
 /// <summary>
@@ -14,4 +16,8 @@ public sealed class PublicShareDto
     public long Size { get; set; }
 
     public bool IsDir { get; set; }
+
+    /// <summary>The title the link sits in, on a disk marked media or games; null when nothing is
+    /// cached for it or nothing matched.</summary>
+    public MediaInfoDto Info { get; set; }
 }

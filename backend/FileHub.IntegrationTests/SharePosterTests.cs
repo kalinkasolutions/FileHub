@@ -164,6 +164,36 @@ public sealed class SharePosterTests : SharesTestBase
         AssertPublicFailure(resolved);
     }
 
+    [Fact]
+    public async Task The_landing_page_gets_the_titles_info_without_the_folder_it_came_from()
+    {
+        var (aliceId, basePathId) = await MediaDiskAsync("media");
+        await CachePosterAsync(basePathId, "Heat (1995)");
+        var share = await ShareAsync(aliceId, basePathId, "Heat (1995)/heat.mkv");
+
+        NewRequest();
+        var resolved = await Shares.ResolvePublicAsync(share.Id, callerId: null, callerIsAdmin: false);
+        var title = await Shares.FindTitleAsync(resolved.Value);
+
+        Assert.True(title.IsSuccess, title.ErrorMessage);
+        Assert.Equal("Heat", title.Value.Title);
+        Assert.Equal(string.Empty, title.Value.Query);
+        Assert.Equal(Guid.Empty, title.Value.Id);
+    }
+
+    [Fact]
+    public async Task The_landing_page_gets_no_info_for_a_miss()
+    {
+        var (aliceId, basePathId) = await MediaDiskAsync("media");
+        await CachePosterAsync(basePathId, "Heat (1995)", found: false);
+        var share = await ShareAsync(aliceId, basePathId, "Heat (1995)");
+
+        NewRequest();
+        var resolved = await Shares.ResolvePublicAsync(share.Id, callerId: null, callerIsAdmin: false);
+
+        Assert.Equal(ResultCode.NotFound, (await Shares.FindTitleAsync(resolved.Value)).ResultCode);
+    }
+
     // ---- refreshing from a preview ----
 
     [Fact]
